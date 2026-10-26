@@ -1,13 +1,15 @@
-"""Interface web local: chat no navegador via WebSocket e agendador de tarefas.
+"""Interface web local, agendador de tarefas e webhook do WhatsApp.
 
 O servidor web é o processo que fica ligado, então é ele que roda a agenda
-(resumo diário, tarefas recorrentes, lembretes) e entrega os resultados nas abas abertas.
+(resumo diário, tarefas recorrentes, lembretes), recebe as mensagens do WhatsApp
+e entrega os resultados nas abas abertas e no WhatsApp.
 """
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 import asyncio
+import hmac
 import os
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -20,6 +22,7 @@ from .history import History
 from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
+from .whatsapp import CloudApi, WhatsAppChannel, parse_messages, spawn, verify_signature
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -29,6 +32,11 @@ history = History(cfg.logs_dir / "conversas.db")
 knowledge = KnowledgeBase(cfg.knowledge_dir)
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos que a página redesenha
+WEBHOOK = "/whatsapp/webhook"
+
+whatsapp: WhatsAppChannel | None = None  # ligado quando as variáveis WHATSAPP_* estão preenchidas
+scheduler: Scheduler | None = None
+background: set[asyncio.Task] = set()
 
 
 class Hub:
@@ -63,13 +71,18 @@ def inbox_payload(item: InboxItem) -> dict:
 
 
 async def deliver(item: InboxItem) -> None:
-    """Resultado de tarefa agendada: vai para as abas abertas; se não houver nenhuma, fica na caixa de entrada."""
-    if await hub.broadcast(inbox_payload(item)):
+    """Resultado de tarefa agendada: vai para as abas abertas e para o WhatsApp do dono.
+    Se não chegou a lugar nenhum, fica na caixa de entrada."""
+    on_web = await hub.broadcast(inbox_payload(item))
+    on_whatsapp = bool(whatsapp) and await whatsapp.deliver(item.title, item.text)
+    if on_web or on_whatsapp:
         agenda.mark_read([item.id])
 
 
 async def help_broadcast(req: HelpRequest) -> None:
     await hub.broadcast({"kind": "help", "text": req.reason, "id": req.id, "link": req.link})
+    if whatsapp:
+        await whatsapp.help_from_schedule(req, list(hub.bridges))
 
 
 async def run_scheduled(task: Task) -> str:
@@ -83,12 +96,23 @@ async def run_scheduled(task: Task) -> str:
         hub.bridges.discard(agent.human)
 
 
+def set_paused(paused: bool) -> None:
+    if scheduler:
+        scheduler.paused = paused
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    global scheduler, whatsapp
     agenda.ensure_summary(cfg.daily_summary)
-    job = asyncio.create_task(Scheduler(agenda, run_scheduled, deliver).run_forever())
+    scheduler = Scheduler(agenda, run_scheduled, deliver)
+    if cfg.whatsapp_enabled:
+        whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused)
+    job = asyncio.create_task(scheduler.run_forever())
     yield
     job.cancel()
+    if whatsapp:
+        await whatsapp.close()
 
 
 app = FastAPI(title="Agente pessoal", lifespan=lifespan)
@@ -102,7 +126,8 @@ def is_local(host: str) -> bool:
 async def local_only(request: Request, call_next):
     # DNS rebinding: um site malicioso pode apontar o domínio dele para 127.0.0.1 e ler esta API.
     # O navegador mantém o Host original, então basta recusar qualquer Host que não seja local.
-    if not is_local(request.headers.get("host", "")):
+    # Exceção: o webhook do WhatsApp chega pelo túnel/proxy com o domínio público e é autenticado pela assinatura.
+    if not is_local(request.headers.get("host", "")) and request.url.path != WEBHOOK:
         return PlainTextResponse("host não permitido", status_code=403)
     return await call_next(request)
 
@@ -117,6 +142,29 @@ async def open_session(agent: Agent, session_id: str) -> str:
 def history_payload(session_id: str) -> dict:
     items = [{"kind": r.kind, "text": r.text} for r in history.events(session_id) if r.kind in SHOWN]
     return {"kind": "history", "items": items, "session": session_id}
+
+
+@app.get(WEBHOOK)
+async def whatsapp_verify(request: Request) -> PlainTextResponse:
+    """Verificação que a Meta faz ao cadastrar o webhook: devolve o desafio se o token bater."""
+    q = request.query_params
+    token_ok = hmac.compare_digest(q.get("hub.verify_token", ""), cfg.whatsapp_verify_token)
+    if q.get("hub.mode") == "subscribe" and cfg.whatsapp_verify_token and token_ok:
+        return PlainTextResponse(q.get("hub.challenge", ""))
+    raise HTTPException(403, "token de verificação inválido")
+
+
+@app.post(WEBHOOK)
+async def whatsapp_receive(request: Request) -> dict:
+    """Mensagens do WhatsApp. Responde 200 na hora (senão a Meta reenvia) e processa em segundo plano."""
+    if whatsapp is None:
+        raise HTTPException(404, "WhatsApp não configurado")
+    body = await request.body()
+    if not verify_signature(cfg.whatsapp_app_secret, body, request.headers.get("x-hub-signature-256", "")):
+        raise HTTPException(403, "assinatura inválida")
+    for msg in parse_messages(await request.json()):
+        spawn(background, whatsapp.handle(msg))
+    return {"ok": True}
 
 
 @app.get("/")
@@ -158,6 +206,7 @@ async def status() -> dict:
         "max_budget_usd": cfg.max_budget_usd,
         "max_turns": cfg.max_turns,
         "api_key": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
+        "whatsapp": whatsapp is not None,
     }
 
 

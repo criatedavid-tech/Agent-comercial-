@@ -271,9 +271,12 @@ class Scheduler:
         self.runner = runner
         self.deliver = deliver
         self.tick_seconds = tick_seconds
+        self.paused = False  # PARAR no WhatsApp: nada da agenda roda até CONTINUAR
 
     async def tick(self, now: datetime | None = None) -> int:
         """Roda as tarefas vencidas, uma por vez. Devolve quantas rodou."""
+        if self.paused:
+            return 0  # as vencidas esperam: rodam uma vez quando voltar
         tasks = self.store.due(now)
         for task in tasks:
             self.store.mark_ran(task, now)

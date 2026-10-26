@@ -42,6 +42,7 @@ class History:
                     id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, kind TEXT, text TEXT,
                     cost_usd REAL DEFAULT 0, ts TEXT);
                 CREATE INDEX IF NOT EXISTS events_session ON events (session_id, id);
+                CREATE TABLE IF NOT EXISTS channels (key TEXT PRIMARY KEY, session_id TEXT, updated TEXT);
                 """
             )
 
@@ -70,6 +71,20 @@ class History:
                 )
             elif kind == "result":
                 con.execute("UPDATE sessions SET cost_usd = cost_usd + ? WHERE id = ?", (cost_usd, session_id))
+
+    def channel_session(self, key: str) -> str | None:
+        """Conversa atual de um contato de canal (ex.: "whatsapp:5511999990000")."""
+        with self._connect() as con:
+            row = con.execute("SELECT session_id FROM channels WHERE key = ?", (key,)).fetchone()
+        return row[0] if row and row[0] else None
+
+    def set_channel_session(self, key: str, session_id: str | None) -> None:
+        with self._connect() as con:
+            con.execute(
+                "INSERT INTO channels (key, session_id, updated) VALUES (?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET session_id = excluded.session_id, updated = excluded.updated",
+                (key, session_id, datetime.now().isoformat(timespec="seconds")),
+            )
 
     def sessions(self, limit: int = 50) -> list[Session]:
         with self._connect() as con:

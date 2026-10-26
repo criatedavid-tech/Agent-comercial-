@@ -365,6 +365,11 @@ class Agent:
             await self.start()
             return False
 
+    async def interrupt(self) -> None:
+        """Para o pedido em andamento (comando PARAR)."""
+        if self.client:
+            await self.client.interrupt()
+
     async def rewind(self, checkpoint: str) -> None:
         """Desfaz as edições de arquivo (Write/Edit) feitas a partir do pedido do checkpoint.
         Mudanças feitas por comandos no terminal (Bash) não são rastreadas."""

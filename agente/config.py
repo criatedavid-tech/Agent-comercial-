@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import re
 
 from dotenv import load_dotenv
 
@@ -26,6 +27,17 @@ class Config:
     agenda_db: Path
     browser_profile: Path
     browser_headless: bool
+    whatsapp_token: str = ""
+    whatsapp_phone_id: str = ""
+    whatsapp_verify_token: str = ""
+    whatsapp_app_secret: str = ""
+    whatsapp_allowed: tuple[str, ...] = ()  # números com DDI, só dígitos; o primeiro é o dono
+    whatsapp_api_version: str = "v26.0"
+
+    @property
+    def whatsapp_enabled(self) -> bool:
+        return all((self.whatsapp_token, self.whatsapp_phone_id, self.whatsapp_verify_token,
+                    self.whatsapp_app_secret, self.whatsapp_allowed))
 
 
 def load() -> Config:
@@ -47,6 +59,14 @@ def load() -> Config:
         agenda_db=ROOT / "agenda.db",
         browser_profile=ROOT / "navegador",
         browser_headless=os.getenv("AGENT_BROWSER_HEADLESS", "false").strip().lower() in ("1", "true", "sim"),
+        whatsapp_token=os.getenv("WHATSAPP_TOKEN", "").strip(),
+        whatsapp_phone_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
+        whatsapp_verify_token=os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip(),
+        whatsapp_app_secret=os.getenv("WHATSAPP_APP_SECRET", "").strip(),
+        whatsapp_allowed=tuple(
+            re.sub(r"\D", "", n) for n in os.getenv("WHATSAPP_ALLOWED_NUMBERS", "").split(",") if re.sub(r"\D", "", n)
+        ),
+        whatsapp_api_version=os.getenv("WHATSAPP_API_VERSION", "v26.0").strip(),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)

@@ -31,6 +31,7 @@ O agente roda com **autonomia total**: ele executa comandos, escreve arquivos e 
 - **Base de conhecimento** recusa CPF, cartão e senhas no código, e fica fora do git.
 - **Interface web** só em `127.0.0.1`; recusa WebSocket de outros sites (checagem de `Origin`), requisições com Host que não seja local (proteção contra DNS rebinding) e cancelamentos sem `Origin` da própria página.
 - **Navegador próprio:** só `http`/`https`, rede local bloqueada, nunca digita em campo de senha ou cartão, texto das páginas marcado como não confiável, detecção de páginas de verificação. O perfil (`navegador/`) guarda seus logins: proteja como uma senha.
+- **WhatsApp:** webhook só aceita chamadas com assinatura válida da Meta (HMAC-SHA256 com o App Secret); só números da lista de permitidos; pelo domínio público só a rota do webhook responde; `PARAR` interrompe tudo e pausa a agenda.
 - **Desfazer** edições de arquivo por pedido (checkpoints do SDK). Não cobre mudanças feitas via terminal.
 
 ## Defesas planejadas

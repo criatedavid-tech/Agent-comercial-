@@ -32,11 +32,13 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [x] Retomar conversas antigas (`resume`)
 - [x] Painel web: gastos, conversas, agenda, base de conhecimento, bloqueios
 
-## ⬜ Etapa 2: WhatsApp e proatividade
-- [ ] Servidor web (FastAPI) com webhook da **WhatsApp Cloud API** oficial
-- [ ] Só responde ao seu número (lista de permitidos)
-- [ ] Uma conversa por contato, com histórico
-- [ ] Comando **PARAR** / **CONTINUAR**
+## 🟡 Etapa 2: WhatsApp e proatividade
+- [x] Servidor web (FastAPI) com webhook da **WhatsApp Cloud API** oficial, com assinatura conferida
+- [x] Só responde ao seu número (lista de permitidos)
+- [x] Uma conversa por contato, com histórico (continua depois de reiniciar)
+- [x] Comando **PARAR** / **CONTINUAR** (e **NOVA**)
+- [x] Ponte humana e avisos da agenda pelo WhatsApp
+- [ ] Template aprovado para o resumo diário fora da janela de 24 h
 - [x] Agendador: **resumo diário** às 7h, tarefas recorrentes e lembretes (feito antes do WhatsApp; hoje entrega na web)
 - [ ] Envio de áudio e imagem (receber e transcrever)
 

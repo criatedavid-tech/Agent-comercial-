@@ -112,6 +112,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
 | Se proteger | hooks de segurança | barra `rm -rf /`, script baixado e executado, leitura do `.env`, escrita fora das pastas dele |
 | Navegar como gente | `abrir_pagina`, `listar_elementos`, `clicar`, `preencher`, `ler_pagina`, `capturar_tela` | Chromium próprio que fica logado; você resolve CAPTCHA e login na janela dele |
+| Falar pelo WhatsApp | webhook da API oficial da Meta | conversa por contato, PARAR/CONTINUAR, ajuda humana e avisos da agenda no celular |
 | Chamar você quando trava | `pedir_ajuda_humana` | CAPTCHA, "você é um robô?", código 2FA, login: ele pausa, te chama e continua quando você resolve |
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
@@ -136,6 +137,7 @@ agent/
 │   ├── scheduler.py       ← agenda: lembretes, tarefas recorrentes, resumo diário
 │   ├── history.py         ← histórico de conversas (retomar, painel)
 │   ├── browser.py         ← navegador próprio (Playwright, perfil persistente)
+│   ├── whatsapp.py        ← canal WhatsApp (Cloud API: webhook, envio, comandos)
 │   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
@@ -167,6 +169,7 @@ Tudo fica no `.env`:
 | `AGENT_TIMEZONE` | `America/Sao_Paulo` | fuso da agenda |
 | `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
+| `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
@@ -185,6 +188,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Uso](docs/uso.md) | exemplos de pedidos, boas práticas, leitura dos logs |
 | [Segurança](docs/seguranca.md) | riscos reais (prompt injection, chaves, gastos) e como se proteger |
 | [Roadmap](docs/roadmap.md) | as 7 etapas, com o que entra em cada uma |
+| [WhatsApp](docs/whatsapp.md) | passo a passo na Meta, comandos, regra das 24 h e segurança |
 | [Desenvolvimento](docs/desenvolvimento.md) | como adicionar ferramentas, conectores e canais |
 | [Solução de problemas](docs/problemas.md) | erros comuns e como resolver |
 

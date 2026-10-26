@@ -95,7 +95,7 @@ def receive_until(ws, kind):
 def test_index_and_status(client):
     assert "Agente pessoal" in client.get("/").text
     status = client.get("/api/status").json()
-    assert set(status) == {"model", "workdir", "max_budget_usd", "max_turns", "api_key"}
+    assert set(status) == {"model", "workdir", "max_budget_usd", "max_turns", "api_key", "whatsapp"}
 
 
 @pytest.mark.parametrize("origin", ["http://evil.com", "http://127.0.0.1:9999", ""])
