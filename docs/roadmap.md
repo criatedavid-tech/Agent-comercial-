@@ -28,8 +28,9 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [x] Subagentes: pesquisador, organizador, verificador
 - [x] Skills por assunto: finanças, saúde, estudos, compras online
 - [x] Testes automatizados (pytest, sem chave e sem custo)
-- [ ] Checkpoints de arquivos (desfazer edições do agente)
-- [ ] Retomar conversas antigas (`resume`)
+- [x] Checkpoints de arquivos (desfazer edições do agente)
+- [x] Retomar conversas antigas (`resume`)
+- [x] Painel web: gastos, conversas, agenda, base de conhecimento, bloqueios
 
 ## ⬜ Etapa 2: WhatsApp e proatividade
 - [ ] Servidor web (FastAPI) com webhook da **WhatsApp Cloud API** oficial
@@ -49,8 +50,9 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [ ] Memória em SQLite: contatos, tarefas, histórico pesquisável
 
 ## ⬜ Etapa 4: Navegador e compras
-- [ ] Playwright com perfil persistente (fica logado nos sites)
-- [ ] Preencher formulários, monitorar preços e páginas
+- [x] Playwright com perfil persistente (fica logado nos sites)
+- [x] Preencher formulários e navegar em várias etapas (monitorar preços: com a agenda)
+- [ ] Ver a janela do navegador remotamente quando estiver na VPS
 - [ ] Compras com **cartão virtual** + teto por compra e por mês no código
 - [ ] Marketplaces com API (ex.: Mercado Livre) para comprar e vender
 

@@ -29,8 +29,10 @@ Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent` (caminhos longos imp
 - `agente/subagents.py`: `AGENTS` (`pesquisador`, `organizador`, `verificador`), cada um com prompt, ferramentas e modelo próprios; o principal delega pela ferramenta `Agent`.
 - `plugin/`: plugin local com as skills (`plugin/skills/<nome>/SKILL.md`), carregadas por `plugins` + `skills` em `core.py`. `setting_sources=[]` impede herdar skills e configurações pessoais do Claude Code da máquina.
 - `agente/scheduler.py`: agenda. `AgendaStore` (SQLite `agenda.db`: tarefas e caixa de entrada), `next_run()` calcula recorrência no código, `Scheduler.tick()` roda o que venceu. Quem roda é o `agente-web` (`lifespan` em `web.py`); cada tarefa usa um `Agent` próprio via `run_once()`. Ferramentas `agendar_tarefa`, `listar_tarefas`, `cancelar_tarefa` em `core.py`.
+- `agente/history.py`: `History` (logs/conversas.db), conversas e eventos por sessão; alimenta retomar e o painel. `Agent` usa `resume`, `enable_file_checkpointing` e `rewind()` (desfazer edições de um pedido).
+- `agente/browser.py`: navegador próprio (Playwright, perfil persistente em `navegador/`, fora do git). `check_url()` bloqueia esquemas e rede local; `fill()` recusa senha e cartão; detecta páginas de verificação. Um navegador por processo (`shared_browser`). Ferramentas `abrir_pagina`, `ler_pagina`, `listar_elementos`, `clicar`, `preencher`, `capturar_tela` em `core.py`.
 - `agente/cli.py`: interface de terminal com `rich`; consome os eventos de `Agent.ask()`.
-- `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; página em `agente/static/index.html`.
+- `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; páginas em `agente/static/` (`index.html` chat, `painel.html` painel). Recusa Host não local (DNS rebinding).
 
 ## Convenções
 

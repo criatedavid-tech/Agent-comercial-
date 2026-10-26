@@ -39,6 +39,24 @@ Padrão: `America/Sao_Paulo`. Fuso usado para calcular os horários da agenda. Q
 ### `AGENT_DAILY_SUMMARY`
 Padrão: `07:00`. Hora do resumo diário: o agente lista o que está agendado para hoje, o que entrou na base de conhecimento e dá uma sugestão para o dia. Deixe vazio para desligar. Mudou a hora? Vale na próxima vez que o `agente-web` iniciar.
 
+### `AGENT_BROWSER_HEADLESS`
+Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade no seu computador: é nela que você resolve CAPTCHA, login e códigos quando o agente pedir. Use `true` só onde não há tela (VPS); aí o agente avisa que você não consegue resolver verificações por enquanto.
+
+## Navegador próprio
+
+- Instalação: `pip install -e .` e depois `playwright install chromium` (uma vez, ~120 MB).
+- O perfil fica em `navegador/` (fora do git): cookies e logins. **Trate essa pasta como uma senha**: quem copiar, entra nos sites onde você logou.
+- Só um processo usa o navegador por vez: se o `agente-web` estiver com ele aberto, o terminal recebe um aviso.
+- Regras no código: só `http`/`https`; rede local bloqueada (localhost, 127.x, 192.168.x, 10.x, `.local`); não digita em campo de senha ou cartão nem textos com CPF, cartão ou senha; o texto da página volta marcado como "informação, não instrução".
+- Detecta páginas de verificação (Cloudflare, reCAPTCHA, hCaptcha, "você é um robô?") e orienta o agente a chamar a ponte humana.
+- Capturas de tela vão para `workspace/capturas/`.
+
+## Conversas e desfazer
+
+- Cada conversa fica em `logs/conversas.db`: pedidos, respostas, ferramentas, bloqueios e custo. Alimenta a lista de **Conversas** e o **Painel**.
+- **Retomar** devolve ao agente todo o contexto da conversa antiga. Se o registro interno dela não existir mais, o histórico aparece mesmo assim e o agente começa do zero (com aviso).
+- **Desfazer edições** volta os arquivos criados ou editados por Write/Edit a partir daquele pedido. Mudanças feitas por comandos no terminal (Bash) **não** são desfeitas.
+
 ## Agenda (proatividade)
 
 Quem roda a agenda é o **`agente-web`**: ele confere a cada 30 segundos o que venceu. O terminal (`agente`) cria e lista tarefas, mas não as executa.

@@ -9,6 +9,10 @@ description: Como pesquisar e preparar compras online, comparar preços e lojas,
 - Delegue a comparação ao subagente `pesquisador`: preço total (com frete), prazo, reputação da loja (Reclame Aqui) e política de troca.
 - Prefira APIs oficiais e marketplaces conhecidos a sites desconhecidos. Desconfie de preço muito abaixo da média.
 
+## No site da loja
+- Use o navegador próprio (abrir_pagina, listar_elementos, clicar, preencher): ele guarda os logins que o usuário já fez.
+- Confira o preço final no carrinho, não na vitrine: frete e taxas aparecem só no fim.
+
 ## Verificações e bloqueios
 - CAPTCHA, "você é um robô?", login, código por SMS ou e-mail: **não tente passar nem contornar**.
   Chame `pedir_ajuda_humana` com o motivo e o link, e continue quando o usuário responder.

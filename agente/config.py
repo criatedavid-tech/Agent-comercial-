@@ -24,6 +24,8 @@ class Config:
     timezone: str
     daily_summary: str  # "HH:MM" ou vazio para desligar
     agenda_db: Path
+    browser_profile: Path
+    browser_headless: bool
 
 
 def load() -> Config:
@@ -43,6 +45,8 @@ def load() -> Config:
         timezone=os.getenv("AGENT_TIMEZONE", "America/Sao_Paulo"),
         daily_summary=os.getenv("AGENT_DAILY_SUMMARY", "07:00").strip(),
         agenda_db=ROOT / "agenda.db",
+        browser_profile=ROOT / "navegador",
+        browser_headless=os.getenv("AGENT_BROWSER_HEADLESS", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)

@@ -62,7 +62,9 @@ Para conversar pelo navegador em vez do terminal:
 agente-web                         # abre em http://127.0.0.1:8000
 ```
 
-Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. Só escuta em `127.0.0.1` e recusa conexões vindas de outros sites. Não exponha essa porta na VPS.
+Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. **Conversas** retoma uma conversa antiga com todo o contexto; cada pedido tem **desfazer edições**; **Painel** (http://127.0.0.1:8000/painel) mostra gastos por dia, conversas, agenda, base de conhecimento e bloqueios. Só escuta em `127.0.0.1` e recusa conexões e endereços de outros sites. Não exponha essa porta na VPS.
+
+Navegador próprio: na primeira vez, baixe o Chromium com `playwright install chromium`.
 
 Guia detalhado: [docs/instalacao.md](docs/instalacao.md).
 
@@ -109,6 +111,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Delegar | subagentes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
 | Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
 | Se proteger | hooks de segurança | barra `rm -rf /`, script baixado e executado, leitura do `.env`, escrita fora das pastas dele |
+| Navegar como gente | `abrir_pagina`, `listar_elementos`, `clicar`, `preencher`, `ler_pagina`, `capturar_tela` | Chromium próprio que fica logado; você resolve CAPTCHA e login na janela dele |
 | Chamar você quando trava | `pedir_ajuda_humana` | CAPTCHA, "você é um robô?", código 2FA, login: ele pausa, te chama e continua quando você resolve |
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
@@ -131,10 +134,12 @@ agent/
 │   ├── human.py           ← ponte humana: pausa e pede ajuda quando trava
 │   ├── guard.py           ← hooks de segurança (bloqueios no código)
 │   ├── scheduler.py       ← agenda: lembretes, tarefas recorrentes, resumo diário
+│   ├── history.py         ← histórico de conversas (retomar, painel)
+│   ├── browser.py         ← navegador próprio (Playwright, perfil persistente)
 │   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
-│   └── static/index.html  ← página do chat web
+│   └── static/            ← index.html (chat) e painel.html (painel)
 ├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)
 ├── memory/
 │   ├── perfil.md          ← quem é você (preencha!)
@@ -161,6 +166,7 @@ Tudo fica no `.env`:
 | `AGENT_WEB_PORT` | `8000` | porta da interface web de testes |
 | `AGENT_TIMEZONE` | `America/Sao_Paulo` | fuso da agenda |
 | `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
+| `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).

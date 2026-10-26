@@ -21,6 +21,8 @@ def cfg(tmp_path) -> Config:
         timezone="America/Sao_Paulo",
         daily_summary="07:00",
         agenda_db=tmp_path / "agenda.db",
+        browser_profile=tmp_path / "navegador",
+        browser_headless=True,
     )
     for d in (c.workdir, c.memory_dir, c.knowledge_dir, c.logs_dir):
         d.mkdir(parents=True)

@@ -24,6 +24,7 @@ from claude_agent_sdk import (
 )
 
 from . import guard, memory
+from .browser import Browser, BrowserError, shared_browser
 from .config import ROOT, Config
 from .history import History
 from .human import HumanBridge
@@ -33,8 +34,10 @@ from .subagents import AGENTS
 
 KB_TOOLS = ["mcp__conhecimento__salvar_conhecimento", "mcp__conhecimento__buscar_conhecimento"]
 HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
+BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
+    "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
-TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS]
+TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -69,6 +72,12 @@ Agenda e proatividade:
 - Para lembretes e tarefas recorrentes ("todo dia às 8h", "toda segunda", "daqui a 2 horas", "dia 5 de cada mês"), use agendar_tarefa. O horário é o do fuso {timezone}.
 - modo "lembrete" só entrega o texto na hora (não gasta nada); modo "tarefa" faz você rodar sozinho a instrução na hora marcada. Escreva a instrução completa: na hora, você não vai lembrar desta conversa.
 - Para ver ou cancelar, use listar_tarefas e cancelar_tarefa. Confirme ao usuário a próxima execução.
+
+Navegador próprio:
+- Para só ler uma página simples, WebFetch basta. Use o navegador (abrir_pagina, listar_elementos, clicar, preencher, ler_pagina) quando o site precisa de JavaScript, de login já feito, de formulários ou de várias etapas.
+- O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
+- Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
+- Senhas, cartão e códigos: você não digita. Login, CAPTCHA ou "você é um robô?": chame pedir_ajuda_humana para o usuário resolver na janela do navegador e continue depois.
 
 Quando precisar de uma pessoa:
 - Se encontrar CAPTCHA, verificação "você é um robô?", código de dois fatores, login que você não tem, ou uma decisão que só o usuário pode tomar, NÃO tente passar, adivinhar ou contornar. Chame pedir_ajuda_humana explicando o motivo e o link, e espere.
@@ -109,6 +118,11 @@ def human_server(bridge: HumanBridge):
 def agenda_server(store: AgendaStore):
     """Servidor MCP da agenda."""
     return create_sdk_mcp_server("agenda", tools=agenda_tools(store))
+
+
+def browser_server(browser: Browser):
+    """Servidor MCP do navegador próprio."""
+    return create_sdk_mcp_server("navegador", tools=browser_tools(browser))
 
 
 def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
@@ -224,6 +238,54 @@ def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
     return [schedule, list_tasks, cancel]
 
 
+def browser_tools(browser: Browser) -> list[SdkMcpTool]:
+    """Ferramentas do navegador: abrir, ler, listar elementos, clicar, preencher e capturar a tela."""
+
+    async def run(action) -> dict[str, Any]:
+        try:
+            return _reply(await action)
+        except BrowserError as e:
+            return _reply(f"não fiz: {e}", error=True)
+        except Exception as e:  # erro do Playwright: devolve ao agente em vez de derrubar a conversa
+            return _reply(f"erro no navegador: {type(e).__name__}: {e}", error=True)
+
+    @tool("abrir_pagina", "Abre um endereço no navegador do agente e devolve o título e o texto da página.",
+          {"url": Annotated[str, "endereço http ou https"]})
+    async def open_page(args: dict) -> dict[str, Any]:
+        return await run(browser.open(args["url"]))
+
+    @tool("ler_pagina", "Lê o texto da página aberta. Opcional: um seletor CSS para ler só um trecho.",
+          {"trecho": Annotated[str, "seletor CSS, ex. 'main' ou '#preco' (vazio para a página toda)"]})
+    async def read_page(args: dict) -> dict[str, Any]:
+        return await run(browser.read(args.get("trecho", "")))
+
+    @tool("listar_elementos", "Lista os links, botões e campos visíveis da página, numerados para clicar ou preencher.", {})
+    async def list_elements(args: dict) -> dict[str, Any]:
+        return await run(browser.elements())
+
+    @tool("clicar", "Clica no elemento pelo número mostrado em listar_elementos e devolve a página resultante.",
+          {"ref": Annotated[str, "número do elemento, ex. '12'"]})
+    async def click(args: dict) -> dict[str, Any]:
+        return await run(browser.click(str(args["ref"])))
+
+    @tool("preencher", "Escreve num campo pelo número de listar_elementos. Nunca use para senhas ou cartão.",
+          {
+              "ref": Annotated[str, "número do campo"],
+              "texto": Annotated[str, "o que escrever"],
+              "enviar": Annotated[bool, "apertar Enter depois (busca, formulário de um campo)"],
+          })
+    async def fill(args: dict) -> dict[str, Any]:
+        return await run(browser.fill(str(args["ref"]), args["texto"], bool(args.get("enviar", False))))
+
+    @tool("capturar_tela", "Salva uma imagem da página atual e devolve o caminho (abra com Read para ver).", {})
+    async def screenshot(args: dict) -> dict[str, Any]:
+        async def shot() -> str:
+            return f"imagem salva em {await browser.screenshot()}"
+        return await run(shot())
+
+    return [open_page, read_page, list_elements, click, fill, screenshot]
+
+
 class Agent:
     def __init__(self, cfg: Config, resume: str | None = None):
         self.cfg = cfg
@@ -233,6 +295,7 @@ class Agent:
         self.kb = KnowledgeBase(cfg.knowledge_dir)
         self.human = HumanBridge(cfg.help_timeout_min)
         self.agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
+        self.browser = shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless)
         self.client: ClaudeSDKClient | None = None
 
     def _options(self) -> ClaudeAgentOptions:
@@ -254,6 +317,7 @@ class Agent:
                 "conhecimento": knowledge_server(self.kb),
                 "humano": human_server(self.human),
                 "agenda": agenda_server(self.agenda),
+                "navegador": browser_server(self.browser),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms)},

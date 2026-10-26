@@ -15,7 +15,7 @@ from claude_agent_sdk import (
 )
 
 from agente import guard
-from agente.core import PLUGIN_DIR, SKILLS, TOOLS, Agent, agenda_tools, human_tools, knowledge_tools
+from agente.core import PLUGIN_DIR, SKILLS, TOOLS, Agent, agenda_tools, browser_tools, human_tools, knowledge_tools
 from agente.subagents import AGENTS
 
 
@@ -33,7 +33,7 @@ def test_options_wire_everything(cfg):
     options = Agent(cfg)._options()
     assert options.permission_mode == "bypassPermissions"
     assert options.max_turns == cfg.max_turns and options.max_budget_usd == cfg.max_budget_usd
-    assert set(options.mcp_servers) == {"conhecimento", "humano", "agenda"}
+    assert set(options.mcp_servers) == {"conhecimento", "humano", "agenda", "navegador"}
     assert set(options.agents) == {"pesquisador", "organizador", "verificador"}
     assert options.skills == SKILLS
     assert options.setting_sources == []  # não herda configurações pessoais do Claude Code
@@ -64,6 +64,7 @@ def test_all_allowed_tools_exist(cfg):
     names = {f"mcp__conhecimento__{t.name}" for t in knowledge_tools(Agent(cfg).kb)}
     names |= {f"mcp__humano__{t.name}" for t in human_tools(Agent(cfg).human)}
     names |= {f"mcp__agenda__{t.name}" for t in agenda_tools(Agent(cfg).agenda)}
+    names |= {f"mcp__navegador__{t.name}" for t in browser_tools(Agent(cfg).browser)}
     custom = {t for t in TOOLS if t.startswith("mcp__")}
     assert custom == names
 

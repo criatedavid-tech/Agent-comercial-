@@ -29,7 +29,9 @@ O agente roda com **autonomia total**: ele executa comandos, escreve arquivos e 
   - **Limite honesto:** são regras por padrão de texto. Um comando escrito de forma criativa pode passar; elas protegem contra erro e prompt injection comuns, não substituem rodar a VPS com usuário sem root.
 - **Ponte humana:** diante de CAPTCHA, verificação de robô, 2FA ou login, o agente é instruído a parar e chamar você (`pedir_ajuda_humana`), nunca a tentar contornar. Burlar essas verificações viola os termos dos sites e leva a bloqueio de conta e de IP.
 - **Base de conhecimento** recusa CPF, cartão e senhas no código, e fica fora do git.
-- **Interface web** só em `127.0.0.1` e recusa conexões de outros sites (checagem de `Origin`).
+- **Interface web** só em `127.0.0.1`; recusa WebSocket de outros sites (checagem de `Origin`), requisições com Host que não seja local (proteção contra DNS rebinding) e cancelamentos sem `Origin` da própria página.
+- **Navegador próprio:** só `http`/`https`, rede local bloqueada, nunca digita em campo de senha ou cartão, texto das páginas marcado como não confiável, detecção de páginas de verificação. O perfil (`navegador/`) guarda seus logins: proteja como uma senha.
+- **Desfazer** edições de arquivo por pedido (checkpoints do SDK). Não cobre mudanças feitas via terminal.
 
 ## Defesas planejadas
 

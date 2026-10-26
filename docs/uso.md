@@ -38,6 +38,16 @@ Dentro da mesma sessão ele lembra do que foi dito: "agora transforme isso numa 
 
 Rode `agente-web` e abra http://127.0.0.1:8000. Cada aba é uma conversa separada; o botão **Nova conversa** faz o mesmo que `/nova`. Se a `ANTHROPIC_API_KEY` estiver vazia, a página mostra um aviso no topo.
 
+- **Conversas**: lista as anteriores; clique para retomar com todo o contexto.
+- **↶ desfazer edições deste pedido**: aparece embaixo de cada pedido e volta os arquivos que o agente criou ou editou a partir dali.
+- **Painel**: gasto de hoje, 7 e 30 dias, gráfico por dia, conversas recentes, agenda (com cancelar), base de conhecimento e bloqueios de segurança.
+
+No terminal: `/conversas`, `/retomar N` e `/desfazer` (último pedido).
+
+## Sites com login, formulários e verificação
+
+O agente tem um navegador próprio (uma janela do Chromium). Peça normalmente: "entra no site da loja X e vê o preço do frete para meu CEP". Se o site pedir login, CAPTCHA ou código, aparece o cartão **O agente precisa de você**: resolva **na janela do navegador do agente** e clique em *Resolvido*. Ele continua logado nas próximas vezes.
+
 ## Lendo o que ele fez
 
 Na tela:
