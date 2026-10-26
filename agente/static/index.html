@@ -69,6 +69,16 @@
     border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; max-height: 200px;
   }
   #send { background: var(--accent); color: var(--accent-text); border-color: var(--accent); padding: 10px 18px; }
+  header a.btn { font-size: 15px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; color: var(--text); text-decoration: none; }
+  .undo { display: block; margin: 6px 0 0 auto; font-size: 12px; padding: 2px 8px; color: var(--muted); }
+  dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog header { border: 0; padding: 12px 16px; }
+  #convlist { max-height: 60vh; overflow-y: auto; padding: 0 8px 8px; }
+  #convlist button { display: block; width: 100%; text-align: left; border: 0; border-radius: 8px; padding: 8px 10px; background: none; }
+  #convlist button:hover { background: var(--tool); }
+  #convlist small { color: var(--muted); display: block; }
+  @media (max-width: 640px) { #meta { display: none; } }
 </style>
 </head>
 <body>
@@ -76,8 +86,14 @@
   <span id="dot" title="conexão"></span>
   <h1>Agente pessoal</h1>
   <span id="meta">conectando…</span>
+  <button id="convs" type="button">Conversas</button>
+  <a class="btn" href="/painel">Painel</a>
   <button id="reset" type="button" disabled>Nova conversa</button>
 </header>
+<dialog id="convdialog">
+  <header><h1>Conversas anteriores</h1><span style="flex:1"></span><button id="convclose" type="button">Fechar</button></header>
+  <div id="convlist"></div>
+</dialog>
 <div id="warn">A <b>ANTHROPIC_API_KEY</b> está vazia no <code>.env</code>. Preencha e reinicie o servidor; sem ela o SDK tenta o login do Claude Code.</div>
 <main id="scroll"><div id="log"><p class="empty">Peça qualquer coisa. O agente usa terminal, arquivos e web sem pedir confirmação.</p></div></main>
 <form id="form">
@@ -89,7 +105,27 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const log = $("log"), input = $("input"), send = $("send"), reset = $("reset");
-let ws, busy = false, ready = false;
+let ws, busy = false, ready = false, lastUser = null;
+// Conversa atual: fica na URL (?sessao=...) para sobreviver a recarregar a página e a links do painel.
+let session = new URLSearchParams(location.search).get("sessao");
+
+function setSession(id) {
+  session = id;
+  history.replaceState(null, "", id ? "/?sessao=" + encodeURIComponent(id) : "/");
+}
+
+// Cada pedido ganha um botão para desfazer as edições de arquivo feitas a partir dele.
+function attachUndo(checkpoint) {
+  if (!lastUser || lastUser.querySelector(".undo")) return;
+  const b = document.createElement("button");
+  b.className = "undo"; b.type = "button"; b.textContent = "↶ desfazer edições deste pedido";
+  b.onclick = () => {
+    if (busy || !confirm("Voltar os arquivos que o agente criou ou editou a partir deste pedido?")) return;
+    ws.send(JSON.stringify({ type: "undo", checkpoint }));
+    b.disabled = true; b.textContent = "edições desfeitas";
+  };
+  lastUser.appendChild(b);
+}
 
 function render(md) {
   if (window.marked && window.DOMPurify) return DOMPurify.sanitize(marked.parse(md));
@@ -129,6 +165,8 @@ function add(kind, text, extra) {
   const el = document.createElement("div");
   el.className = "msg " + kind;
   if (kind === "help") return helpCard(el, extra);
+  if (kind === "checkpoint") return attachUndo(text);
+  if (kind === "user") lastUser = el;
   if (kind === "proactive") {  // resultado de tarefa agendada ou lembrete
     el.innerHTML = '<div class="head"></div><div class="body"></div>';
     el.querySelector(".head").textContent = `⏰ ${extra.title} · ${extra.time}`;
@@ -146,9 +184,15 @@ function setState() {
 }
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws = new WebSocket(`ws://${location.host}/ws` + (session ? "?sessao=" + encodeURIComponent(session) : ""));
   ws.onmessage = (e) => {
     const ev = JSON.parse(e.data);
+    if (ev.session && ev.session !== session) setSession(ev.session);
+    if (ev.kind === "history") {  // conversa retomada: redesenha o que já foi dito
+      log.innerHTML = ""; lastUser = null;
+      ev.items.forEach(it => add(it.kind, it.text, it));
+      return;
+    }
     if (ev.kind === "ready") { ready = true; $("dot").classList.add("on"); if (ev.text) add("ready", ev.text); }
     else add(ev.kind, ev.text, ev);
     if (ev.kind === "result" || ev.kind === "error") busy = false;
@@ -165,14 +209,37 @@ $("form").onsubmit = (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text || busy || !ready) return;
-  add("user", text);
+  const el = document.createElement("div"); el.className = "msg user"; el.textContent = text;
+  log.querySelector(".empty")?.remove(); log.appendChild(el); lastUser = el;
   ws.send(JSON.stringify({ type: "ask", text }));
   input.value = ""; input.style.height = "auto";
   busy = true; setState();
 };
 input.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } };
 input.oninput = () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; };
-reset.onclick = () => { log.innerHTML = ""; ready = false; setState(); ws.send(JSON.stringify({ type: "reset" })); };
+reset.onclick = () => { log.innerHTML = ""; lastUser = null; setSession(null); ready = false; setState(); ws.send(JSON.stringify({ type: "reset" })); };
+
+$("convs").onclick = async () => {
+  const list = $("convlist"); list.innerHTML = "<p style='padding:8px'>carregando…</p>";
+  $("convdialog").showModal();
+  const items = await fetch("/api/conversas").then(r => r.json());
+  list.innerHTML = items.length ? "" : "<p style='padding:8px'>Nenhuma conversa ainda.</p>";
+  for (const c of items) {
+    const b = document.createElement("button"); b.type = "button";
+    b.textContent = c.title || "(sem título)";
+    const small = document.createElement("small");
+    small.textContent = `${c.updated.replace("T", " ").slice(0, 16)} · ${c.requests} pedido(s) · US$ ${c.cost_usd.toFixed(4)}`;
+    b.appendChild(small);
+    b.onclick = () => {
+      $("convdialog").close();
+      if (busy) return;
+      ready = false; setState(); setSession(c.id);
+      ws.send(JSON.stringify({ type: "resume", session: c.id }));
+    };
+    list.appendChild(b);
+  }
+};
+$("convclose").onclick = () => $("convdialog").close();
 
 fetch("/api/status").then(r => r.json()).then(s => {
   $("meta").textContent = `${s.model} · teto US$ ${s.max_budget_usd.toFixed(2)} · ${s.max_turns} passos · ${s.workdir}`;

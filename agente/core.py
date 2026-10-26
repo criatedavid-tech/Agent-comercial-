@@ -13,6 +13,7 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     ResultMessage,
+    SystemMessage,
     SdkMcpTool,
     TextBlock,
     ToolResultBlock,
@@ -24,6 +25,7 @@ from claude_agent_sdk import (
 
 from . import guard, memory
 from .config import ROOT, Config
+from .history import History
 from .human import HumanBridge
 from .knowledge import AREAS, KnowledgeBase
 from .scheduler import KINDS, MIN_INTERVAL_MIN, MODES, WEEKDAYS, AgendaStore, Task, new_id
@@ -86,7 +88,7 @@ Data e hora atuais: {now}
 class Event:
     """Algo que aconteceu durante um pedido, para a interface mostrar."""
 
-    kind: str  # "text", "tool", "blocked" ou "result"
+    kind: str  # "text", "tool", "blocked", "checkpoint" (id para desfazer) ou "result"
     text: str
 
 
@@ -223,8 +225,11 @@ def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
 
 
 class Agent:
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, resume: str | None = None):
         self.cfg = cfg
+        self.session_id = resume  # conversa atual; com resume, continua uma conversa antiga
+        self._resume = resume
+        self.history = History(cfg.logs_dir / "conversas.db")
         self.kb = KnowledgeBase(cfg.knowledge_dir)
         self.human = HumanBridge(cfg.help_timeout_min)
         self.agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
@@ -261,6 +266,10 @@ class Agent:
             permission_mode="bypassPermissions",
             max_turns=self.cfg.max_turns,
             max_budget_usd=self.cfg.max_budget_usd,
+            resume=self._resume,
+            # Checkpoints: guarda o estado dos arquivos a cada pedido, para poder desfazer.
+            enable_file_checkpointing=True,
+            extra_args={"replay-user-messages": None},
         )
 
     async def start(self) -> None:
@@ -275,7 +284,22 @@ class Agent:
     async def reset(self) -> None:
         """Começa uma conversa nova (relê a memória)."""
         await self.stop()
+        self.session_id = self._resume = None
         await self.start()
+
+    async def resume(self, session_id: str) -> None:
+        """Troca para uma conversa antiga, com todo o contexto dela."""
+        await self.stop()
+        self.session_id = self._resume = session_id
+        await self.start()
+
+    async def rewind(self, checkpoint: str) -> None:
+        """Desfaz as edições de arquivo (Write/Edit) feitas a partir do pedido do checkpoint.
+        Mudanças feitas por comandos no terminal (Bash) não são rastreadas."""
+        assert self.client, "chame start() antes"
+        await self.client.rewind_files(checkpoint)
+        if self.session_id:
+            self.history.record(self.session_id, "rewind", checkpoint)
 
     async def run_once(self, text: str) -> str:
         """Roda um pedido numa conversa própria e devolve a resposta final (usado pela agenda)."""
@@ -289,37 +313,64 @@ class Agent:
     async def ask(self, text: str) -> AsyncIterator[Event]:
         assert self.client, "chame start() antes"
         self._log({"type": "user", "text": text})
+        # O id da conversa só chega na primeira mensagem do SDK: até lá, o histórico espera.
+        pending: list[tuple[str, str, float]] = [("user", text, 0.0)]
         await self.client.query(text)
         async for msg in self.client.receive_response():
-            if isinstance(msg, AssistantMessage):
-                for block in msg.content:
-                    if isinstance(block, TextBlock):
-                        self._log({"type": "text", "text": block.text})
-                        yield Event("text", block.text)
-                    elif isinstance(block, ToolUseBlock):
-                        self._log({"type": "tool", "name": block.name, "input": block.input})
-                        name = re.sub(r"^mcp__\w+?__", "", block.name)
-                        yield Event("tool", f"{name} {_summary(block.input)}")
-            elif isinstance(msg, UserMessage) and isinstance(msg.content, list):
+            session = _session_of(msg)
+            if session:
+                self.session_id = session
+            for event, cost in self._convert(msg):
+                pending.append((event.kind, event.text, cost))
+                yield event
+            if self.session_id:
+                for kind, event_text, cost in pending:
+                    self.history.record(self.session_id, kind, event_text, cost)
+                pending.clear()
+
+    def _convert(self, msg: Any) -> list[tuple[Event, float]]:
+        """Traduz uma mensagem do SDK em eventos para a interface (e grava o log JSONL)."""
+        out: list[tuple[Event, float]] = []
+        if isinstance(msg, AssistantMessage):
+            for block in msg.content:
+                if isinstance(block, TextBlock):
+                    self._log({"type": "text", "text": block.text})
+                    out.append((Event("text", block.text), 0.0))
+                elif isinstance(block, ToolUseBlock):
+                    self._log({"type": "tool", "name": block.name, "input": block.input})
+                    name = re.sub(r"^mcp__\w+?__", "", block.name)
+                    out.append((Event("tool", f"{name} {_summary(block.input)}"), 0.0))
+        elif isinstance(msg, UserMessage):
+            results = [b for b in msg.content if isinstance(b, ToolResultBlock)] if isinstance(msg.content, list) else []
+            if not results and msg.uuid and not msg.parent_tool_use_id:
+                # Eco do próprio pedido: o uuid dele é o ponto para desfazer as edições deste pedido.
+                out.append((Event("checkpoint", msg.uuid), 0.0))
+            for block in results:
                 # Resultado de ferramenta barrado pelos hooks de segurança: mostra ao usuário.
-                for block in msg.content:
-                    if isinstance(block, ToolResultBlock) and block.is_error and guard.DENY_PREFIX in str(block.content):
-                        reason = str(block.content).split(guard.DENY_PREFIX, 1)[1].split(". Não tente")[0]
-                        yield Event("blocked", reason.strip(" :"))
-            elif isinstance(msg, ResultMessage):
-                cost = msg.total_cost_usd or 0.0
-                self._log({"type": "result", "subtype": msg.subtype, "turns": msg.num_turns, "cost_usd": cost})
-                if not msg.is_error:
-                    status = "ok"
-                else:
-                    status = "erro" if msg.subtype == "success" else f"parou: {msg.subtype}"
-                yield Event("result", f"{status} · {msg.num_turns} passos · US$ {cost:.4f}")
+                if block.is_error and guard.DENY_PREFIX in str(block.content):
+                    reason = str(block.content).split(guard.DENY_PREFIX, 1)[1].split(". Não tente")[0]
+                    out.append((Event("blocked", reason.strip(" :")), 0.0))
+        elif isinstance(msg, ResultMessage):
+            cost = msg.total_cost_usd or 0.0
+            self._log({"type": "result", "subtype": msg.subtype, "turns": msg.num_turns, "cost_usd": cost})
+            if not msg.is_error:
+                status = "ok"
+            else:
+                status = "erro" if msg.subtype == "success" else f"parou: {msg.subtype}"
+            out.append((Event("result", f"{status} · {msg.num_turns} passos · US$ {cost:.4f}"), cost))
+        return out
 
     def _log(self, entry: dict) -> None:
         entry["ts"] = datetime.now().isoformat(timespec="seconds")
         path = self.cfg.logs_dir / f"{datetime.now():%Y-%m-%d}.jsonl"
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def _session_of(msg: Any) -> str | None:
+    if isinstance(msg, SystemMessage):
+        return msg.data.get("session_id")
+    return getattr(msg, "session_id", None)
 
 
 def _summary(tool_input: dict) -> str:

@@ -8,6 +8,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from agente import web
 from agente.core import Event
+from agente.history import History
 from agente.human import HumanBridge
 from agente.scheduler import AgendaStore, Task
 
@@ -21,11 +22,21 @@ class FakeAgent:
     instances: list["FakeAgent"] = []
     to_deliver = None  # item da agenda entregue no meio de um pedido (simula o agendador)
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, resume=None):
         self.human = HumanBridge(0.05)
+        self.session_id = resume or "sessao-nova"
         self.started = self.stopped = False
         self.resets = 0
+        self.rewinds: list[str] = []
         FakeAgent.instances.append(self)
+
+    async def resume(self, session_id):
+        self.session_id = session_id
+
+    async def rewind(self, checkpoint):
+        if checkpoint == "invalido":
+            raise ValueError("checkpoint desconhecido")
+        self.rewinds.append(checkpoint)
 
     async def start(self):
         self.started = True
@@ -53,6 +64,7 @@ def store(tmp_path, monkeypatch) -> AgendaStore:
     s = AgendaStore(tmp_path / "agenda.db", "America/Sao_Paulo")
     monkeypatch.setattr(web, "agenda", s)
     monkeypatch.setattr(web, "hub", web.Hub())
+    monkeypatch.setattr(web, "history", History(tmp_path / "conversas.db"))
     return s
 
 
@@ -122,7 +134,7 @@ def test_human_help_round_trip(client):
         # a resposta chega enquanto o agente ainda está no meio do pedido
         ws.send_json({"type": "help_reply", "id": help_event["id"], "text": "resolvido"})
         events = receive_until(ws, "result")
-        assert {"kind": "text", "text": "Recebi: resolvido"} in events
+        assert {"kind": "text", "text": "Recebi: resolvido", "session": "sessao-nova"} in events
 
 
 def test_help_times_out_without_answer(client):
@@ -197,3 +209,64 @@ def test_help_reply_reaches_scheduled_agent(client, store):
         ws.send_json({"type": "ask", "text": "oi"})  # garante que a resposta anterior foi processada
         receive_until(ws, "result")
     assert answers == [("abc", "resolvido")]
+
+
+# --- conversas, retomar e desfazer ------------------------------------------------
+
+def seed_history():
+    web.history.record("antiga", "user", "Quanto gastei em outubro?")
+    web.history.record("antiga", "tool", "buscar_conhecimento gastos")
+    web.history.record("antiga", "checkpoint", "uuid-1")
+    web.history.record("antiga", "text", "R$ 1.820.")
+    web.history.record("antiga", "rewind", "uuid-1")  # interno: não volta para a página
+    web.history.record("antiga", "result", "ok · 2 passos · US$ 0.0100", cost_usd=0.01)
+
+
+def test_conversation_list_and_detail(client):
+    seed_history()
+    [conv] = client.get("/api/conversas").json()
+    assert conv["id"] == "antiga" and conv["title"] == "Quanto gastei em outubro?" and conv["requests"] == 1
+    detail = client.get("/api/conversas/antiga").json()
+    assert [i["kind"] for i in detail["items"]] == ["user", "tool", "checkpoint", "text", "result"]
+    assert client.get("/api/conversas/nao-existe").status_code == 404
+
+
+def test_resume_by_url_sends_history_first(client):
+    seed_history()
+    with client.websocket_connect("/ws?sessao=antiga", headers=ORIGIN) as ws:
+        first = ws.receive_json()
+        assert first["kind"] == "history" and first["items"][0]["text"] == "Quanto gastei em outubro?"
+        assert ws.receive_json() == {"kind": "ready", "text": "", "session": "antiga"}
+    assert FakeAgent.instances[0].session_id == "antiga"
+
+
+def test_resume_and_undo_messages(client):
+    seed_history()
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        ws.send_json({"type": "resume", "session": "antiga"})
+        assert ws.receive_json()["kind"] == "history"
+        assert ws.receive_json()["text"] == "conversa retomada"
+
+        ws.send_json({"type": "undo", "checkpoint": "uuid-1"})
+        assert ws.receive_json()["text"] == "edições de arquivo desfeitas"
+        ws.send_json({"type": "undo", "checkpoint": "invalido"})
+        assert ws.receive_json() == {"kind": "error", "text": "ValueError: checkpoint desconhecido"}
+    assert FakeAgent.instances[0].rewinds == ["uuid-1"]
+
+
+def test_events_carry_session_id(client):
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        ws.send_json({"type": "ask", "text": "oi"})
+        assert all(e["session"] == "sessao-nova" for e in receive_until(ws, "result"))
+
+
+@pytest.mark.parametrize("host", ["evil.com", "evil.com:8000", "192.168.0.10:8000"])
+def test_http_rejects_non_local_host(client, host):
+    # DNS rebinding: o domínio do atacante aponta para 127.0.0.1, mas o Host continua sendo o dele.
+    assert client.get("/api/conversas", headers={"host": host}).status_code == 403
+
+
+def test_http_accepts_localhost(client):
+    assert client.get("/api/status", headers={"host": "localhost:8000"}).status_code == 200

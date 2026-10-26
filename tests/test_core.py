@@ -6,6 +6,7 @@ import re
 
 from claude_agent_sdk import (
     AssistantMessage,
+    SystemMessage,
     ResultMessage,
     TextBlock,
     ToolResultBlock,
@@ -190,3 +191,58 @@ def test_result_status_on_errors(cfg):
 
     assert status("success", True) == "erro"  # ex.: falha de autenticação
     assert status("error_max_budget_usd", True) == "parou: error_max_budget_usd"
+
+
+def test_checkpoints_and_resume_options(cfg):
+    options = Agent(cfg)._options()
+    assert options.enable_file_checkpointing
+    assert "replay-user-messages" in options.extra_args  # sem isso o SDK não devolve o id do pedido
+    assert options.resume is None
+    assert Agent(cfg, resume="abc")._options().resume == "abc"
+
+
+def test_history_records_session_and_checkpoint(cfg):
+    agent = Agent(cfg)
+    agent.client = FakeClient([
+        SystemMessage(subtype="init", data={"session_id": "sess-1"}),
+        UserMessage(content="anota meu aluguel", uuid="uuid-pedido"),  # eco do pedido
+        AssistantMessage(content=[TextBlock(text="Anotado.")], model="m"),
+        ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False, num_turns=1,
+                      session_id="sess-1", total_cost_usd=0.01),
+    ])
+    events = collect(agent, "anota meu aluguel")
+    assert ("checkpoint", "uuid-pedido") in [(e.kind, e.text) for e in events]
+    assert agent.session_id == "sess-1"
+    recorded = [(r.kind, r.text) for r in agent.history.events("sess-1")]
+    assert recorded == [("user", "anota meu aluguel"), ("checkpoint", "uuid-pedido"), ("text", "Anotado."),
+                        ("result", "ok · 1 passos · US$ 0.0100")]
+    [session] = agent.history.sessions()
+    assert session.cost_usd == 0.01
+
+
+def test_tool_result_echo_is_not_a_checkpoint(cfg):
+    agent = Agent(cfg)
+    agent.client = FakeClient([
+        UserMessage(content=[ToolResultBlock(tool_use_id="t", content="ok")], uuid="x"),
+        UserMessage(content="resposta de subagente", uuid="y", parent_tool_use_id="t"),
+    ])
+    assert [e.kind for e in collect(agent, "oi")] == []
+
+
+def test_reset_and_resume_change_session(cfg):
+    import asyncio
+
+    agent = Agent(cfg, resume="velha")
+    calls = []
+
+    async def fake_start():
+        calls.append(("start", agent._resume))
+
+    async def fake_stop():
+        calls.append(("stop", None))
+
+    agent.start, agent.stop = fake_start, fake_stop
+    asyncio.run(agent.reset())
+    assert agent.session_id is None and calls[-1] == ("start", None)
+    asyncio.run(agent.resume("outra"))
+    assert agent.session_id == "outra" and calls[-1] == ("start", "outra")

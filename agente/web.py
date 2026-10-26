@@ -10,12 +10,13 @@ from pathlib import Path
 import asyncio
 import os
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, PlainTextResponse
 import uvicorn
 
 from . import config
 from .core import Agent
+from .history import History
 from .human import HelpRequest, HumanBridge
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
 
@@ -23,6 +24,9 @@ STATIC = Path(__file__).resolve().parent / "static"
 
 cfg = config.load()
 agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
+history = History(cfg.logs_dir / "conversas.db")
+LOCAL_HOSTS = ("127.0.0.1", "localhost")
+SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos que a página redesenha
 
 
 class Hub:
@@ -88,6 +92,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Agente pessoal", lifespan=lifespan)
 
 
+def is_local(host: str) -> bool:
+    return host.rsplit(":", 1)[0] in LOCAL_HOSTS
+
+
+@app.middleware("http")
+async def local_only(request: Request, call_next):
+    # DNS rebinding: um site malicioso pode apontar o domínio dele para 127.0.0.1 e ler esta API.
+    # O navegador mantém o Host original, então basta recusar qualquer Host que não seja local.
+    if not is_local(request.headers.get("host", "")):
+        return PlainTextResponse("host não permitido", status_code=403)
+    return await call_next(request)
+
+
+def history_payload(session_id: str) -> dict:
+    items = [{"kind": r.kind, "text": r.text} for r in history.events(session_id) if r.kind in SHOWN]
+    return {"kind": "history", "items": items, "session": session_id}
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
@@ -102,6 +124,18 @@ async def status() -> dict:
         "max_turns": cfg.max_turns,
         "api_key": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
     }
+
+
+@app.get("/api/conversas")
+async def list_conversations() -> list[dict]:
+    return [vars(s) for s in history.sessions()]
+
+
+@app.get("/api/conversas/{session_id}")
+async def conversation(session_id: str) -> dict:
+    if not any(s.id == session_id for s in history.sessions(limit=10_000)):
+        raise HTTPException(404, "conversa não encontrada")
+    return history_payload(session_id)
 
 
 @app.get("/api/agenda")
@@ -119,12 +153,13 @@ async def chat(ws: WebSocket) -> None:
     # Bloqueia outros sites abertos no navegador de falarem com o agente.
     origin = ws.headers.get("origin", "")
     host = ws.headers.get("host", "")
-    if origin not in (f"http://{host}",) or host.split(":")[0] not in ("127.0.0.1", "localhost"):
+    if origin != f"http://{host}" or not is_local(host):
         await ws.close(code=1008)
         return
     await ws.accept()
     hub.sockets.add(ws)
-    agent = Agent(cfg)
+    resume = ws.query_params.get("sessao") or None  # ?sessao=... retoma uma conversa (links do painel)
+    agent = Agent(cfg, resume=resume)
     asks: asyncio.Queue[dict] = asyncio.Queue()
 
     async def notify(req: HelpRequest) -> None:
@@ -146,7 +181,9 @@ async def chat(ws: WebSocket) -> None:
     reading = asyncio.create_task(reader())
     try:
         await agent.start()
-        await ws.send_json({"kind": "ready", "text": ""})
+        if resume:
+            await ws.send_json(history_payload(resume))
+        await ws.send_json({"kind": "ready", "text": "", "session": agent.session_id})
         unread = agenda.unread()  # o que a agenda fez enquanto nenhuma aba estava aberta
         for item in unread:
             await ws.send_json(inbox_payload(item))
@@ -158,16 +195,31 @@ async def chat(ws: WebSocket) -> None:
                 next_msg.cancel()
                 break
             msg = next_msg.result()
-            if msg.get("type") == "reset":
-                await agent.reset()
-                await ws.send_json({"kind": "ready", "text": "conversa nova"})
+            kind = msg.get("type")
+            try:
+                if kind == "reset":
+                    await agent.reset()
+                    await ws.send_json({"kind": "ready", "text": "conversa nova"})
+                    continue
+                if kind == "resume":
+                    session_id = str(msg.get("session", ""))
+                    await agent.resume(session_id)
+                    await ws.send_json(history_payload(session_id))
+                    await ws.send_json({"kind": "ready", "text": "conversa retomada", "session": session_id})
+                    continue
+                if kind == "undo":
+                    await agent.rewind(str(msg.get("checkpoint", "")))
+                    await ws.send_json({"kind": "ready", "text": "edições de arquivo desfeitas"})
+                    continue
+            except Exception as e:
+                await ws.send_json({"kind": "error", "text": f"{type(e).__name__}: {e}"})
                 continue
             text = str(msg.get("text", "")).strip()
             if not text:
                 continue
             try:
                 async for event in agent.ask(text):
-                    await ws.send_json({"kind": event.kind, "text": event.text})
+                    await ws.send_json({"kind": event.kind, "text": event.text, "session": agent.session_id})
             except Exception as e:  # erro do SDK não derruba a conexão
                 await ws.send_json({"kind": "error", "text": f"{type(e).__name__}: {e}"})
     except (WebSocketDisconnect, RuntimeError):  # aba fechada no meio de um envio
