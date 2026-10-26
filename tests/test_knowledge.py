@@ -90,3 +90,11 @@ def test_summary_lists_counts_niches_and_recent(kb):
 def test_slugify():
     assert slugify("Ação & Reação!") == "acao-reacao"
     assert slugify("???") == "nota"
+
+
+def test_stats_and_recent(kb):
+    kb.save("financas", "Aluguel", "1500")
+    kb.save("estudos", "Decorators", "...", nicho="python")
+    assert kb.stats()["financas"] == 1 and kb.stats()["lazer"] == 0
+    assert {n["title"] for n in kb.recent()} == {"Aluguel", "Decorators"}
+    assert next(n for n in kb.recent() if n["title"] == "Decorators")["nicho"] == "python"

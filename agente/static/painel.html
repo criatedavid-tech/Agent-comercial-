@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel · Agente pessoal</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f; --text-secondary: #52514e;
+    --border: #e4e3de; --grid: #ecebe6; --accent: #2f6f4f; --tool: #f1f0eb; --error: #b3261e;
+    --series-1: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993; --text-secondary: #c3c2b7;
+      --border: #33332f; --grid: #2a2a27; --accent: #5fae84; --tool: #262623; --error: #f2b8b5;
+      --series-1: #3987e5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; flex: 1; }
+  header a, button { font: inherit; font-size: 14px; color: var(--text); border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 5px 12px; text-decoration: none; cursor: pointer; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .tile, .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .tile .label { color: var(--muted); font-size: 13px; }
+  .tile .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .note { color: var(--muted); font-size: 12px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li { display: flex; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--grid); }
+  ul.list li:first-child { border-top: 0; }
+  ul.list .main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul.list .side { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  ul.list a { color: var(--text); }
+  .empty { color: var(--muted); font-size: 14px; }
+  .blocked .main { color: var(--error); white-space: normal; }
+  .blocked ul.list li { flex-direction: column; gap: 0; }
+  .blocked ul.list .side { white-space: normal; }
+  .areas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .areas span { background: var(--tool); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  .areas b { font-variant-numeric: tabular-nums; }
+  /* gráfico */
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; height: 220px; overflow: visible; }
+  .chart .gridline { stroke: var(--grid); stroke-width: 1; }
+  .chart .axis { fill: var(--muted); font-size: 11px; }
+  .chart .bar { fill: var(--series-1); }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .hit:hover + .bar, .chart .bar.on { opacity: .8; }
+  .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); white-space: nowrap; display: none; }
+  .tip b { font-variant-numeric: tabular-nums; }
+  details { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+  table { border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  td, th { padding: 2px 12px 2px 0; text-align: left; }
+  @media (max-width: 760px) {
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel do agente</h1>
+  <span id="updated" class="empty"></span>
+  <a href="/">← Chat</a>
+</header>
+<main>
+  <section class="tiles">
+    <div class="tile"><div class="label">Gasto hoje</div><div class="value" id="t-today">–</div><div class="note" id="t-budget"></div></div>
+    <div class="tile"><div class="label">Últimos 7 dias</div><div class="value" id="t-week">–</div></div>
+    <div class="tile"><div class="label">Últimos 30 dias</div><div class="value" id="t-month">–</div></div>
+    <div class="tile"><div class="label">Pedidos em 30 dias</div><div class="value" id="t-requests">–</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Gasto por dia (US$), últimos 30 dias</h2>
+    <div class="chart" id="chart"><svg id="svg" role="img" aria-label="Gasto por dia nos últimos 30 dias"></svg><div class="tip" id="tip"></div></div>
+    <details><summary>Ver como tabela</summary><table id="table"></table></details>
+  </section>
+
+  <div class="grid">
+    <section class="card"><h2>Conversas recentes</h2><ul class="list" id="convs"></ul></section>
+    <section class="card"><h2>Agenda</h2><ul class="list" id="agenda"></ul></section>
+    <section class="card"><h2>Base de conhecimento</h2><div class="areas" id="areas"></div><ul class="list" id="notes"></ul></section>
+    <section class="card blocked"><h2>Bloqueios de segurança</h2><ul class="list" id="blocked"></ul></section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const usd = (v) => "US$ " + v.toFixed(v > 0 && v < 0.01 ? 4 : 2);
+const fmtDay = (iso) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+const fmtTs = (iso) => iso.slice(8, 10) + "/" + iso.slice(5, 7) + " " + iso.slice(11, 16);
+
+function li(main, side, href) {
+  const el = document.createElement("li");
+  const m = document.createElement(href ? "a" : "span");
+  m.className = "main"; m.textContent = main;
+  if (href) m.href = href;
+  el.appendChild(m);
+  if (side !== undefined) { const s = document.createElement("span"); s.className = "side"; s.textContent = side; el.appendChild(s); }
+  return el;
+}
+
+function fill(id, items, make, emptyText) {
+  const ul = $(id); ul.innerHTML = "";
+  if (!items.length) { const e = document.createElement("li"); e.className = "empty"; e.textContent = emptyText; ul.appendChild(e); return; }
+  items.forEach(it => ul.appendChild(make(it)));
+}
+
+// Gráfico de barras: uma série, uma cor; tooltip por barra; alvo de hover maior que a barra.
+function drawChart(days) {
+  const svg = $("svg"), tip = $("tip");
+  const W = svg.clientWidth || 800, H = 220, L = 44, R = 8, T = 8, B = 24;
+  const max = Math.max(...days.map(d => d.cost_usd), 0.01);
+  const step = niceStep(max / 3), top = Math.ceil(max / step) * step;
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  const slot = (W - L - R) / days.length, bw = Math.max(2, slot - 2);  // 2px de espaço entre barras
+  let out = "";
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    out += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/>`;
+    out += `<text class="axis" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(step < 0.01 ? 3 : 2)}</text>`;
+  }
+  days.forEach((d, i) => {
+    const x = L + i * slot + 1, h = Math.max(0, y(0) - y(d.cost_usd));
+    const r = Math.min(4, bw / 2, h);
+    // topo arredondado (4px), base reta sobre o eixo
+    const path = h > 0 ? `M${x},${y(0)} V${y(0) - h + r} Q${x},${y(0) - h} ${x + r},${y(0) - h} H${x + bw - r} Q${x + bw},${y(0) - h} ${x + bw},${y(0) - h + r} V${y(0)} Z` : "";
+    out += `<rect class="hit" data-i="${i}" x="${L + i * slot}" y="${T}" width="${slot}" height="${H - T - B}"/>`;
+    if (path) out += `<path class="bar" data-i="${i}" d="${path}"/>`;
+    const last = i === days.length - 1, nearLast = days.length - 1 - i < 4;  // evita rótulos colados no fim
+    if (last || (i % 7 === 0 && !nearLast)) out += `<text class="axis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${fmtDay(d.day)}</text>`;
+  });
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = out;
+  svg.querySelectorAll(".hit").forEach(hit => {
+    hit.onmousemove = (e) => {
+      const d = days[+hit.dataset.i];
+      tip.innerHTML = `${fmtDay(d.day)} · <b>${usd(d.cost_usd)}</b> · ${d.requests} pedido(s)`;
+      const box = $("chart").getBoundingClientRect();
+      tip.style.display = "block";
+      tip.style.left = Math.min(e.clientX - box.left + 12, box.width - tip.offsetWidth) + "px";
+      tip.style.top = (e.clientY - box.top - 36) + "px";
+    };
+    hit.onmouseleave = () => { tip.style.display = "none"; };
+  });
+  $("table").innerHTML = "<tr><th>Dia</th><th>Gasto</th><th>Pedidos</th></tr>" +
+    days.filter(d => d.requests || d.cost_usd).map(d => `<tr><td>${fmtDay(d.day)}</td><td>${usd(d.cost_usd)}</td><td>${d.requests}</td></tr>`).join("") ||
+    "<tr><td colspan=3>Sem uso no período.</td></tr>";
+}
+
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= raw) || 10 * p;
+}
+
+async function cancelTask(id, title) {
+  if (!confirm(`Cancelar "${title}"?`)) return;
+  const r = await fetch("/api/agenda/" + encodeURIComponent(id), { method: "DELETE" });
+  if (!r.ok) alert("Não consegui cancelar: " + (await r.text()));
+  load();
+}
+
+let lastDays = [];
+async function load() {
+  const p = await fetch("/api/painel").then(r => r.json());
+  const t = p.totals;
+  $("t-today").textContent = usd(t.today);
+  $("t-week").textContent = usd(t.week);
+  $("t-month").textContent = usd(t.month);
+  $("t-requests").textContent = t.requests_month;
+  $("t-budget").textContent = `teto por pedido: ${usd(t.budget_per_request)}`;
+  lastDays = p.costs; drawChart(lastDays);
+
+  fill("convs", p.conversations, c => li(c.title || "(sem título)", `${fmtTs(c.updated)} · ${usd(c.cost_usd)}`, "/?sessao=" + encodeURIComponent(c.id)), "Nenhuma conversa ainda.");
+  fill("agenda", p.agenda, a => {
+    const el = li(`${a.mode === "lembrete" ? "🔔" : "⏰"} ${a.title}`, a.when);
+    const b = document.createElement("button"); b.textContent = "Cancelar"; b.onclick = () => cancelTask(a.id, a.title);
+    el.appendChild(b); return el;
+  }, "Nada agendado.");
+  fill("blocked", p.blocked, b => li(b.reason, `${fmtTs(b.ts)} · ${b.conversation || "(conversa sem título)"}`), "Nenhum bloqueio. 🛡");
+
+  const areas = $("areas"); areas.innerHTML = "";
+  Object.entries(p.knowledge.counts).forEach(([area, n]) => {
+    const s = document.createElement("span"); s.innerHTML = `${area} <b></b>`; s.querySelector("b").textContent = n; areas.appendChild(s);
+  });
+  fill("notes", p.knowledge.recent, n => li(n.title, n.nicho ? `${n.area}/${n.nicho}` : n.area), "Nenhuma nota ainda.");
+  $("updated").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+window.addEventListener("resize", () => lastDays.length && drawChart(lastDays));
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

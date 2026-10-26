@@ -187,7 +187,7 @@ function connect() {
   ws = new WebSocket(`ws://${location.host}/ws` + (session ? "?sessao=" + encodeURIComponent(session) : ""));
   ws.onmessage = (e) => {
     const ev = JSON.parse(e.data);
-    if (ev.session && ev.session !== session) setSession(ev.session);
+    if ("session" in ev && (ev.session || null) !== session) setSession(ev.session || null);
     if (ev.kind === "history") {  // conversa retomada: redesenha o que já foi dito
       log.innerHTML = ""; lastUser = null;
       ev.items.forEach(it => add(it.kind, it.text, it));

@@ -65,9 +65,12 @@ async def run() -> None:
                     console.print("[dim]use /conversas e depois /retomar N[/dim]\n")
                     continue
                 chosen = sessions[int(arg) - 1]
-                await agent.resume(chosen.id)
+                resumed = await agent.resume(chosen.id)
                 checkpoint = None
-                console.print(f"[dim]conversa retomada: {chosen.title}[/dim]\n")
+                if resumed:
+                    console.print(f"[dim]conversa retomada: {chosen.title}[/dim]\n")
+                else:
+                    console.print("[dim]não deu para retomar o contexto (o registro não existe mais); conversa nova[/dim]\n")
                 continue
             if text == "/desfazer":
                 if not checkpoint:

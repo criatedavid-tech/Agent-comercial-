@@ -155,6 +155,20 @@ class KnowledgeBase:
             rows = con.execute(sql, args).fetchall()
         return [Hit(a, t, self.root / p, b) for p, a, t, b in rows]
 
+    def stats(self) -> dict[str, int]:
+        """Quantidade de notas por área."""
+        with self._connect() as con:
+            counts = dict(con.execute("SELECT area, COUNT(*) FROM notas GROUP BY area").fetchall())
+        return {area: counts.get(area, 0) for area in AREAS}
+
+    def recent(self, limit: int = 8) -> list[dict]:
+        """Notas mais recentes de todas as áreas (para o painel)."""
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT area, nicho, title, path FROM notas ORDER BY mtime DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [{"area": a, "nicho": n, "title": t, "path": p} for a, n, t, p in rows]
+
     def summary(self, recent: int = 3) -> str:
         """Resumo curto para o system prompt: quantas notas e as mais recentes de cada área."""
         lines = []

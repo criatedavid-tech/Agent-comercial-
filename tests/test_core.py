@@ -246,3 +246,23 @@ def test_reset_and_resume_change_session(cfg):
     assert agent.session_id is None and calls[-1] == ("start", None)
     asyncio.run(agent.resume("outra"))
     assert agent.session_id == "outra" and calls[-1] == ("start", "outra")
+
+
+def test_resume_falls_back_to_new_conversation(cfg):
+    import asyncio
+
+    agent = Agent(cfg)
+    attempts = []
+
+    async def fake_start():
+        attempts.append(agent._resume)
+        if agent._resume == "sumiu":
+            raise RuntimeError("--resume requires a valid session ID")
+
+    async def fake_stop():
+        pass
+
+    agent.start, agent.stop = fake_start, fake_stop
+    assert asyncio.run(agent.resume("sumiu")) is False
+    assert attempts == ["sumiu", None] and agent.session_id is None
+    assert asyncio.run(agent.resume("existe")) is True and agent.session_id == "existe"

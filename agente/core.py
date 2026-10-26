@@ -273,8 +273,9 @@ class Agent:
         )
 
     async def start(self) -> None:
-        self.client = ClaudeSDKClient(options=self._options())
-        await self.client.connect()
+        client = ClaudeSDKClient(options=self._options())
+        await client.connect()
+        self.client = client
 
     async def stop(self) -> None:
         if self.client:
@@ -287,11 +288,18 @@ class Agent:
         self.session_id = self._resume = None
         await self.start()
 
-    async def resume(self, session_id: str) -> None:
-        """Troca para uma conversa antiga, com todo o contexto dela."""
+    async def resume(self, session_id: str) -> bool:
+        """Troca para uma conversa antiga, com todo o contexto dela. Se o Claude Code não tiver
+        mais o registro da sessão, começa uma conversa nova e devolve False."""
         await self.stop()
         self.session_id = self._resume = session_id
-        await self.start()
+        try:
+            await self.start()
+            return True
+        except Exception:
+            self.session_id = self._resume = None
+            await self.start()
+            return False
 
     async def rewind(self, checkpoint: str) -> None:
         """Desfaz as edições de arquivo (Write/Edit) feitas a partir do pedido do checkpoint.

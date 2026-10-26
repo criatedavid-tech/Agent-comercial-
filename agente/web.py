@@ -17,6 +17,7 @@ import uvicorn
 from . import config
 from .core import Agent
 from .history import History
+from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
 
@@ -25,6 +26,7 @@ STATIC = Path(__file__).resolve().parent / "static"
 cfg = config.load()
 agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
 history = History(cfg.logs_dir / "conversas.db")
+knowledge = KnowledgeBase(cfg.knowledge_dir)
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos que a página redesenha
 
@@ -105,6 +107,13 @@ async def local_only(request: Request, call_next):
     return await call_next(request)
 
 
+async def open_session(agent: Agent, session_id: str) -> str:
+    """Retoma a conversa; se o contexto não existir mais, avisa (o histórico já foi mostrado)."""
+    if await agent.resume(session_id):
+        return ""
+    return "não deu para retomar o contexto desta conversa (o registro dela não existe mais); o histórico está acima, mas o agente começa do zero"
+
+
 def history_payload(session_id: str) -> dict:
     items = [{"kind": r.kind, "text": r.text} for r in history.events(session_id) if r.kind in SHOWN]
     return {"kind": "history", "items": items, "session": session_id}
@@ -113,6 +122,32 @@ def history_payload(session_id: str) -> dict:
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/painel")
+async def panel_page() -> FileResponse:
+    return FileResponse(STATIC / "painel.html")
+
+
+@app.get("/api/painel")
+async def panel() -> dict:
+    """Tudo o que o painel mostra, numa chamada só."""
+    days = history.daily_costs(days=30)
+    knowledge.reindex()  # pega notas criadas por outros processos ou à mão
+    return {
+        "costs": days,
+        "totals": {
+            "today": round(days[-1]["cost_usd"], 4),
+            "week": round(sum(d["cost_usd"] for d in days[-7:]), 4),
+            "month": round(sum(d["cost_usd"] for d in days), 4),
+            "requests_month": sum(d["requests"] for d in days),
+            "budget_per_request": cfg.max_budget_usd,
+        },
+        "conversations": [vars(s) for s in history.sessions(limit=8)],
+        "agenda": await list_agenda(),
+        "blocked": history.blocked(limit=10),
+        "knowledge": {"counts": knowledge.stats(), "recent": knowledge.recent(limit=8)},
+    }
 
 
 @app.get("/api/status")
@@ -147,6 +182,16 @@ async def list_agenda() -> list[dict]:
     ]
 
 
+@app.delete("/api/agenda/{task_id}")
+async def cancel_task(task_id: str, request: Request) -> dict:
+    # Ação que muda dados: além do Host, exige que o pedido venha da própria página.
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+    if not agenda.cancel(task_id):
+        raise HTTPException(404, "tarefa não encontrada")
+    return {"cancelled": task_id}
+
+
 @app.websocket("/ws")
 async def chat(ws: WebSocket) -> None:
     """Uma conversa por aba: cada conexão tem seu próprio Agent."""
@@ -159,7 +204,7 @@ async def chat(ws: WebSocket) -> None:
     await ws.accept()
     hub.sockets.add(ws)
     resume = ws.query_params.get("sessao") or None  # ?sessao=... retoma uma conversa (links do painel)
-    agent = Agent(cfg, resume=resume)
+    agent = Agent(cfg)
     asks: asyncio.Queue[dict] = asyncio.Queue()
 
     async def notify(req: HelpRequest) -> None:
@@ -180,10 +225,13 @@ async def chat(ws: WebSocket) -> None:
     agent.human.notify = notify
     reading = asyncio.create_task(reader())
     try:
-        await agent.start()
         if resume:
             await ws.send_json(history_payload(resume))
-        await ws.send_json({"kind": "ready", "text": "", "session": agent.session_id})
+            note = await open_session(agent, resume)
+        else:
+            await agent.start()
+            note = ""
+        await ws.send_json({"kind": "ready", "text": note, "session": agent.session_id})
         unread = agenda.unread()  # o que a agenda fez enquanto nenhuma aba estava aberta
         for item in unread:
             await ws.send_json(inbox_payload(item))
@@ -203,9 +251,9 @@ async def chat(ws: WebSocket) -> None:
                     continue
                 if kind == "resume":
                     session_id = str(msg.get("session", ""))
-                    await agent.resume(session_id)
                     await ws.send_json(history_payload(session_id))
-                    await ws.send_json({"kind": "ready", "text": "conversa retomada", "session": session_id})
+                    note = await open_session(agent, session_id) or "conversa retomada"
+                    await ws.send_json({"kind": "ready", "text": note, "session": agent.session_id})
                     continue
                 if kind == "undo":
                     await agent.rewind(str(msg.get("checkpoint", "")))

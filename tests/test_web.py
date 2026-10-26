@@ -31,7 +31,11 @@ class FakeAgent:
         FakeAgent.instances.append(self)
 
     async def resume(self, session_id):
+        if session_id == "sumiu":  # o Claude Code não tem mais o registro desta conversa
+            self.session_id = "sessao-nova"
+            return False
         self.session_id = session_id
+        return True
 
     async def rewind(self, checkpoint):
         if checkpoint == "invalido":
@@ -270,3 +274,51 @@ def test_http_rejects_non_local_host(client, host):
 
 def test_http_accepts_localhost(client):
     assert client.get("/api/status", headers={"host": "localhost:8000"}).status_code == 200
+
+
+# --- painel ------------------------------------------------------------------------
+
+@pytest.fixture
+def kb(tmp_path, monkeypatch):
+    from agente.knowledge import KnowledgeBase
+
+    k = KnowledgeBase(tmp_path / "conhecimento")
+    monkeypatch.setattr(web, "knowledge", k)
+    return k
+
+
+def test_panel_page_and_data(client, store, kb):
+    assert "Painel do agente" in client.get("/painel").text
+    seed_history()
+    web.history.record("antiga", "blocked", "comando bloqueado (formatar disco)")
+    kb.save("estudos", "Decorators", "...", nicho="python")
+    add_task(store, id="gastos", title="Revisar gastos", kind="semanal", weekdays="seg", at="09:00")
+
+    p = client.get("/api/painel").json()
+    assert len(p["costs"]) == 30 and p["costs"][-1]["cost_usd"] == 0.01
+    assert p["totals"]["today"] == 0.01 and p["totals"]["requests_month"] == 1
+    assert p["conversations"][0]["id"] == "antiga"
+    assert [a["id"] for a in p["agenda"]] == ["gastos"]
+    assert p["blocked"][0]["reason"] == "comando bloqueado (formatar disco)"
+    assert p["knowledge"]["counts"]["estudos"] == 1
+    assert p["knowledge"]["recent"][0] == {"area": "estudos", "nicho": "python", "title": "Decorators",
+                                          "path": p["knowledge"]["recent"][0]["path"]}
+
+
+def test_cancel_task_from_panel(client, store):
+    add_task(store, id="gastos")
+    local = {"origin": "http://127.0.0.1:8000"}
+    assert client.delete("/api/agenda/gastos", headers={"origin": "http://evil.com"}).status_code == 403
+    assert client.delete("/api/agenda/gastos").status_code == 403  # sem Origin também não
+    assert client.delete("/api/agenda/gastos", headers=local).json() == {"cancelled": "gastos"}
+    assert client.delete("/api/agenda/gastos", headers=local).status_code == 404
+    assert store.list() == []
+
+
+def test_resume_of_missing_session_shows_history_and_starts_fresh(client):
+    web.history.record("sumiu", "user", "conversa antiga")
+    with client.websocket_connect("/ws?sessao=sumiu", headers=ORIGIN) as ws:
+        assert ws.receive_json()["items"][0]["text"] == "conversa antiga"
+        ready = ws.receive_json()
+        assert ready["kind"] == "ready" and "não deu para retomar" in ready["text"]
+        assert ready["session"] == "sessao-nova"
