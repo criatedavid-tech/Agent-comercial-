@@ -54,6 +54,16 @@ Comandos do chat:
 | `/nova` | começa uma conversa do zero e relê a memória |
 | `Ctrl+C` | interrompe e sai |
 
+### Interface web (testes)
+
+Para conversar pelo navegador em vez do terminal:
+
+```bash
+agente-web                         # abre em http://127.0.0.1:8000
+```
+
+Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. Só escuta em `127.0.0.1` e recusa conexões vindas de outros sites. Não exponha essa porta na VPS.
+
 Guia detalhado: [docs/instalacao.md](docs/instalacao.md).
 
 ---
@@ -110,7 +120,9 @@ agent/
 │   ├── config.py          ← lê o .env e cria as pastas
 │   ├── core.py            ← o loop do agente (coração do projeto)
 │   ├── memory.py          ← carrega a memória de longo prazo
-│   └── cli.py             ← chat no terminal
+│   ├── cli.py             ← chat no terminal
+│   ├── web.py             ← chat no navegador (localhost, para testes)
+│   └── static/index.html  ← página do chat web
 ├── memory/
 │   ├── perfil.md          ← quem é você (preencha!)
 │   └── notas.md           ← o que o agente aprendeu sozinho
@@ -132,6 +144,7 @@ Tudo fica no `.env`:
 | `AGENT_WORKDIR` | `./workspace` | pasta onde ele cria arquivos e roda comandos |
 | `AGENT_MAX_BUDGET_USD` | `2.00` | teto de gasto **por pedido**: ao atingir, ele para |
 | `AGENT_MAX_TURNS` | `40` | máximo de passos por pedido |
+| `AGENT_WEB_PORT` | `8000` | porta da interface web de testes |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 

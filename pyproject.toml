@@ -7,10 +7,13 @@ dependencies = [
     "claude-agent-sdk>=0.2.174",
     "python-dotenv>=1.0",
     "rich>=13.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
 ]
 
 [project.scripts]
 agente = "agente.cli:main"
+agente-web = "agente.web:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -18,3 +21,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["agente"]
+
+[tool.setuptools.package-data]
+agente = ["static/*"]

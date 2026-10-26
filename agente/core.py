@@ -102,7 +102,10 @@ class Agent:
             elif isinstance(msg, ResultMessage):
                 cost = msg.total_cost_usd or 0.0
                 self._log({"type": "result", "subtype": msg.subtype, "turns": msg.num_turns, "cost_usd": cost})
-                status = "ok" if not msg.is_error else f"parou: {msg.subtype}"
+                if not msg.is_error:
+                    status = "ok"
+                else:
+                    status = "erro" if msg.subtype == "success" else f"parou: {msg.subtype}"
                 yield Event("result", f"{status} · {msg.num_turns} passos · US$ {cost:.4f}")
 
     def _log(self, entry: dict) -> None:

@@ -34,6 +34,10 @@ O agente age melhor com **objetivo + contexto + formato de entrega**.
 
 Dentro da mesma sessão ele lembra do que foi dito: "agora transforme isso numa tabela" funciona. Use `/nova` para limpar o contexto (economiza tokens e evita confusão entre assuntos).
 
+## Pelo navegador
+
+Rode `agente-web` e abra http://127.0.0.1:8000. Cada aba é uma conversa separada; o botão **Nova conversa** faz o mesmo que `/nova`. Se a `ANTHROPIC_API_KEY` estiver vazia, a página mostra um aviso no topo.
+
 ## Lendo o que ele fez
 
 Na tela:

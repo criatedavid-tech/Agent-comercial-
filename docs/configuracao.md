@@ -27,6 +27,9 @@ Padrão: `2.00`. Teto de gasto **por pedido**. Ao atingir, o SDK interrompe e o 
 ### `AGENT_MAX_TURNS`
 Padrão: `40`. Máximo de passos (decisão + ferramenta) por pedido. Evita loops infinitos. Tarefas grandes podem precisar de 60–100.
 
+### `AGENT_WEB_PORT`
+Padrão: `8000`. Porta da interface web de testes (`agente-web`). O servidor só escuta em `127.0.0.1`, então não fica acessível pela rede.
+
 ## Memória
 
 Arquivos em `memory/`, lidos **no início de cada conversa** (ao abrir o `agente` ou digitar `/nova`).

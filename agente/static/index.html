@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente pessoal</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
+    --border: #e4e3de; --accent: #2f6f4f; --accent-text: #ffffff;
+    --user: #e8f1ec; --tool: #f1f0eb; --error: #b3261e; --warn-bg: #fff4d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+      --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
+      --user: #22312a; --tool: #262623; --error: #f2b8b5; --warn-bg: #3a3220;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  #meta { color: var(--muted); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  #dot.on { background: var(--accent); }
+  button {
+    font: inherit; border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  #warn { display: none; background: var(--warn-bg); padding: 10px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  main { flex: 1; overflow-y: auto; }
+  #log { max-width: 820px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { padding: 10px 14px; border-radius: 10px; overflow-wrap: anywhere; }
+  .msg.user { background: var(--user); align-self: flex-end; max-width: 85%; white-space: pre-wrap; }
+  .msg.text { background: var(--panel); border: 1px solid var(--border); }
+  .msg.text :first-child { margin-top: 0; } .msg.text :last-child { margin-bottom: 0; }
+  .msg.text pre { background: var(--tool); padding: 10px; border-radius: 6px; overflow-x: auto; }
+  .msg.tool { background: var(--tool); color: var(--muted); font: 13px/1.4 ui-monospace, Consolas, monospace; padding: 6px 10px; }
+  .msg.result, .msg.ready { color: var(--muted); font-size: 13px; padding: 2px 4px; }
+  .msg.error { color: var(--error); border: 1px solid var(--error); }
+  .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
+  form { border-top: 1px solid var(--border); background: var(--panel); padding: 12px 16px; }
+  .row { max-width: 820px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; max-height: 200px;
+  }
+  #send { background: var(--accent); color: var(--accent-text); border-color: var(--accent); padding: 10px 18px; }
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" title="conexão"></span>
+  <h1>Agente pessoal</h1>
+  <span id="meta">conectando…</span>
+  <button id="reset" type="button" disabled>Nova conversa</button>
+</header>
+<div id="warn">A <b>ANTHROPIC_API_KEY</b> está vazia no <code>.env</code>. Preencha e reinicie o servidor; sem ela o SDK tenta o login do Claude Code.</div>
+<main id="scroll"><div id="log"><p class="empty">Peça qualquer coisa. O agente usa terminal, arquivos e web sem pedir confirmação.</p></div></main>
+<form id="form">
+  <div class="row">
+    <textarea id="input" rows="1" placeholder="Seu pedido… (Enter envia, Shift+Enter quebra linha)" disabled></textarea>
+    <button id="send" type="submit" disabled>Enviar</button>
+  </div>
+</form>
+<script>
+const $ = (id) => document.getElementById(id);
+const log = $("log"), input = $("input"), send = $("send"), reset = $("reset");
+let ws, busy = false, ready = false;
+
+function render(md) {
+  if (window.marked && window.DOMPurify) return DOMPurify.sanitize(marked.parse(md));
+  const div = document.createElement("div"); div.textContent = md; div.style.whiteSpace = "pre-wrap";
+  return div.outerHTML;
+}
+
+function add(kind, text) {
+  log.querySelector(".empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + kind;
+  if (kind === "text") el.innerHTML = render(text);
+  else el.textContent = kind === "tool" ? "⚙ " + text : text;
+  log.appendChild(el);
+  $("scroll").scrollTop = $("scroll").scrollHeight;
+}
+
+function setState() {
+  const can = ready && !busy;
+  input.disabled = !ready; send.disabled = !can; reset.disabled = !can;
+  send.textContent = busy ? "Trabalhando…" : "Enviar";
+}
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.kind === "ready") { ready = true; $("dot").classList.add("on"); if (ev.text) add("ready", ev.text); }
+    else add(ev.kind, ev.text);
+    if (ev.kind === "result" || ev.kind === "error") busy = false;
+    setState();
+  };
+  ws.onclose = () => {
+    ready = false; busy = false; $("dot").classList.remove("on"); setState();
+    add("error", "Conexão perdida. Tentando reconectar…");
+    setTimeout(connect, 2000);
+  };
+}
+
+$("form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text || busy || !ready) return;
+  add("user", text);
+  ws.send(JSON.stringify({ type: "ask", text }));
+  input.value = ""; input.style.height = "auto";
+  busy = true; setState();
+};
+input.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } };
+input.oninput = () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; };
+reset.onclick = () => { log.innerHTML = ""; ready = false; setState(); ws.send(JSON.stringify({ type: "reset" })); };
+
+fetch("/api/status").then(r => r.json()).then(s => {
+  $("meta").textContent = `${s.model} · teto US$ ${s.max_budget_usd.toFixed(2)} · ${s.max_turns} passos · ${s.workdir}`;
+  if (!s.api_key) $("warn").style.display = "block";
+});
+connect();
+</script>
+</body>
+</html>

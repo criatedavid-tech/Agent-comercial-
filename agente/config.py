@@ -18,6 +18,7 @@ class Config:
     logs_dir: Path
     max_budget_usd: float
     max_turns: int
+    web_port: int
 
 
 def load() -> Config:
@@ -31,6 +32,7 @@ def load() -> Config:
         logs_dir=ROOT / "logs",
         max_budget_usd=float(os.getenv("AGENT_MAX_BUDGET_USD", "2.00")),
         max_turns=int(os.getenv("AGENT_MAX_TURNS", "40")),
+        web_port=int(os.getenv("AGENT_WEB_PORT", "8000")),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)

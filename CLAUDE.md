@@ -21,6 +21,7 @@ python -c "import agente.core"           # checagem rápida de import
 - `agente/core.py`: classe `Agent`. `_options()` monta o `ClaudeAgentOptions` (modelo, system prompt com memória, ferramentas, `permission_mode="bypassPermissions"`, teto de gasto e de passos). `ask()` é um gerador assíncrono que emite `Event("text" | "tool" | "result", ...)` e grava cada passo em `logs/AAAA-MM-DD.jsonl`.
 - `agente/memory.py`: `load()` junta `memory/*.md` num bloco para o system prompt.
 - `agente/cli.py`: interface de terminal com `rich`; consome os eventos de `Agent.ask()`.
+- `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; página em `agente/static/index.html`.
 
 ## Convenções
 
