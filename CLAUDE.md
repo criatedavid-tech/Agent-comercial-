@@ -20,6 +20,8 @@ python -c "import agente.core"           # checagem rápida de import
 - `agente/config.py`: `Config` (dataclass imutável) e `load()`, que lê o `.env` e cria `workspace/`, `memory/` e `logs/`.
 - `agente/core.py`: classe `Agent`. `_options()` monta o `ClaudeAgentOptions` (modelo, system prompt com memória, ferramentas, `permission_mode="bypassPermissions"`, teto de gasto e de passos). `ask()` é um gerador assíncrono que emite `Event("text" | "tool" | "result", ...)` e grava cada passo em `logs/AAAA-MM-DD.jsonl`.
 - `agente/memory.py`: `load()` junta `memory/*.md` num bloco para o system prompt.
+- `agente/knowledge.py`: `KnowledgeBase`, notas por área em `conhecimento/` (fora do git) com índice SQLite FTS5. Exposta ao agente como as ferramentas MCP `salvar_conhecimento` e `buscar_conhecimento` (`knowledge_server()` em `core.py`); o resumo por área entra no system prompt.
+- `agente/human.py`: `HumanBridge`, a ponte humana. A ferramenta `pedir_ajuda_humana` (`human_server()` em `core.py`) chama `request()`, que avisa a interface por `notify` e espera `answer()` ou o tempo limite. Cada interface define `agent.human.notify`; o agente nunca contorna CAPTCHA ou verificação de robô.
 - `agente/cli.py`: interface de terminal com `rich`; consome os eventos de `Agent.ask()`.
 - `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; página em `agente/static/index.html`.
 

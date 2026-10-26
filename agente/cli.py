@@ -7,12 +7,25 @@ from rich.markdown import Markdown
 
 from . import config
 from .core import Agent
+from .human import HelpRequest
 
 console = Console()
 
 
 async def run() -> None:
     agent = Agent(config.load())
+
+    async def ask_human(req: HelpRequest) -> None:
+        # No terminal o agente está parado esperando; a resposta vem direto do teclado.
+        console.print(f"\n[bold yellow]⚠ O agente precisa de você:[/bold yellow] {req.reason}")
+        if req.link:
+            console.print(f"[yellow]{req.link}[/yellow]")
+        text = await asyncio.to_thread(
+            console.input, "[yellow]Enter quando resolver (ou escreva um código, escolha ou 'não consegui') › [/yellow]"
+        )
+        agent.human.answer(req.id, text)
+
+    agent.human.notify = ask_human
     await agent.start()
     console.print("[bold]Agente pessoal[/bold] · digite [cyan]sair[/cyan] para encerrar, [cyan]/nova[/cyan] para recomeçar\n")
     try:

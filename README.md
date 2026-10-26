@@ -103,6 +103,9 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Procurar em arquivos | `Glob`, `Grep` | "ache todos os orçamentos acima de R$ 5 mil" |
 | Pesquisar na web | `WebSearch` | "quais as 3 melhores VPS baratas hoje?" |
 | Ler páginas | `WebFetch` | "leia este link e me diga o preço" |
+| Organizar o que aprende | `salvar_conhecimento` | guarda notas por área: finanças, saúde, lazer, entretenimento, estudos (por nicho) e geral |
+| Consultar o que já sabe | `buscar_conhecimento` | "quanto gastei com aluguel?" busca nas notas antes de responder |
+| Chamar você quando trava | `pedir_ajuda_humana` | CAPTCHA, "você é um robô?", código 2FA, login: ele pausa, te chama e continua quando você resolve |
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
 
@@ -120,12 +123,15 @@ agent/
 │   ├── config.py          ← lê o .env e cria as pastas
 │   ├── core.py            ← o loop do agente (coração do projeto)
 │   ├── memory.py          ← carrega a memória de longo prazo
+│   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
+│   ├── human.py           ← ponte humana: pausa e pede ajuda quando trava
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
 │   └── static/index.html  ← página do chat web
 ├── memory/
 │   ├── perfil.md          ← quem é você (preencha!)
 │   └── notas.md           ← o que o agente aprendeu sozinho
+├── conhecimento/          ← (criada ao rodar) notas por área + indice.db; fora do git
 ├── docs/                  ← documentação completa
 ├── workspace/             ← (criada ao rodar) onde o agente trabalha
 └── logs/                  ← (criada ao rodar) registro diário de ações
@@ -145,6 +151,7 @@ Tudo fica no `.env`:
 | `AGENT_MAX_BUDGET_USD` | `2.00` | teto de gasto **por pedido**: ao atingir, ele para |
 | `AGENT_MAX_TURNS` | `40` | máximo de passos por pedido |
 | `AGENT_WEB_PORT` | `8000` | porta da interface web de testes |
+| `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 

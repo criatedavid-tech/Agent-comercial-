@@ -38,8 +38,20 @@ Princípio central: **um único cérebro (`Agent`), várias entradas e várias f
 ### `agente/memory.py`
 - `load(memory_dir)`: lê todos os `memory/*.md` em ordem alfabética e devolve um bloco `<arquivo nome="...">…</arquivo>` para o system prompt. Arquivos vazios são ignorados.
 
+### `agente/knowledge.py`
+- `AREAS`: as áreas e o que cabe em cada uma (vai na descrição da ferramenta).
+- `KnowledgeBase(root)`: cria as pastas e refaz o índice a partir dos `.md` (`reindex()`).
+  - `save(area, title, content, tags, nicho, source)`: valida a área, bloqueia segredos (`find_secret`), grava `conhecimento/<área>[/<nicho>]/AAAA-MM-DD-titulo.md` e indexa.
+  - `search(query, area)`: busca FTS5 (bm25, título pesa mais que corpo) sem palavras vazias.
+  - `summary()`: resumo por área para o system prompt.
+
+### `agente/human.py`
+- `HumanBridge(timeout_min)`: ponte humana. `request(reason, link)` avisa a interface pelo callback `notify` e espera `answer(id, text)` ou o tempo limite; `cancel_all()` libera quem estiver esperando quando a conversa fecha.
+- A web lê o WebSocket numa tarefa separada, para a resposta chegar enquanto o agente está no meio do pedido.
+
 ### `agente/core.py`
-- `TOOLS`: ferramentas liberadas (`Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`).
+- `TOOLS`: ferramentas liberadas (`Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`) mais as da base de conhecimento.
+- `knowledge_server(kb)`: servidor MCP dentro do processo com `salvar_conhecimento` e `buscar_conhecimento`.
 - `SYSTEM_PROMPT`: personalidade, regras de trabalho, regra contra prompt injection, data e hora atuais e a memória.
 - `Event(kind, text)`: o que a interface recebe: `text` (fala do agente), `tool` (ferramenta usada) e `result` (fim do pedido, com passos e custo).
 - `Agent`:

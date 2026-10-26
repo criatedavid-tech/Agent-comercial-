@@ -57,6 +57,16 @@ jq -r 'select(.type=="tool" and .name=="Bash") | .input.command' logs/*.jsonl
 jq 'select(.type=="result" and .subtype!="success")' logs/*.jsonl
 ```
 
+## Quando ele precisar de você
+
+Alguns bloqueios só uma pessoa resolve: CAPTCHA, verificação "você é um robô?", código de dois fatores, login, ou uma decisão sua. O agente **não tenta burlar** nada disso: ele chama `pedir_ajuda_humana` e pausa aquela tarefa.
+
+- **Na web:** aparece o cartão **"O agente precisa de você"** com o motivo e o link, e o título da aba muda para "⚠ Precisa de você". Resolva no link e clique em **Resolvido, continuar**. Se o site pediu algo para digitar (um código, uma escolha), escreva no campo antes de clicar. **Não consegui** avisa que ele deve seguir sem isso.
+- **No terminal:** a pergunta aparece em amarelo; aperte Enter quando resolver ou escreva a resposta.
+- Sem resposta em `AGENT_HELP_TIMEOUT_MIN` minutos, ele continua sem isso e conta no final.
+
+Hoje você resolve no seu próprio navegador. Quando o agente tiver navegador próprio (etapa 4), a verificação será feita dentro da sessão dele, e quando o WhatsApp entrar (etapa 2) o aviso vai para lá.
+
 ## Quando ele travar ou errar
 
 - **Parou por teto de gasto ou de passos:** divida o pedido em partes ou aumente o limite no `.env`.

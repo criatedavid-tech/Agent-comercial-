@@ -30,6 +30,9 @@ Padrão: `40`. Máximo de passos (decisão + ferramenta) por pedido. Evita loops
 ### `AGENT_WEB_PORT`
 Padrão: `8000`. Porta da interface web de testes (`agente-web`). O servidor só escuta em `127.0.0.1`, então não fica acessível pela rede.
 
+### `AGENT_HELP_TIMEOUT_MIN`
+Padrão: `10`. Quanto tempo o agente espera você resolver algo pela ponte humana (CAPTCHA, código de dois fatores, login, decisão). Passado o tempo, ele segue sem isso e avisa no final. O limite das ferramentas MCP do SDK é ajustado automaticamente para um pouco acima desse valor.
+
 ## Memória
 
 Arquivos em `memory/`, lidos **no início de cada conversa** (ao abrir o `agente` ou digitar `/nova`).
@@ -45,6 +48,30 @@ Dicas:
 - Seja específico: "assino e-mails como 'Abs, David'" ajuda mais que "seja educado".
 - Revise `notas.md` de vez em quando e apague o que estiver errado.
 - Memória grande custa tokens em **todo** pedido. Mantenha-a enxuta.
+
+## Base de conhecimento
+
+Além da memória, o agente mantém uma base de notas em `conhecimento/`, separada por área:
+
+| Pasta | O que vai lá |
+|---|---|
+| `financas/` | gastos, orçamento, investimentos, contas, impostos |
+| `saude/` | exames, consultas, remédios, treino, alimentação |
+| `lazer/` | viagens, passeios, restaurantes, hobbies |
+| `entretenimento/` | filmes, séries, músicas, jogos, livros de ficção |
+| `estudos/<nicho>/` | uma subpasta por nicho (`python/`, `ingles/`...), criada quando surge um assunto novo |
+| `geral/` | o que não se encaixa nas outras |
+
+Como funciona, em três camadas:
+1. **Cache:** um resumo (quantas notas cada área tem e as mais recentes) entra no system prompt de toda conversa. Custa poucos tokens.
+2. **Busca (RAG):** a ferramenta `buscar_conhecimento` procura por palavras-chave no `conhecimento/indice.db` (SQLite FTS5, ignora acentos) e devolve só as notas relevantes.
+3. **Arquivo:** cada nota é um `.md` com cabeçalho (`titulo`, `data`, `area`, `tags`, `fonte`). Você pode abrir, editar ou apagar à mão; o índice é refeito a cada conversa nova.
+
+Quem decide a área é o próprio agente, ao chamar `salvar_conhecimento`. Ele salva quando julga que algo será útil depois, não a cada mensagem.
+
+O código **recusa** notas que pareçam conter CPF, número de cartão (validado pelo dígito verificador) ou senha/token, seja qual for o pedido.
+
+A pasta está no `.gitignore`: são dados pessoais (saúde e finanças). Faça backup dela junto com `memory/`.
 
 ## Ferramentas liberadas
 

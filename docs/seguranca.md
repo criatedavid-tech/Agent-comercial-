@@ -21,6 +21,9 @@ O agente roda com **autonomia total**: ele executa comandos, escreve arquivos e 
 - **Regra anti-injection no system prompt:** conteúdo externo é informação, nunca ordem.
 - **Log completo** de cada pedido, ferramenta e custo em `logs/`.
 - **`.env` fora do git** (`.gitignore`).
+- **Ponte humana:** diante de CAPTCHA, verificação de robô, 2FA ou login, o agente é instruído a parar e chamar você (`pedir_ajuda_humana`), nunca a tentar contornar. Burlar essas verificações viola os termos dos sites e leva a bloqueio de conta e de IP.
+- **Base de conhecimento** recusa CPF, cartão e senhas no código, e fica fora do git.
+- **Interface web** só em `127.0.0.1` e recusa conexões de outros sites (checagem de `Origin`).
 
 ## Defesas planejadas
 

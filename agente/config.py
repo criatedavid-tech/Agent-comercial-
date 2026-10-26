@@ -15,10 +15,12 @@ class Config:
     model: str
     workdir: Path
     memory_dir: Path
+    knowledge_dir: Path
     logs_dir: Path
     max_budget_usd: float
     max_turns: int
     web_port: int
+    help_timeout_min: float
 
 
 def load() -> Config:
@@ -29,11 +31,13 @@ def load() -> Config:
         model=os.getenv("AGENT_MODEL", "claude-opus-5-5"),
         workdir=workdir,
         memory_dir=ROOT / "memory",
+        knowledge_dir=ROOT / "conhecimento",
         logs_dir=ROOT / "logs",
         max_budget_usd=float(os.getenv("AGENT_MAX_BUDGET_USD", "2.00")),
         max_turns=int(os.getenv("AGENT_MAX_TURNS", "40")),
         web_port=int(os.getenv("AGENT_WEB_PORT", "8000")),
+        help_timeout_min=float(os.getenv("AGENT_HELP_TIMEOUT_MIN", "10")),
     )
-    for d in (cfg.workdir, cfg.memory_dir, cfg.logs_dir):
+    for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
     return cfg

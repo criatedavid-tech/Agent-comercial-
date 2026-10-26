@@ -50,6 +50,13 @@
   .msg.tool { background: var(--tool); color: var(--muted); font: 13px/1.4 ui-monospace, Consolas, monospace; padding: 6px 10px; }
   .msg.result, .msg.ready { color: var(--muted); font-size: 13px; padding: 2px 4px; }
   .msg.error { color: var(--error); border: 1px solid var(--error); }
+  .msg.help { background: var(--warn-bg); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .msg.help b { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  .msg.help a { color: var(--accent); word-break: break-all; }
+  .msg.help .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .msg.help input { flex: 1 1 200px; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+  .msg.help .ok { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .msg.help.done { opacity: .6; }
   .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
   form { border-top: 1px solid var(--border); background: var(--panel); padding: 12px 16px; }
   .row { max-width: 820px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
@@ -86,10 +93,38 @@ function render(md) {
   return div.outerHTML;
 }
 
-function add(kind, text) {
+// Pedido de ajuda humana: o agente pausou a tarefa e espera esta resposta.
+function helpCard(el, ev) {
+  el.innerHTML = '<b>O agente precisa de você</b><div class="reason"></div><div class="link"></div>' +
+    '<div class="actions"><input placeholder="código, escolha ou observação (opcional)">' +
+    '<button class="ok">Resolvido, continuar</button><button class="no">Não consegui</button></div>';
+  el.querySelector(".reason").textContent = ev.text;
+  if (/^https?:\/\//.test(ev.link || "")) {
+    const a = document.createElement("a");
+    a.href = ev.link; a.textContent = ev.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+    el.querySelector(".link").appendChild(a);
+  }
+  const field = el.querySelector("input");
+  const reply = (text) => {
+    ws.send(JSON.stringify({ type: "help_reply", id: ev.id, text }));
+    el.classList.add("done");
+    el.querySelectorAll("button, input").forEach(x => x.disabled = true);
+    document.title = "Agente pessoal";
+  };
+  el.querySelector(".ok").onclick = () => reply(field.value.trim() ? "resolvido: " + field.value.trim() : "resolvido");
+  el.querySelector(".no").onclick = () => reply("não consegui" + (field.value.trim() ? ": " + field.value.trim() : ""));
+  field.onkeydown = (e) => { if (e.key === "Enter") el.querySelector(".ok").click(); };
+  log.appendChild(el);
+  $("scroll").scrollTop = $("scroll").scrollHeight;
+  document.title = "⚠ Precisa de você · Agente pessoal";
+  field.focus();
+}
+
+function add(kind, text, extra) {
   log.querySelector(".empty")?.remove();
   const el = document.createElement("div");
   el.className = "msg " + kind;
+  if (kind === "help") return helpCard(el, extra);
   if (kind === "text") el.innerHTML = render(text);
   else el.textContent = kind === "tool" ? "⚙ " + text : text;
   log.appendChild(el);
@@ -107,7 +142,7 @@ function connect() {
   ws.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     if (ev.kind === "ready") { ready = true; $("dot").classList.add("on"); if (ev.text) add("ready", ev.text); }
-    else add(ev.kind, ev.text);
+    else add(ev.kind, ev.text, ev);
     if (ev.kind === "result" || ev.kind === "error") busy = false;
     setState();
   };

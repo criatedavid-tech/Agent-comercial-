@@ -10,6 +10,19 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [x] Log diário em JSONL
 - [x] Chat no terminal
 
+## ✅ Extra: Base de conhecimento
+- [x] Notas por área (finanças, saúde, lazer, entretenimento, estudos por nicho, geral)
+- [x] Busca por palavras-chave (SQLite FTS5) e resumo por área no prompt
+- [x] Bloqueio de CPF, cartão e senhas no código
+- [ ] Busca semântica (embeddings) quando a base crescer
+- [ ] Classificação de área com Jev (TypeSafe), se o agente errar muito
+
+## ✅ Extra: Ponte humana
+- [x] Ferramenta `pedir_ajuda_humana`: pausa a tarefa e chama você (CAPTCHA, 2FA, login, decisões)
+- [x] Cartão na interface web e pergunta no terminal, com tempo limite
+- [ ] Aviso pelo WhatsApp (etapa 2)
+- [ ] Resolver dentro do navegador do agente (etapa 4)
+
 ## ⬜ Etapa 2: WhatsApp e proatividade
 - [ ] Servidor web (FastAPI) com webhook da **WhatsApp Cloud API** oficial
 - [ ] Só responde ao seu número (lista de permitidos)
