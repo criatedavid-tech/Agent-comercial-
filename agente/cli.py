@@ -42,6 +42,8 @@ async def run() -> None:
             async for event in agent.ask(text):
                 if event.kind == "text":
                     console.print(Markdown(event.text))
+                elif event.kind == "blocked":
+                    console.print(f"[red]🛡 bloqueado: {event.text}[/red]")
                 elif event.kind == "tool":
                     console.print(f"[dim]⚙ {event.text}[/dim]")
                 else:

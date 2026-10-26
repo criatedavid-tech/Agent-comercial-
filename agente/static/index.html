@@ -50,6 +50,7 @@
   .msg.tool { background: var(--tool); color: var(--muted); font: 13px/1.4 ui-monospace, Consolas, monospace; padding: 6px 10px; }
   .msg.result, .msg.ready { color: var(--muted); font-size: 13px; padding: 2px 4px; }
   .msg.error { color: var(--error); border: 1px solid var(--error); }
+  .msg.blocked { color: var(--error); background: var(--tool); font: 13px/1.4 ui-monospace, Consolas, monospace; padding: 6px 10px; }
   .msg.help { background: var(--warn-bg); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
   .msg.help b { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
   .msg.help a { color: var(--accent); word-break: break-all; }
@@ -126,7 +127,7 @@ function add(kind, text, extra) {
   el.className = "msg " + kind;
   if (kind === "help") return helpCard(el, extra);
   if (kind === "text") el.innerHTML = render(text);
-  else el.textContent = kind === "tool" ? "⚙ " + text : text;
+  else el.textContent = kind === "tool" ? "⚙ " + text : kind === "blocked" ? "🛡 bloqueado: " + text : text;
   log.appendChild(el);
   $("scroll").scrollTop = $("scroll").scrollHeight;
 }

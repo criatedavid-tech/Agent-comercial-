@@ -22,6 +22,9 @@ python -c "import agente.core"           # checagem rápida de import
 - `agente/memory.py`: `load()` junta `memory/*.md` num bloco para o system prompt.
 - `agente/knowledge.py`: `KnowledgeBase`, notas por área em `conhecimento/` (fora do git) com índice SQLite FTS5. Exposta ao agente como as ferramentas MCP `salvar_conhecimento` e `buscar_conhecimento` (`knowledge_server()` em `core.py`); o resumo por área entra no system prompt.
 - `agente/human.py`: `HumanBridge`, a ponte humana. A ferramenta `pedir_ajuda_humana` (`human_server()` em `core.py`) chama `request()`, que avisa a interface por `notify` e espera `answer()` ou o tempo limite. Cada interface define `agent.human.notify`; o agente nunca contorna CAPTCHA ou verificação de robô.
+- `agente/guard.py`: hooks de segurança (`PreToolUse`). `check()` barra comandos perigosos, arquivos de credenciais e escrita fora de `workspace/`, `memory/` e `conhecimento/`; o bloqueio vira `Event("blocked")`. É trava contra erro e injection, não sandbox.
+- `agente/subagents.py`: `AGENTS` (`pesquisador`, `organizador`, `verificador`), cada um com prompt, ferramentas e modelo próprios; o principal delega pela ferramenta `Agent`.
+- `plugin/`: plugin local com as skills (`plugin/skills/<nome>/SKILL.md`), carregadas por `plugins` + `skills` em `core.py`. `setting_sources=[]` impede herdar skills e configurações pessoais do Claude Code da máquina.
 - `agente/cli.py`: interface de terminal com `rich`; consome os eventos de `Agent.ask()`.
 - `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; página em `agente/static/index.html`.
 
@@ -31,6 +34,7 @@ python -c "import agente.core"           # checagem rápida de import
 - Identificadores no código em inglês (`Agent`, `ask`, `load`), docstrings e comentários em português.
 - Cada nova interface (WhatsApp, Telegram etc.) deve **consumir `Agent.ask()`** e não duplicar o loop.
 - Cada nova capacidade entra como ferramenta (MCP ou SDK tool) registrada em `core.py`, com documentação em `docs/`.
+- Nova regra de segurança entra em `guard.py` com caso de teste (bloqueia e libera). Nova skill: pasta em `plugin/skills/` com `SKILL.md` (`name` e `description` dizem quando usar). Novo subagente: entrada em `AGENTS`.
 - Nunca commitar `.env`, `logs/` ou `workspace/` (já estão no `.gitignore`).
 - Ao adicionar variável de configuração: atualizar `config.py`, `.env.example`, `README.md` e `docs/configuracao.md`.
 

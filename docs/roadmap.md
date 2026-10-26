@@ -23,6 +23,13 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [ ] Aviso pelo WhatsApp (etapa 2)
 - [ ] Resolver dentro do navegador do agente (etapa 4)
 
+## ✅ Extra: Recursos do Claude Code no agente
+- [x] Hooks de segurança (`PreToolUse`) com bloqueios no código
+- [x] Subagentes: pesquisador, organizador, verificador
+- [x] Skills por assunto: finanças, saúde, estudos, compras online
+- [ ] Checkpoints de arquivos (desfazer edições do agente)
+- [ ] Retomar conversas antigas (`resume`)
+
 ## ⬜ Etapa 2: WhatsApp e proatividade
 - [ ] Servidor web (FastAPI) com webhook da **WhatsApp Cloud API** oficial
 - [ ] Só responde ao seu número (lista de permitidos)

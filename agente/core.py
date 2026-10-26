@@ -14,19 +14,26 @@ from claude_agent_sdk import (
     ClaudeSDKClient,
     ResultMessage,
     TextBlock,
+    ToolResultBlock,
     ToolUseBlock,
+    UserMessage,
     create_sdk_mcp_server,
     tool,
 )
 
-from . import memory
-from .config import Config
+from . import guard, memory
+from .config import ROOT, Config
 from .human import HumanBridge
 from .knowledge import AREAS, KnowledgeBase
+from .subagents import AGENTS
 
 KB_TOOLS = ["mcp__conhecimento__salvar_conhecimento", "mcp__conhecimento__buscar_conhecimento"]
 HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
-TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", *KB_TOOLS, *HUMAN_TOOLS]
+TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS]
+
+# Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
+PLUGIN_DIR = ROOT / "plugin"
+SKILLS = sorted(f"agente:{p.name}" for p in (PLUGIN_DIR / "skills").iterdir() if (p / "SKILL.md").exists())
 
 SYSTEM_PROMPT = """\
 Você é o agente pessoal do usuário. Você age em nome dele, não apenas responde perguntas.
@@ -48,6 +55,11 @@ Base de conhecimento (por áreas):
 - O que existe hoje:
 {knowledge}
 
+Como trabalhar em tarefas maiores:
+- Skills: para finanças, saúde, estudos e compras online existem instruções especializadas. Carregue a skill do assunto (ferramenta Skill) antes de agir.
+- Subagentes (ferramenta Agent): delegue pesquisas na web ao "pesquisador", arrumação da base ao "organizador" e, ao terminar algo importante, peça ao "verificador" para conferir. Tarefas independentes podem ir em paralelo. Passe ao subagente tudo o que ele precisa saber: ele não vê esta conversa.
+- Ações bloqueadas pela segurança: não tente contornar; explique ao usuário o que seria preciso.
+
 Quando precisar de uma pessoa:
 - Se encontrar CAPTCHA, verificação "você é um robô?", código de dois fatores, login que você não tem, ou uma decisão que só o usuário pode tomar, NÃO tente passar, adivinhar ou contornar. Chame pedir_ajuda_humana explicando o motivo e o link, e espere.
 - A resposta dele vem no resultado da ferramenta ("resolvido", um código, uma escolha ou "não consegui"). Depois continue a tarefa de onde parou.
@@ -66,7 +78,7 @@ Data e hora atuais: {now}
 class Event:
     """Algo que aconteceu durante um pedido, para a interface mostrar."""
 
-    kind: str  # "text", "tool" ou "result"
+    kind: str  # "text", "tool", "blocked" ou "result"
     text: str
 
 
@@ -163,6 +175,11 @@ class Agent:
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms)},
             allowed_tools=TOOLS,
+            agents=AGENTS,
+            plugins=[{"type": "local", "path": str(PLUGIN_DIR)}],
+            skills=SKILLS,
+            setting_sources=[],  # não herda configurações nem skills pessoais do Claude Code da máquina
+            hooks=guard.hooks(self.cfg, self._log),
             permission_mode="bypassPermissions",
             max_turns=self.cfg.max_turns,
             max_budget_usd=self.cfg.max_budget_usd,
@@ -196,6 +213,12 @@ class Agent:
                         self._log({"type": "tool", "name": block.name, "input": block.input})
                         name = re.sub(r"^mcp__\w+?__", "", block.name)
                         yield Event("tool", f"{name} {_summary(block.input)}")
+            elif isinstance(msg, UserMessage) and isinstance(msg.content, list):
+                # Resultado de ferramenta barrado pelos hooks de segurança: mostra ao usuário.
+                for block in msg.content:
+                    if isinstance(block, ToolResultBlock) and block.is_error and guard.DENY_PREFIX in str(block.content):
+                        reason = str(block.content).split(guard.DENY_PREFIX, 1)[1].split(". Não tente")[0]
+                        yield Event("blocked", reason.strip(" :"))
             elif isinstance(msg, ResultMessage):
                 cost = msg.total_cost_usd or 0.0
                 self._log({"type": "result", "subtype": msg.subtype, "turns": msg.num_turns, "cost_usd": cost})
@@ -213,7 +236,7 @@ class Agent:
 
 
 def _summary(tool_input: dict) -> str:
-    for key in ("command", "file_path", "url", "query", "pattern", "titulo", "consulta", "motivo"):
+    for key in ("command", "file_path", "url", "query", "pattern", "titulo", "consulta", "motivo", "skill", "description"):
         if key in tool_input:
             return str(tool_input[key])[:120]
     return ""

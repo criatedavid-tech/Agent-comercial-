@@ -49,6 +49,12 @@ Princípio central: **um único cérebro (`Agent`), várias entradas e várias f
 - `HumanBridge(timeout_min)`: ponte humana. `request(reason, link)` avisa a interface pelo callback `notify` e espera `answer(id, text)` ou o tempo limite; `cancel_all()` libera quem estiver esperando quando a conversa fecha.
 - A web lê o WebSocket numa tarefa separada, para a resposta chegar enquanto o agente está no meio do pedido.
 
+### `agente/guard.py`
+- `check(tool, args, cfg)`: devolve o motivo do bloqueio ou `None`. `hooks(cfg, log)`: monta o `PreToolUse` que nega com `permissionDecision: "deny"` e registra no log.
+
+### `agente/subagents.py` e `plugin/`
+- `AGENTS`: definições dos subagentes. `plugin/skills/*/SKILL.md`: skills carregadas sob demanda.
+
 ### `agente/core.py`
 - `TOOLS`: ferramentas liberadas (`Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`) mais as da base de conhecimento.
 - `knowledge_server(kb)`: servidor MCP dentro do processo com `salvar_conhecimento` e `buscar_conhecimento`.

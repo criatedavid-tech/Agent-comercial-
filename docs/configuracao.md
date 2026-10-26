@@ -77,6 +77,20 @@ A pasta está no `.gitignore`: são dados pessoais (saúde e finanças). Faça b
 
 Definidas em `agente/core.py` (`TOOLS`). Para tirar uma capacidade, remova-a da lista. Exemplo: sem `Bash` ele não roda comandos.
 
+## Subagentes
+
+Definidos em `agente/subagents.py`. Cada um tem contexto limpo, ferramentas próprias e roda no modelo `sonnet` (mais barato):
+
+| Subagente | Para quê | Ferramentas |
+|---|---|---|
+| `pesquisador` | pesquisar na web e comparar, com fontes | WebSearch, WebFetch, Read, buscar_conhecimento |
+| `organizador` | juntar notas repetidas, corrigir área, resumir | Read, Glob, Grep, buscar e salvar conhecimento |
+| `verificador` | conferir arquivos, contas e afirmações antes de entregar | Read, Glob, Grep, Bash, WebFetch |
+
+## Skills
+
+Ficam em `plugin/skills/<nome>/SKILL.md`. Só o nome e a descrição ficam sempre visíveis; o conteúdo entra no contexto quando o assunto aparece. Hoje: `financas`, `saude`, `estudos`, `compras-online`. Para criar outra, copie uma pasta, mude `name`, `description` (diga **quando** usar) e as instruções; ela é carregada automaticamente na próxima conversa.
+
 ## Custos
 
 Você paga por token na API da Anthropic. Ordem de grandeza:

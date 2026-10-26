@@ -105,6 +105,9 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Ler páginas | `WebFetch` | "leia este link e me diga o preço" |
 | Organizar o que aprende | `salvar_conhecimento` | guarda notas por área: finanças, saúde, lazer, entretenimento, estudos (por nicho) e geral |
 | Consultar o que já sabe | `buscar_conhecimento` | "quanto gastei com aluguel?" busca nas notas antes de responder |
+| Delegar | subagentes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
+| Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
+| Se proteger | hooks de segurança | barra `rm -rf /`, script baixado e executado, leitura do `.env`, escrita fora das pastas dele |
 | Chamar você quando trava | `pedir_ajuda_humana` | CAPTCHA, "você é um robô?", código 2FA, login: ele pausa, te chama e continua quando você resolve |
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
@@ -125,9 +128,12 @@ agent/
 │   ├── memory.py          ← carrega a memória de longo prazo
 │   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
 │   ├── human.py           ← ponte humana: pausa e pede ajuda quando trava
+│   ├── guard.py           ← hooks de segurança (bloqueios no código)
+│   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
 │   └── static/index.html  ← página do chat web
+├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)
 ├── memory/
 │   ├── perfil.md          ← quem é você (preencha!)
 │   └── notas.md           ← o que o agente aprendeu sozinho

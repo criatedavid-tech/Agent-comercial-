@@ -92,6 +92,20 @@ if valor > LIMITE_COMPRA:
 
 O SDK também aceita **hooks** (`PreToolUse`) para inspecionar e bloquear qualquer chamada de ferramenta antes de executar, útil para regras globais (ex.: proibir `rm -rf /`).
 
+## Adicionar uma skill
+
+1. Crie `plugin/skills/<nome>/SKILL.md` com cabeçalho `name` e `description`. A descrição decide quando o agente carrega a skill: diga o assunto e os gatilhos.
+2. Escreva instruções curtas e acionáveis: o que consultar antes, como fazer, o que nunca fazer, o que salvar depois.
+3. Nada de segredos na skill: o agente pode ler os arquivos.
+
+## Adicionar um subagente
+
+Inclua uma entrada em `AGENTS` (`agente/subagents.py`) com `description` (quando o principal deve delegar), `prompt`, `tools` (o mínimo necessário), `mcpServers` se usar a base de conhecimento, `model` e `maxTurns`.
+
+## Adicionar uma regra de segurança
+
+Acrescente o padrão em `BLOCKED_COMMANDS` (ou a regra em `check()`), em `agente/guard.py`, e teste os dois lados: um comando que deve ser barrado e um parecido que deve passar. Regras amplas demais travam o agente em tarefas normais.
+
 ## Checklist para cada mudança
 
 - [ ] Código segue o padrão (identificadores em inglês, textos em português)
