@@ -1,6 +1,7 @@
 """Hooks de segurança: cada regra precisa bloquear o perigoso e liberar o parecido inofensivo."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -72,7 +73,10 @@ def test_writes_only_inside_allowed_folders(cfg):
 
     assert guard.check("Write", {"file_path": "../agente/core.py"}, cfg)
     assert guard.check("Edit", {"file_path": str(cfg.workdir.parent / "outro" / "x.py")}, cfg)
-    assert guard.check("Write", {"file_path": "C:/Windows/System32/x.dll"}, cfg)
+    # caminho absoluto do sistema que vale nos dois: C:\Windows\... no Windows, /Windows/... no Linux
+    system_file = Path(cfg.workdir.anchor, "Windows", "System32", "x.dll")
+    assert guard.check("Write", {"file_path": str(system_file)}, cfg)
+    assert guard.check("Write", {"file_path": str(Path(cfg.workdir.anchor, "etc", "cron.d", "x"))}, cfg)
 
 
 def test_other_tools_pass(cfg):

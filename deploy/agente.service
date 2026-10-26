@@ -1,0 +1,43 @@
+# Agente pessoal: servidor web, agenda e webhook do WhatsApp.
+# Instalado em /etc/systemd/system/ pelo deploy/provisionar.sh.
+[Unit]
+Description=Agente pessoal (web, agenda e WhatsApp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agente
+Group=agente
+WorkingDirectory=/opt/agente
+Environment=HOME=/var/lib/agente
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/agente/.venv/bin/agente-web
+Restart=always
+RestartSec=5
+
+# --- Prisão do processo -------------------------------------------------------------
+# O agente roda comandos sem pedir confirmação. Os hooks barram o óbvio; aqui o próprio
+# sistema operacional limita o estrago: sem privilégios novos, sistema de arquivos só leitura,
+# escrita apenas nas pastas de dados. O código, o venv e o .env ficam só leitura para ele.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/agente /var/lib/agente
+# O "-" na frente: se o caminho não existir (ex.: .env ainda não criado), o serviço sobe mesmo assim.
+ReadOnlyPaths=-/opt/agente/agente -/opt/agente/plugin -/opt/agente/deploy -/opt/agente/.venv -/opt/agente/.git -/opt/agente/.env -/opt/agente/pyproject.toml
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+# O Chromium e o Claude Code precisam de memória; acima disso o systemd reinicia em vez de travar a VPS.
+MemoryMax=1800M
+
+[Install]
+WantedBy=multi-user.target

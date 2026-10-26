@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup diário do agente pessoal (03:30)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Se a VPS estava desligada às 03:30, roda assim que ligar.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

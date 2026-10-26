@@ -1,0 +1,17 @@
+# Confere se o agente está no ar e avisa no WhatsApp quando cai e quando volta. Disparado por agente-vigia.timer.
+[Unit]
+Description=Vigia do agente pessoal
+
+[Service]
+Type=oneshot
+User=agente
+Group=agente
+WorkingDirectory=/opt/agente
+Environment=HOME=/var/lib/agente
+ExecStart=/opt/agente/.venv/bin/agente-vigia
+# O vigia "falha" de propósito quando o agente está fora; isso não deve marcar o vigia como quebrado.
+SuccessExitStatus=1
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/agente/logs

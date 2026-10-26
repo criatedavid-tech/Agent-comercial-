@@ -22,6 +22,8 @@ dev = [
 [project.scripts]
 agente = "agente.cli:main"
 agente-web = "agente.web:main"
+agente-backup = "agente.backup:main"
+agente-vigia = "agente.vigia:main"
 
 [build-system]
 requires = ["setuptools>=68"]

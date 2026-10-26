@@ -9,6 +9,10 @@ Limites rígidos, no código: intervalo mínimo de 15 minutos e no máximo 30 ta
 para uma tarefa mal configurada não gastar a API sem parar.
 """
 
+# AgendaStore tem um método chamado list: sem isto, no Python 3.11/3.12 a anotação
+# list[Task] dentro da classe aponta para o método e o módulo nem carrega.
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import closing, contextmanager

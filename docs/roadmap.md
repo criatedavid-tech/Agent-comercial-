@@ -69,13 +69,14 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [ ] Voz natural (TTS) e transcrição (STT)
 - [ ] "Ligue para a clínica e remarque minha consulta"
 
-## ⬜ Etapa 7: Produção na VPS
-- [ ] Script de provisionamento (usuário, firewall, SSH, fail2ban)
-- [ ] Serviço systemd com reinício automático
-- [ ] Caddy com HTTPS automático para os webhooks
-- [ ] Backups de `memory/` e do banco
-- [ ] Monitoramento: alerta no WhatsApp se cair
-- [ ] Painel web simples com logs e gastos
+## ✅ Etapa 7: Produção na VPS
+- [x] Script de provisionamento (usuário, firewall, SSH, fail2ban, atualizações automáticas)
+- [x] Serviço systemd com reinício automático e prisão do processo
+- [x] Caddy com HTTPS automático, expondo só o webhook
+- [x] Backups diários (memória, conhecimento, agenda, conversas) com rotação
+- [x] Vigia: alerta no WhatsApp se cair e quando voltar
+- [x] Painel web (acesso pela VPS via túnel SSH)
+- [ ] Cópia automática dos backups para fora da VPS
 
 ## Ideias futuras
 - Vários agentes especializados (vendas, finanças, conteúdo) coordenados pelo principal

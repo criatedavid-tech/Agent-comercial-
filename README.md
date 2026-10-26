@@ -138,10 +138,13 @@ agent/
 │   ├── history.py         ← histórico de conversas (retomar, painel)
 │   ├── browser.py         ← navegador próprio (Playwright, perfil persistente)
 │   ├── whatsapp.py        ← canal WhatsApp (Cloud API: webhook, envio, comandos)
+│   ├── backup.py          ← agente-backup: cópia consistente dos dados, com rotação
+│   ├── vigia.py           ← agente-vigia: avisa no WhatsApp quando cai e quando volta
 │   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
 │   └── static/            ← index.html (chat) e painel.html (painel)
+├── deploy/                ← VPS: provisionar.sh, atualizar.sh, serviços systemd, Caddyfile
 ├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)
 ├── memory/
 │   ├── perfil.md          ← quem é você (preencha!)
@@ -188,6 +191,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Uso](docs/uso.md) | exemplos de pedidos, boas práticas, leitura dos logs |
 | [Segurança](docs/seguranca.md) | riscos reais (prompt injection, chaves, gastos) e como se proteger |
 | [Roadmap](docs/roadmap.md) | as 7 etapas, com o que entra em cada uma |
+| [VPS](docs/vps.md) | colocar em produção: instalação, serviço, HTTPS, backups, vigia |
 | [WhatsApp](docs/whatsapp.md) | passo a passo na Meta, comandos, regra das 24 h e segurança |
 | [Desenvolvimento](docs/desenvolvimento.md) | como adicionar ferramentas, conectores e canais |
 | [Solução de problemas](docs/problemas.md) | erros comuns e como resolver |

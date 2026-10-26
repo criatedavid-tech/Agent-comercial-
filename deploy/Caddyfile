@@ -1,0 +1,20 @@
+# HTTPS automático (Let's Encrypt) para o webhook do WhatsApp.
+# O provisionar.sh troca DOMINIO_AQUI pelo seu domínio e instala em /etc/caddy/Caddyfile.
+#
+# Só o webhook fica público. Painel, chat e APIs NÃO são expostos: acesse pela VPS com um
+# túnel SSH (ssh -L 8000:127.0.0.1:8000 usuario@vps e abra http://127.0.0.1:8000 no seu computador).
+DOMINIO_AQUI {
+	encode gzip
+
+	handle /whatsapp/webhook {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+
+	log {
+		output file /var/log/caddy/agente.log
+	}
+}

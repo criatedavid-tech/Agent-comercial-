@@ -1,0 +1,15 @@
+# Backup diário dos dados (memória, conhecimento, agenda, conversas). Disparado por agente-backup.timer.
+[Unit]
+Description=Backup do agente pessoal
+
+[Service]
+Type=oneshot
+User=agente
+Group=agente
+WorkingDirectory=/opt/agente
+Environment=HOME=/var/lib/agente
+ExecStart=/opt/agente/.venv/bin/agente-backup --destino /var/lib/agente/backups --manter 14
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/agente
