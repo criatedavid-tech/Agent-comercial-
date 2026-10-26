@@ -5,3 +5,4 @@ __pycache__/
 logs/
 workspace/
 conhecimento/
+.pytest_cache/

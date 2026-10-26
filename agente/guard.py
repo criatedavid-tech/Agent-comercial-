@@ -18,7 +18,7 @@ from .config import Config
 BLOCKED_COMMANDS = [
     (r"\brm\s+(-\w*\s+)*-\w*[rf]\w*\s+(-\w+\s+)*(/|~|\$HOME|/\*|[a-z]:[\\/]?)(\s|$|\*)", "apagar a raiz ou a pasta do usuário"),
     (r"(?i)\b(remove-item|rd|rmdir|del)\b.*\s(-recurse|/s)\b.*\s[a-z]:[\\/]?(\s|$|\*)", "apagar um disco inteiro"),
-    (r"(?i)\b(mkfs|format(\.com)?\s+[a-z]:|diskpart)\b", "formatar disco"),
+    (r"(?i)\b(mkfs|diskpart)\b|\bformat(\.com)?\s+[a-z]:", "formatar disco"),
     (r"\bdd\s+.*\bof=/dev/", "escrever direto num disco"),
     (r"(?i)\b(shutdown|reboot|halt|poweroff|stop-computer|restart-computer)\b", "desligar ou reiniciar a máquina"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", "fork bomb"),

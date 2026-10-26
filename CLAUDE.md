@@ -13,7 +13,10 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 agente                                   # chat no terminal (precisa de ANTHROPIC_API_KEY no .env)
 python -c "import agente.core"           # checagem rápida de import
+pip install -e ".[dev]" && pytest        # testes (sem chave, sem custo)
 ```
+
+Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent` (caminhos longos impedem `.venv` dentro da pasta do projeto).
 
 ## Mapa do código
 
@@ -34,7 +37,8 @@ python -c "import agente.core"           # checagem rápida de import
 - Identificadores no código em inglês (`Agent`, `ask`, `load`), docstrings e comentários em português.
 - Cada nova interface (WhatsApp, Telegram etc.) deve **consumir `Agent.ask()`** e não duplicar o loop.
 - Cada nova capacidade entra como ferramenta (MCP ou SDK tool) registrada em `core.py`, com documentação em `docs/`.
-- Nova regra de segurança entra em `guard.py` com caso de teste (bloqueia e libera). Nova skill: pasta em `plugin/skills/` com `SKILL.md` (`name` e `description` dizem quando usar). Novo subagente: entrada em `AGENTS`.
+- Toda mudança de comportamento vem com teste em `tests/`; `pytest` precisa passar antes do commit.
+- Nova regra de segurança entra em `guard.py` com caso de teste em `tests/test_guard.py` (bloqueia e libera). Nova skill: pasta em `plugin/skills/` com `SKILL.md` (`name` e `description` dizem quando usar). Novo subagente: entrada em `AGENTS`.
 - Nunca commitar `.env`, `logs/` ou `workspace/` (já estão no `.gitignore`).
 - Ao adicionar variável de configuração: atualizar `config.py`, `.env.example`, `README.md` e `docs/configuracao.md`.
 

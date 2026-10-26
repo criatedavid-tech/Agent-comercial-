@@ -13,6 +13,7 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     ResultMessage,
+    SdkMcpTool,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
@@ -87,7 +88,17 @@ def _reply(text: str, error: bool = False) -> dict[str, Any]:
 
 
 def knowledge_server(kb: KnowledgeBase):
-    """Ferramentas da base de conhecimento, rodando dentro do processo do agente."""
+    """Servidor MCP da base de conhecimento, rodando dentro do processo do agente."""
+    return create_sdk_mcp_server("conhecimento", tools=knowledge_tools(kb))
+
+
+def human_server(bridge: HumanBridge):
+    """Servidor MCP da ponte humana."""
+    return create_sdk_mcp_server("humano", tools=human_tools(bridge))
+
+
+def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
+    """Ferramentas salvar_conhecimento e buscar_conhecimento."""
     areas = "; ".join(f"{k}: {v}" for k, v in AREAS.items())
 
     @tool(
@@ -128,11 +139,11 @@ def knowledge_server(kb: KnowledgeBase):
             f"## {h.title} ({h.area}) · {h.path.relative_to(kb.root.parent)}\n{h.content[:1500]}" for h in hits
         ))
 
-    return create_sdk_mcp_server("conhecimento", tools=[save, search])
+    return [save, search]
 
 
-def human_server(bridge: HumanBridge):
-    """Ferramenta da ponte humana: pausa a tarefa até o usuário responder."""
+def human_tools(bridge: HumanBridge) -> list[SdkMcpTool]:
+    """Ferramenta pedir_ajuda_humana: pausa a tarefa até o usuário responder."""
 
     @tool(
         "pedir_ajuda_humana",
@@ -147,7 +158,7 @@ def human_server(bridge: HumanBridge):
         answer = await bridge.request(args["motivo"], args.get("link", ""))
         return _reply(f"resposta do usuário: {answer}")
 
-    return create_sdk_mcp_server("humano", tools=[ask_human])
+    return [ask_human]
 
 
 class Agent:

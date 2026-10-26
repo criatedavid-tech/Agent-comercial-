@@ -6,9 +6,25 @@ Como estender o agente. Leia antes [arquitetura.md](arquitetura.md).
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-python -c "import agente.core"   # checagem rápida
+pip install -e ".[dev]"          # inclui pytest e httpx
+pytest                           # roda a suíte (não chama a API, não gasta nada)
 ```
+
+## Testes
+
+Ficam em `tests/` e rodam em poucos segundos, **sem chave e sem custo**: o SDK e o modelo são substituídos por versões falsas.
+
+| Arquivo | O que garante |
+|---|---|
+| `test_guard.py` | cada regra de segurança bloqueia o perigoso e libera o parecido inofensivo |
+| `test_knowledge.py` | salvar por área e nicho, busca sem acentos e sem palavras vazias, bloqueio de segredos, reindexação |
+| `test_human.py` | ponte humana: resposta, tempo limite, cancelamento |
+| `test_core.py` | opções do SDK, ferramentas próprias, skills válidas, subagentes, mensagens virando eventos e log |
+| `test_web.py` | trava de origem, conversa, pedido de ajuda pelo WebSocket, erro do SDK sem derrubar a conexão |
+
+`tests/conftest.py` cria uma `Config` com pastas temporárias: os testes nunca tocam em `memory/`, `conhecimento/` ou `logs/` reais.
+
+O que os testes **não** cobrem: se o modelo de verdade usa as ferramentas e as skills como esperado. Isso só se vê numa conversa real, com a chave.
 
 ## Regra de ouro
 
@@ -109,7 +125,7 @@ Acrescente o padrão em `BLOCKED_COMMANDS` (ou a regra em `check()`), em `agente
 ## Checklist para cada mudança
 
 - [ ] Código segue o padrão (identificadores em inglês, textos em português)
-- [ ] `python -c "import agente.core"` passa
+- [ ] `pytest` passa (e a mudança tem teste novo, se for comportamento novo)
 - [ ] Testado no chat com um pedido real
 - [ ] Variáveis novas em `config.py`, `.env.example` e `docs/configuracao.md`
 - [ ] Documentação atualizada (`README.md`, `docs/roadmap.md`)

@@ -27,6 +27,7 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [x] Hooks de segurança (`PreToolUse`) com bloqueios no código
 - [x] Subagentes: pesquisador, organizador, verificador
 - [x] Skills por assunto: finanças, saúde, estudos, compras online
+- [x] Testes automatizados (pytest, sem chave e sem custo)
 - [ ] Checkpoints de arquivos (desfazer edições do agente)
 - [ ] Retomar conversas antigas (`resume`)
 

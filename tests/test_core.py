@@ -1,0 +1,190 @@
+"""Núcleo do agente: opções do SDK, ferramentas próprias, skills e conversão de mensagens em eventos."""
+
+import asyncio
+import json
+import re
+
+from claude_agent_sdk import (
+    AssistantMessage,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
+
+from agente import guard
+from agente.core import PLUGIN_DIR, SKILLS, TOOLS, Agent, human_tools, knowledge_tools
+from agente.subagents import AGENTS
+
+
+def tool_by_name(tools, name):
+    return next(t for t in tools if t.name == name)
+
+
+def text_of(reply):
+    return reply["content"][0]["text"]
+
+
+# --- opções do SDK -----------------------------------------------------------
+
+def test_options_wire_everything(cfg):
+    options = Agent(cfg)._options()
+    assert options.permission_mode == "bypassPermissions"
+    assert options.max_turns == cfg.max_turns and options.max_budget_usd == cfg.max_budget_usd
+    assert set(options.mcp_servers) == {"conhecimento", "humano"}
+    assert set(options.agents) == {"pesquisador", "organizador", "verificador"}
+    assert options.skills == SKILLS
+    assert options.setting_sources == []  # não herda configurações pessoais do Claude Code
+    assert "PreToolUse" in options.hooks
+    assert options.plugins == [{"type": "local", "path": str(PLUGIN_DIR)}]
+    assert str(cfg.knowledge_dir) in options.add_dirs
+
+
+def test_tool_timeout_is_longer_than_human_wait(cfg):
+    env = Agent(cfg)._options().env
+    wait_ms = cfg.help_timeout_min * 60_000
+    assert int(env["MCP_TOOL_TIMEOUT"]) > wait_ms
+    assert int(env["CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT"]) > wait_ms
+
+
+def test_system_prompt_has_memory_and_knowledge(cfg):
+    (cfg.memory_dir / "perfil.md").write_text("- Nome: Teste", encoding="utf-8")
+    agent = Agent(cfg)
+    agent.kb.save("financas", "Aluguel", "1500")
+    prompt = agent._options().system_prompt
+    assert "- Nome: Teste" in prompt
+    assert "financas: 1 nota(s); recentes: Aluguel" in prompt
+    assert "pedir_ajuda_humana" in prompt and "NÃO tente passar" in prompt
+
+
+def test_all_allowed_tools_exist(cfg):
+    names = {f"mcp__conhecimento__{t.name}" for t in knowledge_tools(Agent(cfg).kb)}
+    names |= {f"mcp__humano__{t.name}" for t in human_tools(Agent(cfg).human)}
+    custom = {t for t in TOOLS if t.startswith("mcp__")}
+    assert custom == names
+
+
+# --- skills e subagentes -------------------------------------------------------
+
+def test_every_skill_has_valid_frontmatter():
+    assert SKILLS, "nenhuma skill encontrada em plugin/skills"
+    for name in SKILLS:
+        folder = name.split(":", 1)[1]
+        text = (PLUGIN_DIR / "skills" / folder / "SKILL.md").read_text(encoding="utf-8")
+        head = re.match(r"---\n(.*?)\n---\n", text, re.S)
+        assert head, f"{folder}: sem cabeçalho ---"
+        assert f"name: {folder}\n" in head.group(1) + "\n", f"{folder}: name diferente da pasta"
+        assert re.search(r"description: .{40,}", head.group(1)), f"{folder}: description curta demais"
+
+
+def test_plugin_manifest():
+    manifest = json.loads((PLUGIN_DIR / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert manifest["name"] == "agente"
+    assert all(s.startswith("agente:") for s in SKILLS)
+
+
+def test_subagents_use_only_known_tools():
+    known = set(TOOLS) - {"Agent"}
+    for name, agent in AGENTS.items():
+        assert agent.description and agent.prompt, name
+        assert set(agent.tools) <= known, f"{name} usa ferramenta desconhecida"
+        assert "Agent" not in agent.tools, f"{name} não deve criar outros subagentes"
+
+
+# --- ferramentas próprias ------------------------------------------------------
+
+def test_knowledge_tools_save_and_search(cfg):
+    agent = Agent(cfg)
+    tools = knowledge_tools(agent.kb)
+    save, search = tool_by_name(tools, "salvar_conhecimento"), tool_by_name(tools, "buscar_conhecimento")
+
+    saved = asyncio.run(save.handler({"area": "saude", "titulo": "Exame", "conteudo": "LDL 130", "tags": "", "nicho": "", "fonte": ""}))
+    assert not saved["is_error"] and "conhecimento" in text_of(saved)
+
+    found = asyncio.run(search.handler({"consulta": "ldl", "area": ""}))
+    assert "## Exame (saude)" in text_of(found)
+    assert text_of(asyncio.run(search.handler({"consulta": "xyz", "area": ""}))) == "nada encontrado"
+
+
+def test_knowledge_tool_reports_refusal_as_error(cfg):
+    save = tool_by_name(knowledge_tools(Agent(cfg).kb), "salvar_conhecimento")
+    reply = asyncio.run(save.handler({"area": "geral", "titulo": "x", "conteudo": "senha: 123", "tags": "", "nicho": "", "fonte": ""}))
+    assert reply["is_error"] and "não salvei" in text_of(reply)
+
+
+def test_human_tool_returns_answer(cfg):
+    agent = Agent(cfg)
+    ask = tool_by_name(human_tools(agent.human), "pedir_ajuda_humana")
+
+    async def scenario():
+        async def notify(req):
+            asyncio.get_running_loop().call_later(0.01, agent.human.answer, req.id, "resolvido")
+
+        agent.human.notify = notify
+        return await ask.handler({"motivo": "captcha", "link": ""})
+
+    assert text_of(asyncio.run(scenario())) == "resposta do usuário: resolvido"
+
+
+# --- loop: mensagens do SDK viram eventos -------------------------------------
+
+class FakeClient:
+    def __init__(self, messages):
+        self.messages = messages
+        self.sent = []
+
+    async def query(self, text):
+        self.sent.append(text)
+
+    async def receive_response(self):
+        for msg in self.messages:
+            yield msg
+
+
+def collect(agent, text):
+    async def run():
+        return [e async for e in agent.ask(text)]
+
+    return asyncio.run(run())
+
+
+def test_ask_converts_messages_to_events_and_logs(cfg):
+    agent = Agent(cfg)
+    deny = f"{guard.DENY_PREFIX}: comando bloqueado (formatar disco). Não tente contornar."
+    agent.client = FakeClient([
+        AssistantMessage(content=[
+            TextBlock(text="Vou anotar."),
+            ToolUseBlock(id="t1", name="mcp__conhecimento__salvar_conhecimento", input={"titulo": "Aluguel"}),
+            ToolUseBlock(id="t2", name="Bash", input={"command": "format C:"}),
+        ], model="claude-opus-5-5"),
+        UserMessage(content=[ToolResultBlock(tool_use_id="t2", content=deny, is_error=True)]),
+        ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False, num_turns=2,
+                      session_id="s", total_cost_usd=0.0123),
+    ])
+
+    events = collect(agent, "anota meu aluguel")
+    assert [(e.kind, e.text) for e in events] == [
+        ("text", "Vou anotar."),
+        ("tool", "salvar_conhecimento Aluguel"),  # prefixo mcp__ removido
+        ("tool", "Bash format C:"),
+        ("blocked", "comando bloqueado (formatar disco)"),
+        ("result", "ok · 2 passos · US$ 0.0123"),
+    ]
+    assert agent.client.sent == ["anota meu aluguel"]
+
+    log = [json.loads(line) for line in next(cfg.logs_dir.glob("*.jsonl")).read_text(encoding="utf-8").splitlines()]
+    assert [e["type"] for e in log] == ["user", "text", "tool", "tool", "result"]
+    assert log[-1]["cost_usd"] == 0.0123
+
+
+def test_result_status_on_errors(cfg):
+    agent = Agent(cfg)
+
+    def status(subtype, is_error):
+        agent.client = FakeClient([ResultMessage(subtype=subtype, duration_ms=1, duration_api_ms=1,
+                                                 is_error=is_error, num_turns=1, session_id="s")])
+        return collect(agent, "x")[-1].text.split(" · ")[0]
+
+    assert status("success", True) == "erro"  # ex.: falha de autenticação
+    assert status("error_max_budget_usd", True) == "parou: error_max_budget_usd"
