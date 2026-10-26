@@ -57,6 +57,12 @@ jq -r 'select(.type=="tool" and .name=="Bash") | .input.command' logs/*.jsonl
 jq 'select(.type=="result" and .subtype!="success")' logs/*.jsonl
 ```
 
+## Lembretes e tarefas agendadas
+
+Peça em linguagem natural: "me lembra sexta às 18h de comprar ração", "toda segunda às 9h revise meus gastos e me mande um resumo", "quais tarefas estão agendadas?", "cancela a revisão de gastos". Ele confirma a próxima execução.
+
+Para funcionar sozinho, o `agente-web` precisa estar rodando (no computador ou, depois, na VPS). Os resultados chegam como cartões ⏰ na página.
+
 ## Quando ele precisar de você
 
 Alguns bloqueios só uma pessoa resolve: CAPTCHA, verificação "você é um robô?", código de dois fatores, login, ou uma decisão sua. O agente **não tenta burlar** nada disso: ele chama `pedir_ajuda_humana` e pausa aquela tarefa.

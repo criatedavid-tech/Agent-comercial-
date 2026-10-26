@@ -58,6 +58,9 @@
   .msg.help input { flex: 1 1 200px; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
   .msg.help .ok { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .msg.help.done { opacity: .6; }
+  .msg.proactive { background: var(--panel); border: 1px solid var(--accent); }
+  .msg.proactive .head { font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .msg.proactive .body :first-child { margin-top: 0; } .msg.proactive .body :last-child { margin-bottom: 0; }
   .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
   form { border-top: 1px solid var(--border); background: var(--panel); padding: 12px 16px; }
   .row { max-width: 820px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
@@ -126,7 +129,11 @@ function add(kind, text, extra) {
   const el = document.createElement("div");
   el.className = "msg " + kind;
   if (kind === "help") return helpCard(el, extra);
-  if (kind === "text") el.innerHTML = render(text);
+  if (kind === "proactive") {  // resultado de tarefa agendada ou lembrete
+    el.innerHTML = '<div class="head"></div><div class="body"></div>';
+    el.querySelector(".head").textContent = `⏰ ${extra.title} · ${extra.time}`;
+    el.querySelector(".body").innerHTML = render(text);
+  } else if (kind === "text") el.innerHTML = render(text);
   else el.textContent = kind === "tool" ? "⚙ " + text : kind === "blocked" ? "🛡 bloqueado: " + text : text;
   log.appendChild(el);
   $("scroll").scrollTop = $("scroll").scrollHeight;

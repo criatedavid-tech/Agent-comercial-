@@ -26,11 +26,13 @@ from . import guard, memory
 from .config import ROOT, Config
 from .human import HumanBridge
 from .knowledge import AREAS, KnowledgeBase
+from .scheduler import KINDS, MIN_INTERVAL_MIN, MODES, WEEKDAYS, AgendaStore, Task, new_id
 from .subagents import AGENTS
 
 KB_TOOLS = ["mcp__conhecimento__salvar_conhecimento", "mcp__conhecimento__buscar_conhecimento"]
 HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
-TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS]
+AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
+TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -60,6 +62,11 @@ Como trabalhar em tarefas maiores:
 - Skills: para finanças, saúde, estudos e compras online existem instruções especializadas. Carregue a skill do assunto (ferramenta Skill) antes de agir.
 - Subagentes (ferramenta Agent): delegue pesquisas na web ao "pesquisador", arrumação da base ao "organizador" e, ao terminar algo importante, peça ao "verificador" para conferir. Tarefas independentes podem ir em paralelo. Passe ao subagente tudo o que ele precisa saber: ele não vê esta conversa.
 - Ações bloqueadas pela segurança: não tente contornar; explique ao usuário o que seria preciso.
+
+Agenda e proatividade:
+- Para lembretes e tarefas recorrentes ("todo dia às 8h", "toda segunda", "daqui a 2 horas", "dia 5 de cada mês"), use agendar_tarefa. O horário é o do fuso {timezone}.
+- modo "lembrete" só entrega o texto na hora (não gasta nada); modo "tarefa" faz você rodar sozinho a instrução na hora marcada. Escreva a instrução completa: na hora, você não vai lembrar desta conversa.
+- Para ver ou cancelar, use listar_tarefas e cancelar_tarefa. Confirme ao usuário a próxima execução.
 
 Quando precisar de uma pessoa:
 - Se encontrar CAPTCHA, verificação "você é um robô?", código de dois fatores, login que você não tem, ou uma decisão que só o usuário pode tomar, NÃO tente passar, adivinhar ou contornar. Chame pedir_ajuda_humana explicando o motivo e o link, e espere.
@@ -95,6 +102,11 @@ def knowledge_server(kb: KnowledgeBase):
 def human_server(bridge: HumanBridge):
     """Servidor MCP da ponte humana."""
     return create_sdk_mcp_server("humano", tools=human_tools(bridge))
+
+
+def agenda_server(store: AgendaStore):
+    """Servidor MCP da agenda."""
+    return create_sdk_mcp_server("agenda", tools=agenda_tools(store))
 
 
 def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
@@ -161,18 +173,69 @@ def human_tools(bridge: HumanBridge) -> list[SdkMcpTool]:
     return [ask_human]
 
 
+def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
+    """Ferramentas agendar_tarefa, listar_tarefas e cancelar_tarefa."""
+
+    @tool(
+        "agendar_tarefa",
+        "Agenda um lembrete ou uma tarefa que você mesmo vai executar depois, uma vez ou recorrente.",
+        {
+            "titulo": Annotated[str, "nome curto, ex. 'Revisar gastos da semana'"],
+            "instrucao": Annotated[str, "lembrete: o texto a entregar. tarefa: a instrução completa a executar"],
+            "modo": Annotated[str, f"um de: {', '.join(MODES)}"],
+            "tipo": Annotated[str, f"um de: {', '.join(KINDS)}"],
+            "hora": Annotated[str, "HH:MM (vazio só no tipo intervalo)"],
+            "dias_semana": Annotated[str, f"só no tipo semanal: lista de {', '.join(WEEKDAYS)}, ex. 'seg,qua'"],
+            "dia_mes": Annotated[int, "só no tipo mensal: 1 a 31 (senão 0)"],
+            "data": Annotated[str, "só no tipo uma_vez: AAAA-MM-DD"],
+            "intervalo_min": Annotated[int, f"só no tipo intervalo: minutos, mínimo {MIN_INTERVAL_MIN} (senão 0)"],
+        },
+    )
+    async def schedule(args: dict) -> dict[str, Any]:
+        task = Task(
+            new_id(args["titulo"]), args["titulo"], args["instrucao"],
+            mode=args.get("modo", "tarefa"), kind=args.get("tipo", ""), at=args.get("hora", ""),
+            weekdays=args.get("dias_semana", ""), month_day=int(args.get("dia_mes") or 0),
+            on_date=args.get("data", ""), interval_min=int(args.get("intervalo_min") or 0),
+        )
+        try:
+            task = store.add(task)
+        except ValueError as e:
+            return _reply(f"não agendei: {e}", error=True)
+        return _reply(f"agendado [{task.id}] {task.describe()}; próxima: {task.next_run:%Y-%m-%d %H:%M}")
+
+    @tool("listar_tarefas", "Lista as tarefas e lembretes agendados que estão ativos.", {})
+    async def list_tasks(args: dict) -> dict[str, Any]:
+        tasks = store.list()
+        if not tasks:
+            return _reply("nenhuma tarefa agendada")
+        return _reply("\n".join(
+            f"- [{t.id}] {t.title} ({t.mode}): {t.describe()}; próxima {t.next_run:%Y-%m-%d %H:%M}" for t in tasks
+        ))
+
+    @tool("cancelar_tarefa", "Cancela uma tarefa agendada pelo id mostrado em listar_tarefas.", {"id": str})
+    async def cancel(args: dict) -> dict[str, Any]:
+        if store.cancel(args["id"]):
+            return _reply(f"cancelada: {args['id']}")
+        return _reply(f"não achei tarefa ativa com id {args['id']}", error=True)
+
+    return [schedule, list_tasks, cancel]
+
+
 class Agent:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.kb = KnowledgeBase(cfg.knowledge_dir)
         self.human = HumanBridge(cfg.help_timeout_min)
+        self.agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
         self.client: ClaudeSDKClient | None = None
 
     def _options(self) -> ClaudeAgentOptions:
         prompt = SYSTEM_PROMPT.format(
             workdir=self.cfg.workdir,
             memory_dir=self.cfg.memory_dir,
-            now=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            now=self.agenda.now().strftime("%Y-%m-%d %H:%M (%A)"),
+            timezone=self.cfg.timezone,
             memory=memory.load(self.cfg.memory_dir),
             knowledge=self.kb.summary(),
         )
@@ -182,7 +245,11 @@ class Agent:
             system_prompt=prompt,
             cwd=str(self.cfg.workdir),
             add_dirs=[str(self.cfg.memory_dir), str(self.cfg.knowledge_dir)],
-            mcp_servers={"conhecimento": knowledge_server(self.kb), "humano": human_server(self.human)},
+            mcp_servers={
+                "conhecimento": knowledge_server(self.kb),
+                "humano": human_server(self.human),
+                "agenda": agenda_server(self.agenda),
+            },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms)},
             allowed_tools=TOOLS,
@@ -209,6 +276,15 @@ class Agent:
         """Começa uma conversa nova (relê a memória)."""
         await self.stop()
         await self.start()
+
+    async def run_once(self, text: str) -> str:
+        """Roda um pedido numa conversa própria e devolve a resposta final (usado pela agenda)."""
+        await self.start()
+        try:
+            texts = [e.text async for e in self.ask(text) if e.kind == "text"]
+        finally:
+            await self.stop()
+        return texts[-1] if texts else "(o agente terminou sem resposta)"
 
     async def ask(self, text: str) -> AsyncIterator[Event]:
         assert self.client, "chame start() antes"

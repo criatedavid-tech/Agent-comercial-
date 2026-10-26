@@ -55,6 +55,11 @@ Princípio central: **um único cérebro (`Agent`), várias entradas e várias f
 ### `agente/subagents.py` e `plugin/`
 - `AGENTS`: definições dos subagentes. `plugin/skills/*/SKILL.md`: skills carregadas sob demanda.
 
+### `agente/scheduler.py`
+- `Task`, `validate()` e `next_run()`: recorrência calculada no código (uma vez, diária, semanal, mensal, intervalo).
+- `AgendaStore`: tarefas e caixa de entrada em SQLite; `mark_ran()` agenda a próxima antes de rodar.
+- `Scheduler`: `tick()` roda as vencidas, uma por vez, e entrega por `deliver`; `run_forever()` é iniciado pelo `lifespan` do `web.py`.
+
 ### `agente/core.py`
 - `TOOLS`: ferramentas liberadas (`Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebSearch`, `WebFetch`) mais as da base de conhecimento.
 - `knowledge_server(kb)`: servidor MCP dentro do processo com `salvar_conhecimento` e `buscar_conhecimento`.

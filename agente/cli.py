@@ -28,6 +28,13 @@ async def run() -> None:
     agent.human.notify = ask_human
     await agent.start()
     console.print("[bold]Agente pessoal[/bold] · digite [cyan]sair[/cyan] para encerrar, [cyan]/nova[/cyan] para recomeçar\n")
+    # O terminal não roda a agenda (quem roda é o agente-web), mas mostra o que ela entregou.
+    unread = agent.agenda.unread()
+    for item in unread:
+        console.print(f"[bold cyan]⏰ {item.title}[/bold cyan] [dim]{item.created:%d/%m %H:%M}[/dim]")
+        console.print(Markdown(item.text))
+        console.print()
+    agent.agenda.mark_read([i.id for i in unread])
     try:
         while True:
             text = (await asyncio.to_thread(console.input, "[bold green]você › [/bold green]")).strip()

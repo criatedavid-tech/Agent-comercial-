@@ -36,7 +36,7 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [ ] Só responde ao seu número (lista de permitidos)
 - [ ] Uma conversa por contato, com histórico
 - [ ] Comando **PARAR** / **CONTINUAR**
-- [ ] Agendador: **resumo diário** às 7h e tarefas recorrentes ("toda segunda…")
+- [x] Agendador: **resumo diário** às 7h, tarefas recorrentes e lembretes (feito antes do WhatsApp; hoje entrega na web)
 - [ ] Envio de áudio e imagem (receber e transcrever)
 
 **Você vai precisar:** app no Meta for Developers, número dedicado e domínio com HTTPS (ou túnel para testes).

@@ -18,6 +18,9 @@ def cfg(tmp_path) -> Config:
         max_turns=10,
         web_port=8000,
         help_timeout_min=0.01,
+        timezone="America/Sao_Paulo",
+        daily_summary="07:00",
+        agenda_db=tmp_path / "agenda.db",
     )
     for d in (c.workdir, c.memory_dir, c.knowledge_dir, c.logs_dir):
         d.mkdir(parents=True)

@@ -105,6 +105,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Ler páginas | `WebFetch` | "leia este link e me diga o preço" |
 | Organizar o que aprende | `salvar_conhecimento` | guarda notas por área: finanças, saúde, lazer, entretenimento, estudos (por nicho) e geral |
 | Consultar o que já sabe | `buscar_conhecimento` | "quanto gastei com aluguel?" busca nas notas antes de responder |
+| Agir sozinho na hora certa | `agendar_tarefa`, `listar_tarefas`, `cancelar_tarefa` | resumo diário às 7h, "toda segunda revise meus gastos", "me lembra às 15h do dentista" |
 | Delegar | subagentes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
 | Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
 | Se proteger | hooks de segurança | barra `rm -rf /`, script baixado e executado, leitura do `.env`, escrita fora das pastas dele |
@@ -129,6 +130,7 @@ agent/
 │   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
 │   ├── human.py           ← ponte humana: pausa e pede ajuda quando trava
 │   ├── guard.py           ← hooks de segurança (bloqueios no código)
+│   ├── scheduler.py       ← agenda: lembretes, tarefas recorrentes, resumo diário
 │   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
@@ -157,6 +159,8 @@ Tudo fica no `.env`:
 | `AGENT_MAX_BUDGET_USD` | `2.00` | teto de gasto **por pedido**: ao atingir, ele para |
 | `AGENT_MAX_TURNS` | `40` | máximo de passos por pedido |
 | `AGENT_WEB_PORT` | `8000` | porta da interface web de testes |
+| `AGENT_TIMEZONE` | `America/Sao_Paulo` | fuso da agenda |
+| `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).

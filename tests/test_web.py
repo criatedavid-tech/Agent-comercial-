@@ -1,5 +1,7 @@
 """Interface web: status, trava de origem, conversa e pedido de ajuda humana pelo WebSocket."""
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
@@ -7,6 +9,7 @@ from starlette.websockets import WebSocketDisconnect
 from agente import web
 from agente.core import Event
 from agente.human import HumanBridge
+from agente.scheduler import AgendaStore, Task
 
 # O TestClient manda host "testserver" no WebSocket; o navegador manda o host real.
 ORIGIN = {"host": "127.0.0.1:8000", "origin": "http://127.0.0.1:8000"}
@@ -16,6 +19,7 @@ class FakeAgent:
     """Agente falso: não chama a API. Pede ajuda humana quando o pedido fala em 'captcha'."""
 
     instances: list["FakeAgent"] = []
+    to_deliver = None  # item da agenda entregue no meio de um pedido (simula o agendador)
 
     def __init__(self, cfg):
         self.human = HumanBridge(0.05)
@@ -37,16 +41,30 @@ class FakeAgent:
         if "captcha" in text:
             answer = await self.human.request("Verificação de robô na loja.", "https://loja.exemplo.com")
             yield Event("text", f"Recebi: {answer}")
+        if "entrega" in text:
+            await web.deliver(FakeAgent.to_deliver)
         if "quebra" in text:
             raise RuntimeError("falha no SDK")
         yield Event("result", "ok · 1 passos · US$ 0.0000")
 
 
 @pytest.fixture
-def client(monkeypatch):
+def store(tmp_path, monkeypatch) -> AgendaStore:
+    s = AgendaStore(tmp_path / "agenda.db", "America/Sao_Paulo")
+    monkeypatch.setattr(web, "agenda", s)
+    monkeypatch.setattr(web, "hub", web.Hub())
+    return s
+
+
+@pytest.fixture
+def client(monkeypatch, store):
     FakeAgent.instances.clear()
     monkeypatch.setattr(web, "Agent", FakeAgent)
     return TestClient(web.app, base_url="http://127.0.0.1:8000")
+
+
+def add_task(store, **kw):
+    return store.add(Task(**{"id": "t", "title": "Resumo do dia", "prompt": "x", "kind": "diaria", "at": "07:00", **kw}))
 
 
 def receive_until(ws, kind):
@@ -132,3 +150,50 @@ def test_empty_message_is_ignored(client):
         ws.send_json({"type": "ask", "text": "   "})
         ws.send_json({"type": "ask", "text": "oi"})
         assert receive_until(ws, "result")[0]["kind"] == "tool"
+
+
+# --- agenda --------------------------------------------------------------------
+
+def test_agenda_endpoint(client, store):
+    add_task(store, id="gastos", title="Revisar gastos", kind="semanal", weekdays="seg", at="09:00")
+    [item] = client.get("/api/agenda").json()
+    assert item["id"] == "gastos" and item["when"] == "toda semana (seg) às 09:00"
+
+
+def test_unread_results_arrive_when_tab_opens(client, store):
+    item = store.add_inbox(add_task(store), "Hoje: dentista às 15h.")
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        assert ws.receive_json()["kind"] == "ready"
+        event = ws.receive_json()
+        assert event["kind"] == "proactive" and event["title"] == "Resumo do dia"
+        assert event["text"] == "Hoje: dentista às 15h." and event["id"] == item.id
+    assert store.unread() == []
+
+
+def test_results_stay_unread_without_open_tabs(store):
+    item = store.add_inbox(add_task(store), "texto")
+    asyncio.run(web.deliver(item))
+    assert [i.id for i in store.unread()] == [item.id]
+
+
+def test_results_go_to_open_tabs(client, store):
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        FakeAgent.to_deliver = store.add_inbox(add_task(store), "pronto")
+        ws.send_json({"type": "ask", "text": "entrega"})
+        events = receive_until(ws, "result")
+        assert {"kind": "proactive", "text": "pronto"}.items() <= next(e for e in events if e["kind"] == "proactive").items()
+    assert store.unread() == []
+
+
+def test_help_reply_reaches_scheduled_agent(client, store):
+    bridge = HumanBridge(1)
+    web.hub.bridges.add(bridge)
+    answers = []
+    bridge.answer = lambda request_id, text: answers.append((request_id, text))
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        ws.receive_json()
+        ws.send_json({"type": "help_reply", "id": "abc", "text": "resolvido"})
+        ws.send_json({"type": "ask", "text": "oi"})  # garante que a resposta anterior foi processada
+        receive_until(ws, "result")
+    assert answers == [("abc", "resolvido")]

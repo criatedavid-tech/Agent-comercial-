@@ -21,6 +21,9 @@ class Config:
     max_turns: int
     web_port: int
     help_timeout_min: float
+    timezone: str
+    daily_summary: str  # "HH:MM" ou vazio para desligar
+    agenda_db: Path
 
 
 def load() -> Config:
@@ -37,6 +40,9 @@ def load() -> Config:
         max_turns=int(os.getenv("AGENT_MAX_TURNS", "40")),
         web_port=int(os.getenv("AGENT_WEB_PORT", "8000")),
         help_timeout_min=float(os.getenv("AGENT_HELP_TIMEOUT_MIN", "10")),
+        timezone=os.getenv("AGENT_TIMEZONE", "America/Sao_Paulo"),
+        daily_summary=os.getenv("AGENT_DAILY_SUMMARY", "07:00").strip(),
+        agenda_db=ROOT / "agenda.db",
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)

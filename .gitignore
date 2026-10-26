@@ -6,3 +6,4 @@ logs/
 workspace/
 conhecimento/
 .pytest_cache/
+agenda.db

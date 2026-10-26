@@ -33,6 +33,30 @@ Padrão: `8000`. Porta da interface web de testes (`agente-web`). O servidor só
 ### `AGENT_HELP_TIMEOUT_MIN`
 Padrão: `10`. Quanto tempo o agente espera você resolver algo pela ponte humana (CAPTCHA, código de dois fatores, login, decisão). Passado o tempo, ele segue sem isso e avisa no final. O limite das ferramentas MCP do SDK é ajustado automaticamente para um pouco acima desse valor.
 
+### `AGENT_TIMEZONE`
+Padrão: `America/Sao_Paulo`. Fuso usado para calcular os horários da agenda. Qualquer nome do banco IANA serve (ex.: `America/Manaus`).
+
+### `AGENT_DAILY_SUMMARY`
+Padrão: `07:00`. Hora do resumo diário: o agente lista o que está agendado para hoje, o que entrou na base de conhecimento e dá uma sugestão para o dia. Deixe vazio para desligar. Mudou a hora? Vale na próxima vez que o `agente-web` iniciar.
+
+## Agenda (proatividade)
+
+Quem roda a agenda é o **`agente-web`**: ele confere a cada 30 segundos o que venceu. O terminal (`agente`) cria e lista tarefas, mas não as executa.
+
+| Tipo | Exemplo de pedido |
+|---|---|
+| `uma_vez` | "me lembra amanhã às 15h do dentista" |
+| `diaria` | "todo dia às 8h me diga a cotação do dólar" |
+| `semanal` | "toda segunda às 9h revise meus gastos da semana" |
+| `mensal` | "dia 5 de cada mês me lembre de pagar o aluguel" |
+| `intervalo` | "a cada 2 horas confira se o site X voltou" |
+
+- **Lembrete** só entrega o texto na hora e não gasta API. **Tarefa** roda o agente com a instrução, numa conversa própria.
+- O resultado aparece como cartão ⏰ nas abas abertas. Se nenhuma estiver aberta, fica na **caixa de entrada** e aparece quando você abrir a página ou o terminal.
+- Computador desligado na hora marcada: a tarefa roda **uma vez** quando o `agente-web` voltar, e segue a recorrência normal.
+- **Limites no código:** intervalo mínimo de 15 minutos e no máximo 30 tarefas ativas. Cada execução respeita `AGENT_MAX_BUDGET_USD`.
+- Os dados ficam em `agenda.db` (SQLite, fora do git).
+
 ## Memória
 
 Arquivos em `memory/`, lidos **no início de cada conversa** (ao abrir o `agente` ou digitar `/nova`).

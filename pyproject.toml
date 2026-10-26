@@ -9,6 +9,7 @@ dependencies = [
     "rich>=13.0",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    "tzdata>=2024.1",  # fusos horários no Windows
 ]
 
 [project.optional-dependencies]
