@@ -8,3 +8,4 @@ conhecimento/
 .pytest_cache/
 agenda.db
 navegador/
+backups/
