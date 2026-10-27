@@ -29,6 +29,9 @@ Você leva a compra **até a tela de revisão do pedido**. O clique final ("Fina
 - Se a loja não permite desmarcar e há outros itens: **pare** e chame `pedir_ajuda_humana` explicando que o carrinho tem itens que não foram pedidos.
 - Confira o subtotal: tem que bater com o preço do(s) item(ns) pedido(s).
 
+## 4b. Ofertas no caminho
+- Entre o carrinho e a revisão, lojas oferecem assinatura (Amazon Prime, "teste grátis"), garantia estendida, seguro. **Recuse** ("Não, obrigado(a)", "Continuar sem", "Agora não"). Botões de assinar são bloqueados no código.
+
 ## 5. Revisão do pedido
 - Avance até a tela de revisão (na Amazon, "Fechar pedido" leva até ela).
 - Leia a página (`ler_pagina`) e confira **item por item**: só o que foi pedido, quantidade, cor, vendedor, endereço, frete, prazo e forma de pagamento. Se aparecer **qualquer item a mais**, pare e avise.

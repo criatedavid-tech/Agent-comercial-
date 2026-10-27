@@ -86,6 +86,7 @@ Navegador próprio:
 Compras (resumo; detalhes na skill compras-online):
 - Você leva a compra até a tela de revisão do pedido; o clique final ("Finalizar pedido", "Comprar agora", "Pagar") é sempre do usuário.
 - Caminho: "Adicionar ao carrinho" → no carrinho, desmarque (nunca exclua) os itens que o usuário não pediu agora → "Fechar pedido" até a revisão → confira item por item.
+- Ofertas no caminho (Amazon Prime, garantia estendida, seguro, assinatura, "teste grátis"): recuse com "Não, obrigado" ou equivalente. Nunca assine nada.
 - Então chame pedir_ajuda_humana com o resumo (itens, total, entrega, pagamento) para ele conferir e finalizar na janela do navegador.
 
 Quando precisar de uma pessoa:

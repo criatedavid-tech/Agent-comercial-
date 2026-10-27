@@ -50,11 +50,12 @@ LIST_ELEMENTS_JS = """
   document.querySelectorAll('[data-agente-ref]').forEach(e => e.removeAttribute('data-agente-ref'));
   const items = [];
   for (const el of document.querySelectorAll(sel)) {
-    const r = el.getBoundingClientRect();
-    if (!r.width || !r.height) continue;
-    if (el.checkVisibility && !el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) continue;
     const tag = el.tagName.toLowerCase(), type = (el.type || '').toLowerCase();
     const toggle = type === 'checkbox' || type === 'radio' || el.getAttribute('role') === 'checkbox';
+    // A Amazon esconde a caixinha de verdade (transparente) e desenha outra por cima: vale a etiqueta visível.
+    const shown = e => { const r = e.getBoundingClientRect();
+      return r.width && r.height && (!e.checkVisibility || e.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})); };
+    if (!shown(el) && !(toggle && (el.closest('label') || el.parentElement) && shown(el.closest('label') || el.parentElement))) continue;
     let label = (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('aria-label') ||
                 el.placeholder || el.innerText || el.value || el.title || el.name || '';
     label = label.trim().replace(/\\s+/g, ' ').slice(0, 80);
@@ -84,6 +85,12 @@ PURCHASE_TEXTS = (
     "complete purchase", "pay now", "confirm and pay", "subscribe now",
 )
 PURCHASE_EXACT = ("pagar", "comprar", "assinar", "pay", "buy")
+# Ofertas de assinatura no caminho da compra (visto na Amazon: "Assine o Amazon Prime" cobraria R$ 9,90 e depois R$ 19,90/mês).
+SUBSCRIPTION_STARTS = ("assine", "assinar", "inscreva-se e pague", "subscribe", "sign up for prime", "join prime")
+SUBSCRIPTION_TEXTS = (
+    "teste gratis", "periodo de teste", "experimente gratis", "experimente o prime", "comecar teste",
+    "iniciar teste", "free trial", "start your free", "ativar prime", "seja prime", "seja membro",
+)
 PURCHASE_IDS = (
     "buy-now-button", "submitorderbuttonid", "bottomsubmitorderbuttonid", "placeyourorder",
     "turbo-checkout-place-order-button", "one-click-button", "place-order", "placeorder",
@@ -117,6 +124,8 @@ def is_purchase_button(text: str, element_id: str = "", name: str = "") -> bool:
     if any(i in ids for i in PURCHASE_IDS):
         return True
     if t in PURCHASE_EXACT:
+        return True
+    if len(t) < 80 and (t.startswith(SUBSCRIPTION_STARTS) or any(s in t for s in SUBSCRIPTION_TEXTS)):
         return True
     return any(_plain(p) in t for p in PURCHASE_TEXTS) and len(t) < 80
 

@@ -1,12 +1,19 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>Carrinho de compras | Loja Falsa</title>
-<style> body { font-family: sans-serif; margin: 30px; } .item { padding: 12px; border-bottom: 1px solid #ddd; } </style>
+<style>
+  body { font-family: sans-serif; margin: 30px; } .item { padding: 12px; border-bottom: 1px solid #ddd; }
+  /* como a Amazon: a caixinha de verdade fica transparente e um desenho aparece no lugar */
+  label.a-checkbox { position: relative; display: inline-block; width: 18px; height: 18px; }
+  label.a-checkbox input { position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0; }
+  label.a-checkbox i { display: inline-block; width: 16px; height: 16px; border: 1px solid #888; border-radius: 3px; }
+  label.a-checkbox input:checked + i { background: #007185; }
+</style>
 </head>
 <body>
 <h1>Carrinho de compras</h1>
 <div id="itens"></div>
 <p id="subtotal"></p>
-<button id="sc-buy-box-ptc-button" onclick="location.href='revisao.html'">Fechar pedido</button>
+<button id="sc-buy-box-ptc-button" onclick="location.href='prime.html'">Fechar pedido</button>
 <script>
   const cart = JSON.parse(localStorage.getItem('carrinho') || '[]');
   const lista = document.getElementById('itens');
@@ -19,7 +26,7 @@
   cart.forEach((item, n) => {
     const div = document.createElement('div');
     div.className = 'item';
-    div.innerHTML = `<input type="checkbox" id="sel-${item.id}" ${item.marcado ? 'checked' : ''}>
+    div.innerHTML = `<label class="a-checkbox"><input type="checkbox" id="sel-${item.id}" ${item.marcado ? 'checked' : ''}><i></i></label>
       <span class="titulo">${item.titulo}</span> — R$ ${item.preco.toFixed(2).replace('.', ',')}
       <button class="excluir">Excluir</button>`;
     div.querySelector('input').onchange = (e) => { item.marcado = e.target.checked; salvar(); };

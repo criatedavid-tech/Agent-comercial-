@@ -102,7 +102,11 @@ def test_full_cart_flow_only_requested_item_and_final_click_refused(loja, run):
             await b.click(re.match(r"\[(\d+)\]", line).group(1))
             cart = await b.elements()
         subtotal = await b.read("#subtotal")
-        review = await b.click(ref(cart, "Fechar pedido"))  # só leva à revisão: permitido
+        await b.click(ref(cart, "Fechar pedido"))  # leva à oferta do Prime e depois à revisão: permitido
+        offer = await b.elements()
+        with pytest.raises(BrowserError, match="quem clica é o usuário"):
+            await b.click(ref(offer, "Assine o Amazon Prime"))  # assinatura no caminho: bloqueada
+        review = await b.click(ref(offer, "Não, obrigado"))
         with pytest.raises(BrowserError, match="fecha uma compra"):
             await b.click(ref(await b.elements(), "Finalizar pedido"))
         status = await b.read("#status")
@@ -113,6 +117,27 @@ def test_full_cart_flow_only_requested_item_and_final_click_refused(loja, run):
     assert "R$ 376,20" in subtotal and "(1 produtos)" in subtotal
     assert "Controle DualSense Branco" in review and "Headset" not in review and "Odisseia" not in review
     assert "PEDIDO FINALIZADO" not in status  # a trava impediu o clique final
+
+
+def test_hidden_amazon_style_checkboxes_are_listed_with_their_item(loja, run):
+    """Visto na Amazon real: a caixinha de verdade é transparente; sem isto, as 32 sumiam da lista."""
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        await b.click(ref(await b.elements("carrinho"), "Adicionar ao carrinho"))
+        return await b.elements("Headset")
+
+    listing = run(scenario)
+    assert "input[checkbox]" in listing and "☑ marcado" in listing and "Headset Gamer" in listing
+
+
+@pytest.mark.parametrize("text", ["Assine o Amazon Prime", "Experimente grátis por 30 dias", "Iniciar teste gratuito"])
+def test_subscription_offers_are_blocked(text):
+    assert is_purchase_button(text)
+
+
+@pytest.mark.parametrize("text", ["Não, obrigado(a)", "Voltar ao início", "Assinatura e pagamentos"])
+def test_declining_offers_is_allowed(text):
+    assert not is_purchase_button(text)
 
 
 def test_enter_in_checkout_form_is_refused(run, loja):
