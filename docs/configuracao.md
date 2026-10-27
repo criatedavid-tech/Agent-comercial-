@@ -27,7 +27,8 @@ AGENT_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
 
 - Escolha um modelo `:free` **com suporte a ferramentas** (a lista muda; o OpenRouter mostra em openrouter.ai/models).
 - Os apelidos dos subagentes (`sonnet`...) passam a apontar para esse mesmo modelo.
-- **O custo mostrado não é real**: o Claude Code estima pelo preço da Anthropic. Com modelo gratuito o custo é zero, então aumente `AGENT_MAX_BUDGET_USD` para os testes (senão o teto corta tarefas longas). Volte para `2.00` ao usar chave paga.
+- **Custo:** o Claude Code estimaria pelo preço da Anthropic (valor falso), então o agente mostra "custo: veja no painel do provedor" e o painel não soma nada. O custo real fica no painel do OpenRouter. Aumente `AGENT_MAX_BUDGET_USD` para os testes (o teto usa a estimativa falsa e cortaria tarefas longas); volte para `2.00` ao usar chave paga.
+- **Pesquisa na web gratuita:** no OpenRouter o `WebSearch` é cobrado por pesquisa (menos de 1 centavo cada, mas soma). Com provedor alternativo ele é desligado no agente e no pesquisador, que passam a buscar no DuckDuckGo (versão simples, via `WebFetch`) e abrir as páginas. Medido: pesquisa completa por US$ 0,00, com mais passos que o `WebSearch`.
 - Modelos gratuitos têm cota diária de requisições e erram mais com ferramentas: servem para testar, não para produção.
 
 ### `AGENT_WORKDIR`

@@ -365,3 +365,21 @@ def test_alternative_provider_does_not_show_fake_cost(cfg):
     [event] = collect(agent, "x")
     assert event.text == "ok · 4 passos · custo: veja no painel do provedor"
     assert agent.history.sessions()[0].cost_usd == 0  # o painel não soma a estimativa falsa
+
+
+def test_free_mode_has_no_paid_web_search(cfg):
+    """No OpenRouter o WebSearch é cobrado por pesquisa: no modo provedor alternativo ele sai."""
+    import dataclasses
+
+    normal = Agent(cfg)._options()
+    assert "WebSearch" in normal.tools and "WebSearch" in normal.agents["pesquisador"].tools
+    assert "lite.duckduckgo.com" not in normal.system_prompt
+
+    alt = dataclasses.replace(cfg, base_url="https://openrouter.ai/api", auth_token="t", model="m:free")
+    options = Agent(alt)._options()
+    assert "WebSearch" not in options.tools and "WebSearch" not in options.allowed_tools
+    assert "WebFetch" in options.tools
+    researcher = options.agents["pesquisador"]
+    assert "WebSearch" not in researcher.tools and "lite.duckduckgo.com" in researcher.prompt
+    assert "lite.duckduckgo.com" in options.system_prompt
+    assert "WebSearch" in AGENTS["pesquisador"].tools  # o original não é alterado

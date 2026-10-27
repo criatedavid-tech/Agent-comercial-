@@ -1,7 +1,7 @@
 """Núcleo do agente: o loop do Claude Agent SDK com memória, ferramentas e log."""
 
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 import json
 import re
@@ -76,6 +76,7 @@ Agenda e proatividade:
 - modo "lembrete" só entrega o texto na hora (não gasta nada); modo "tarefa" faz você rodar sozinho a instrução na hora marcada. Escreva a instrução completa: na hora, você não vai lembrar desta conversa.
 - Para ver ou cancelar, use listar_tarefas e cancelar_tarefa. Confirme ao usuário a próxima execução.
 
+{search_hint}
 Navegador próprio:
 - Para só ler uma página simples, WebFetch basta. Use o navegador (abrir_pagina, listar_elementos, clicar, preencher, ler_pagina) quando o site precisa de JavaScript, de login já feito, de formulários ou de várias etapas.
 - O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
@@ -372,6 +373,7 @@ class Agent:
             timezone=self.cfg.timezone,
             memory=memory.load(self.cfg.memory_dir),
             knowledge=self.kb.summary(),
+            search_hint=FREE_SEARCH_HINT if self.cfg.base_url else "",
         )
         wait_ms = int((self.cfg.help_timeout_min + 2) * 60_000)
         return ClaudeAgentOptions(
@@ -395,9 +397,9 @@ class Agent:
                  # Sem segundo plano: o pedido termina e a resposta do subagente se perdia ("vou te avisar...").
                  "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
                  **provider_env(self.cfg)},
-            tools=BUILTIN_TOOLS,
-            allowed_tools=TOOLS,
-            agents=AGENTS,
+            tools=builtin_tools(self.cfg),
+            allowed_tools=[t for t in TOOLS if t in builtin_tools(self.cfg) or t.startswith("mcp__")],
+            agents=agents_for(self.cfg),
             plugins=[{"type": "local", "path": str(PLUGIN_DIR)}],
             skills=SKILLS,
             setting_sources=[],  # não herda configurações nem skills pessoais do Claude Code da máquina
@@ -524,6 +526,35 @@ class Agent:
         path = self.cfg.logs_dir / f"{datetime.now():%Y-%m-%d}.jsonl"
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+FREE_SEARCH_HINT = """Pesquisa na web (modo gratuito):
+- Não há WebSearch. Para pesquisar, use WebFetch em https://lite.duckduckgo.com/lite/?q=TERMOS (troque espaços por +)
+  e depois abra com WebFetch os resultados mais promissores. Se a página precisar de JavaScript, use o navegador próprio.
+- Se o buscador pedir verificação de robô, não tente passar: tente outra fonte ou avise o usuário.
+"""
+
+
+def builtin_tools(cfg: Config) -> list[str]:
+    """Ferramentas embutidas. Com provedor alternativo, sem WebSearch: lá ela é cobrada por pesquisa
+    (o teste real mostrou o modelo gratuito a zero e só as pesquisas gerando custo)."""
+    if cfg.base_url:
+        return [t for t in BUILTIN_TOOLS if t != "WebSearch"]
+    return BUILTIN_TOOLS
+
+
+def agents_for(cfg: Config) -> dict:
+    """Subagentes do modo atual: no modo gratuito, o pesquisador perde o WebSearch e aprende a pesquisa gratuita."""
+    if not cfg.base_url:
+        return AGENTS
+    return {
+        name: replace(
+            agent,
+            tools=[t for t in agent.tools if t != "WebSearch"],
+            prompt=agent.prompt + ("\n\n" + FREE_SEARCH_HINT if "WebSearch" in agent.tools else ""),
+        )
+        for name, agent in AGENTS.items()
+    }
 
 
 def provider_env(cfg: Config) -> dict[str, str]:
