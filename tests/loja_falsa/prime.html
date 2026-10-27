@@ -1,9 +1,30 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>Faça seu pedido - finalização | Loja Falsa</title>
-<style> body { font-family: sans-serif; margin: 30px; text-align: center; } button { padding: 10px 30px; margin: 10px; } </style></head>
+<style>
+  body { font-family: sans-serif; margin: 30px; text-align: center; }
+  /* como a Amazon: o <input> do botão não tem texto; o nome fica num <span> ao lado (aria-labelledby) */
+  .a-button { position: relative; display: inline-block; margin: 10px; border: 1px solid #888; border-radius: 20px; }
+  .a-button-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.01; cursor: pointer; }
+  .a-button-text { display: inline-block; padding: 10px 30px; }
+</style></head>
 <body>
-<h1>david, aproveite os benefícios do Prime por 3 meses por apenas R$ 9,90.</h1>
-<p>Após 3 meses, o valor da assinatura Prime mudará para R$ 19,90/mês.</p>
-<button onclick="location.href='revisao.html'">Não, obrigado(a)</button>
-<button onclick="localStorage.setItem('assinou_prime', 'sim'); location.href='revisao.html'">Assine o Amazon Prime</button>
+<h1>david, aproveite os benefícios do Amazon Prime por 3 meses por apenas R$ 9,90.</h1>
+<p>Após 3 meses, o valor da assinatura Prime mudará para R$ 19,90/mês. Você pode cancelar a qualquer momento.</p>
+<form id="oferta" onsubmit="return false">
+  <span class="a-button a-button-primary"><span class="a-button-inner">
+    <input class="a-button-input" type="submit" aria-labelledby="prime-sim"
+           onclick="localStorage.setItem('assinou_prime', 'sim'); location.href='revisao.html'">
+    <span id="prime-sim" class="a-button-text">Assine o Amazon Prime</span>
+  </span></span>
+  <span class="a-button"><span class="a-button-inner">
+    <input class="a-button-input" type="submit" aria-labelledby="prime-nao" onclick="location.href='revisao.html'">
+    <span id="prime-nao" class="a-button-text">Não, obrigado(a)</span>
+  </span></span>
+  <span class="a-button"><span class="a-button-inner">
+    <input class="a-button-input" type="submit" onclick="localStorage.setItem('assinou_prime', 'sim'); location.href='revisao.html'">
+    <span class="a-button-text">Continuar</span>
+  </span></span>
+</form>
+<p>Ao assinar, você confirma que leu e concorda com os Termos e nos autoriza a cobrar do seu método de pagamento
+  padrão o valor de R$ 9,90 por 3 meses. Após 3 meses, sua assinatura será renovada automaticamente por R$ 19,90/mês.</p>
 </body></html>

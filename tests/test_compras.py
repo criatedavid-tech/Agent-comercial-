@@ -199,3 +199,64 @@ def test_click_reports_checkbox_change(loja, run):
         return await b.click(re.match(r"\[(\d+)\]", line).group(1))
 
     assert "(caixinha: marcada → desmarcada)" in run(scenario)
+
+
+# --- regra expressa de não assinatura (visto na Amazon real: o agente assinou o Prime) ----------------------
+
+
+async def go_to_offer(b, loja):
+    await b.open(f"{loja}/produto.html")
+    await add_to_cart(b)
+    cart = await b.elements()
+    await b.click(ref(cart, "Fechar pedido"))
+    return await b.elements()
+
+
+def test_offer_page_shows_real_button_names_and_warning(loja, run):
+    """Na Amazon o botão é um input sem texto; o nome fica em outro elemento (aria-labelledby)."""
+    listing = run(lambda b: go_to_offer(b, loja))
+    assert listing.startswith("⚠ PÁGINA DE OFERTA DE ASSINATURA")
+    assert "input[submit] Assine o Amazon Prime" in listing and "input[submit] Não, obrigado(a)" in listing
+
+
+def test_offer_page_only_allows_declining(loja, run):
+    async def scenario(b):
+        offer = await go_to_offer(b, loja)
+        errors = []
+        for name in ("Assine o Amazon Prime", "Continuar"):
+            try:
+                await b.click(ref(offer, name))
+            except BrowserError as e:
+                errors.append(str(e))
+        review = await b.click(ref(offer, "Não, obrigado"))
+        subscribed = await b._page.evaluate("() => localStorage.getItem('assinou_prime')")
+        return errors, review, subscribed
+
+    errors, review, subscribed = run(scenario)
+    assert len(errors) == 2  # assinar e "Continuar" (que também assinaria): os dois bloqueados
+    assert "quem clica é o usuário" in errors[0] and "só é permitido recusar" in errors[1]
+    assert "Revise seu pedido" in review and subscribed is None
+
+
+def test_unnamed_button_is_never_clicked(run, loja):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        await b._page.set_content('<meta charset="utf-8"><form><input type="submit" style="width:80px;height:30px"></form>')
+        with pytest.raises(BrowserError, match="não consegui identificar"):
+            await b.click(ref(await b.elements(), "input[submit]"))
+        return True
+
+    assert run(scenario)
+
+
+def test_product_page_mentioning_prime_is_not_an_offer_page():
+    from agente.browser import is_subscription_offer
+
+    product = "Controle DualSense R$ 376,20 Entrega GRÁTIS Prime Adicionar ao carrinho Experimente o Prime"
+    assert not is_subscription_offer(product)
+
+
+def test_button_context_never_borrows_a_neighbor_button_name(loja, run):
+    listing = run(lambda b: go_to_offer(b, loja))
+    subscribe = next(l for l in listing.splitlines() if "Assine o Amazon Prime" in l)
+    assert "Não, obrigado" not in subscribe

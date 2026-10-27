@@ -33,6 +33,27 @@ CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turns
 
 MAX_ELEMENTS = 200
 
+# Nome real de um elemento, igual para a lista e para a trava. Visto na Amazon: o botão é um <input> sem texto e o
+# nome visível ("Assine o Amazon Prime") fica em outro elemento (aria-labelledby / o botão desenhado em volta).
+# Lendo só o input, o nome saía vazio, o agente clicou às cegas e a trava não reconheceu a assinatura.
+ELEMENT_LABEL_JS = r"""
+const agenteLabel = el => {
+  const txt = e => ((e && (e.innerText || e.textContent)) || '').trim();
+  const byIds = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean)
+    .map(id => txt(document.getElementById(id))).filter(Boolean).join(' ');
+  const type = (el.type || '').toLowerCase();
+  let label = el.getAttribute('aria-label') || byIds || (el.labels && el.labels[0] && txt(el.labels[0])) || '';
+  if (!label && !['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) label = txt(el);
+  if (!label && ['submit', 'button', 'reset'].includes(type)) label = el.value || '';
+  if (!label) {
+    const wrap = el.parentElement && el.parentElement.closest('.a-button, button, [role=button], a');
+    if (wrap) label = txt(wrap);
+  }
+  if (!label) label = el.placeholder || el.title || el.name || '';
+  return label.trim().replace(/\s+/g, ' ');
+};
+"""
+
 # Marca os elementos clicáveis e preenchíveis visíveis com data-agente-ref e devolve a lista.
 # Botões e campos vêm antes dos links (a Amazon tem centenas de links de menu antes do botão de compra).
 # Caixinhas e seletores levam o estado (marcado ou não) e o texto do item a que pertencem.
@@ -52,13 +73,18 @@ LIST_ELEMENTS_JS = """
   const pageTitle = () => { const h = document.querySelector('#productTitle, h1');
     return h ? 'produto da página: ' + h.innerText.trim().replace(/\\s+/g, ' ').slice(0, 80) : ''; };
   const skip = /^(R\\$|\\d|vendido|enviado|entrega|em estoque|quantidade|devolu|frete|receba|adicionar|comprar|ver |mais )/i;
-  const titleLine = (t, label) => (t || '').split('\\n').map(x => x.trim())
-    .find(x => x.length >= 12 && x.split(' ').length >= 2 && x !== label && !skip.test(x));
+  // Ignora textos de outros botões e links: na tela do Prime, o contexto de "Assine o Amazon Prime" saía como
+  // "Não, obrigado(a)" (o botão vizinho), e procurar "Não, obrigado" levava ao botão de assinar.
+  const clickTexts = p => new Set([...p.querySelectorAll('button, a, [role=button], .a-button, input[type=submit]')]
+    .map(x => (x.innerText || x.value || '').trim()).filter(Boolean));
+  const titleLine = (t, label, p) => { const others = clickTexts(p);
+    return (t || '').split('\\n').map(x => x.trim())
+      .find(x => x.length >= 12 && x.split(' ').length >= 2 && x !== label && !skip.test(x) && !others.has(x)); };
   const buttonContext = (el, label) => {
     if (el.closest('#buybox, #desktop_buybox, #addToCart, #buyBoxAccordion, [data-agente-produto-principal]')) return pageTitle();
     for (let p = el.parentElement, i = 0; p && i < 10; p = p.parentElement, i++) {
       if (p.querySelector('h1')) return pageTitle();  // subiu até a área do produto principal
-      const line = titleLine(p.innerText, label);
+      const line = titleLine(p.innerText, label, p);
       if (line) return line.slice(0, 90);
     }
     return '';
@@ -72,9 +98,7 @@ LIST_ELEMENTS_JS = """
     const shown = e => { const r = e.getBoundingClientRect();
       return r.width && r.height && (!e.checkVisibility || e.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})); };
     if (!shown(el) && !(toggle && (el.closest('label') || el.parentElement) && shown(el.closest('label') || el.parentElement))) continue;
-    let label = (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('aria-label') ||
-                el.placeholder || el.innerText || el.value || el.title || el.name || '';
-    label = label.trim().replace(/\\s+/g, ' ').slice(0, 80);
+    const label = agenteLabel(el).slice(0, 80);
     const isButton = tag === 'button' || el.getAttribute('role') === 'button' || ['submit', 'button'].includes(type);
     const ctx = (toggle || tag === 'select' || !label) ? context(el) : (isButton && label.length < 30 ? buttonContext(el, label) : '');
     const checked = toggle ? (el.checked ?? el.getAttribute('aria-checked') === 'true') : null;
@@ -88,9 +112,10 @@ LIST_ELEMENTS_JS = """
     it.el.setAttribute('data-agente-ref', ref);
     out.push({ref, tag: it.tag, type: it.type, label: it.label, ctx: it.ctx, checked: it.checked, href: it.href});
   }
-  return {items: out, total: items.length};
+  return {items: out, total: items.length, page: document.body ? document.body.innerText.slice(0, 8000) : ''};
 }
 """
+LIST_ELEMENTS_JS = LIST_ELEMENTS_JS.replace("  const sel = ", ELEMENT_LABEL_JS + "  const sel = ", 1)
 
 # Botões que fecham compra, assinatura ou pagamento: quem clica é sempre o usuário (trava no código).
 # "Fechar pedido" na Amazon só leva à tela de revisão, por isso não está aqui.
@@ -107,6 +132,25 @@ SUBSCRIPTION_STARTS = ("assine", "assinar", "inscreva-se e pague", "subscribe", 
 SUBSCRIPTION_TEXTS = (
     "teste gratis", "periodo de teste", "experimente gratis", "experimente o prime", "comecar teste",
     "iniciar teste", "free trial", "start your free", "ativar prime", "seja prime", "seja membro",
+)
+# Página de oferta de assinatura (ex.: tela do Prime no meio do checkout): só é permitido recusar.
+OFFER_MARKERS = (
+    "renovada automaticamente", "renova automaticamente", "renovacao automatica", "autoriza a cobrar",
+    "cancelar a qualquer momento", "periodo de teste", "teste gratis", "free trial", "renews automatically",
+    "cancel anytime", "por 3 meses", "valor da assinatura",
+)
+DECLINE_TEXTS = (
+    "nao, obrigado", "nao obrigado", "agora nao", "continuar sem", "pular", "recusar", "no thanks", "nao quero",
+    "dispensar", "talvez depois", "nao, continuar", "nao tenho interesse", "voltar", "fechar",
+)
+OFFER_REFUSAL = (
+    "esta é uma página de oferta de assinatura (renovação, cobrança ou teste grátis). REGRA: o agente nunca assina "
+    "nada; aqui só é permitido recusar. Clique no botão de recusa ('Não, obrigado(a)', 'Agora não', 'Continuar sem'). "
+    "Se não houver, chame pedir_ajuda_humana."
+)
+UNKNOWN_REFUSAL = (
+    "não consegui identificar o que este botão faz (ele não tem nome legível). Por segurança não clico em botão "
+    "desconhecido: liste os elementos de novo, procure um com nome claro ou chame pedir_ajuda_humana."
 )
 PURCHASE_IDS = (
     "buy-now-button", "submitorderbuttonid", "bottomsubmitorderbuttonid", "placeyourorder",
@@ -132,6 +176,20 @@ def _plain(text: str) -> str:
 
     text = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def is_subscription_offer(page_text: str) -> bool:
+    """A página é uma oferta de assinatura? Fala de assinatura e tem pelo menos dois sinais de cobrança recorrente.
+    Dois sinais para não confundir com a página do produto, que às vezes cita o Prime de passagem."""
+    t = _plain(page_text[:8000])
+    if not any(w in t for w in ("assinatura", "assine", "assinar", "subscription", "subscribe", "prime")):
+        return False
+    return sum(m in t for m in OFFER_MARKERS) >= 2
+
+
+def is_decline_button(text: str) -> bool:
+    t = _plain(text)
+    return bool(t) and not is_purchase_button(text) and any(d in t for d in DECLINE_TEXTS)
 
 
 def is_purchase_button(text: str, element_id: str = "", name: str = "") -> bool:
@@ -289,6 +347,8 @@ class Browser:
         if not items:
             return f"nenhum elemento visível{f' com {filter!r}' if filter else ''}"
         lines = [UNTRUSTED]
+        if is_subscription_offer(found["page"]):
+            lines.insert(0, "⚠ PÁGINA DE OFERTA DE ASSINATURA: nunca assine; só é permitido clicar em recusar.")
         for it in items:
             kind = it["tag"] + (f"[{it['type']}]" if it["type"] and it["tag"] == "input" else "")
             state = "" if it["checked"] is None else (" ☑ marcado" if it["checked"] else " ☐ desmarcado")
@@ -310,13 +370,20 @@ class Browser:
             page = await self._get_page()
             el = await self._element(page, ref)
             info = await el.evaluate(
-                "e => ({text: (e.innerText || e.value || e.getAttribute('aria-label') || e.title || '').trim(),"
-                " id: e.id || '', name: e.name || '', href: e.href || '',"
-                " checked: (e.type === 'checkbox' || e.type === 'radio') ? e.checked : null})"
+                "e => { " + ELEMENT_LABEL_JS + " return {text: agenteLabel(e), id: e.id || '', name: e.name || '',"
+                " href: e.href || '', tag: e.tagName.toLowerCase(), type: (e.type || '').toLowerCase(),"
+                " role: e.getAttribute('role') || '',"
+                " checked: (e.type === 'checkbox' || e.type === 'radio') ? e.checked : null,"
+                " page: document.body ? document.body.innerText.slice(0, 8000) : ''}; }"
             )
             if is_purchase_button(info["text"], info["id"], info["name"]):
                 buy_now = "agora" in _plain(info["text"]) or "1-clique" in _plain(info["text"]) or "buy-now" in info["id"].lower()
                 raise BrowserError(BUY_NOW_REFUSAL if buy_now else PURCHASE_REFUSAL)
+            if is_subscription_offer(info["page"]) and not is_decline_button(info["text"]):
+                raise BrowserError(OFFER_REFUSAL)
+            button_like = info["tag"] == "button" or info["role"] == "button" or info["type"] in ("submit", "button", "image")
+            if button_like and not info["text"].strip():
+                raise BrowserError(UNKNOWN_REFUSAL)
             if info["href"]:
                 check_url(info["href"], self.allow_private)
             try:
