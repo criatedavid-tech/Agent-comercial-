@@ -31,6 +31,7 @@ Se encontrar CAPTCHA ou verificação de robô, não tente passar: use outra fon
         tools=["WebSearch", "WebFetch", "Read", SEARCH, OPEN_PAGE, READ_PAGE],
         mcpServers=["conhecimento", "navegador"],
         model="sonnet",
+        background=False,  # o resultado precisa voltar antes do pedido terminar
         maxTurns=25,
     ),
     "organizador": AgentDefinition(
@@ -50,6 +51,7 @@ Você é o organizador da base de conhecimento do agente pessoal. Responda em po
         tools=["Read", "Glob", "Grep", SEARCH, SAVE],
         mcpServers=["conhecimento"],
         model="sonnet",
+        background=False,  # o resultado precisa voltar antes do pedido terminar
         maxTurns=30,
     ),
     "verificador": AgentDefinition(
@@ -67,6 +69,7 @@ Recebe a descrição de um trabalho pronto e confere se ele está certo de verda
 Não corrija nada: só verifique. Devolva "APROVADO" ou "PROBLEMAS:" seguido de cada problema, onde está e como reproduzir.""",
         tools=["Read", "Glob", "Grep", "Bash", "WebFetch"],
         model="sonnet",
+        background=False,  # o resultado precisa voltar antes do pedido terminar
         maxTurns=20,
     ),
 }

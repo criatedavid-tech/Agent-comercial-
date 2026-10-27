@@ -344,3 +344,12 @@ def test_provider_env_for_openrouter(cfg):
     # subagentes usam apelidos (sonnet): no provedor alternativo todos viram o modelo configurado
     assert env["ANTHROPIC_DEFAULT_SONNET_MODEL"] == env["CLAUDE_CODE_SUBAGENT_MODEL"] == "vendor/modelo:free"
     assert alt.has_credentials
+
+
+def test_no_auto_memory_and_no_background(cfg):
+    """Vistos no teste real: o Claude Code carregava a memória de quem programa o projeto, e o subagente
+    rodava em segundo plano e a resposta se perdia quando o pedido terminava."""
+    env = Agent(cfg)._options().env
+    assert env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    assert env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+    assert all(a.background is False for a in AGENTS.values())

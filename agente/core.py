@@ -389,6 +389,11 @@ class Agent:
             # ENABLE_TOOL_SEARCH=false: as ferramentas próprias ficam visíveis desde o início (sem passo de busca).
             env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms),
                  "ENABLE_TOOL_SEARCH": "false",
+                 # Memória automática do Claude Code: como o workspace fica dentro do repositório, ele carregava
+                 # a memória de quem programa o projeto. O agente tem a própria (memory/ e a base de conhecimento).
+                 "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+                 # Sem segundo plano: o pedido termina e a resposta do subagente se perdia ("vou te avisar...").
+                 "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
                  **provider_env(self.cfg)},
             tools=BUILTIN_TOOLS,
             allowed_tools=TOOLS,
