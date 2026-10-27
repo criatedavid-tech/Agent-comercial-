@@ -47,6 +47,22 @@ LIST_ELEMENTS_JS = """
     }
     return '';
   };
+  // Botões genéricos ("Adicionar ao carrinho") levam o produto a que pertencem: o do anúncio principal ou o da
+  // recomendação. Visto na Amazon: o agente clicou nos "Adicionar ao carrinho" de "comprados juntos" por engano.
+  const pageTitle = () => { const h = document.querySelector('#productTitle, h1');
+    return h ? 'produto da página: ' + h.innerText.trim().replace(/\\s+/g, ' ').slice(0, 80) : ''; };
+  const skip = /^(R\\$|\\d|vendido|enviado|entrega|em estoque|quantidade|devolu|frete|receba|adicionar|comprar|ver |mais )/i;
+  const titleLine = (t, label) => (t || '').split('\\n').map(x => x.trim())
+    .find(x => x.length >= 12 && x.split(' ').length >= 2 && x !== label && !skip.test(x));
+  const buttonContext = (el, label) => {
+    if (el.closest('#buybox, #desktop_buybox, #addToCart, #buyBoxAccordion, [data-agente-produto-principal]')) return pageTitle();
+    for (let p = el.parentElement, i = 0; p && i < 10; p = p.parentElement, i++) {
+      if (p.querySelector('h1')) return pageTitle();  // subiu até a área do produto principal
+      const line = titleLine(p.innerText, label);
+      if (line) return line.slice(0, 90);
+    }
+    return '';
+  };
   document.querySelectorAll('[data-agente-ref]').forEach(e => e.removeAttribute('data-agente-ref'));
   const items = [];
   for (const el of document.querySelectorAll(sel)) {
@@ -59,7 +75,8 @@ LIST_ELEMENTS_JS = """
     let label = (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('aria-label') ||
                 el.placeholder || el.innerText || el.value || el.title || el.name || '';
     label = label.trim().replace(/\\s+/g, ' ').slice(0, 80);
-    const ctx = (toggle || tag === 'select' || !label) ? context(el) : '';
+    const isButton = tag === 'button' || el.getAttribute('role') === 'button' || ['submit', 'button'].includes(type);
+    const ctx = (toggle || tag === 'select' || !label) ? context(el) : (isButton && label.length < 30 ? buttonContext(el, label) : '');
     const checked = toggle ? (el.checked ?? el.getAttribute('aria-checked') === 'true') : null;
     if (filter && !norm(label + ' ' + ctx + ' ' + (el.href || '')).includes(norm(filter))) continue;
     items.push({el, tag, type, label, ctx, checked, href: el.href || '', link: tag === 'a' || el.getAttribute('role') === 'link'});
@@ -293,8 +310,9 @@ class Browser:
             page = await self._get_page()
             el = await self._element(page, ref)
             info = await el.evaluate(
-                "e => ({text: (e.innerText || e.value || e.getAttribute('aria-label') || '').trim(),"
-                " id: e.id || '', name: e.name || '', href: e.href || ''})"
+                "e => ({text: (e.innerText || e.value || e.getAttribute('aria-label') || e.title || '').trim(),"
+                " id: e.id || '', name: e.name || '', href: e.href || '',"
+                " checked: (e.type === 'checkbox' || e.type === 'radio') ? e.checked : null})"
             )
             if is_purchase_button(info["text"], info["id"], info["name"]):
                 buy_now = "agora" in _plain(info["text"]) or "1-clique" in _plain(info["text"]) or "buy-now" in info["id"].lower()
@@ -311,7 +329,11 @@ class Browser:
                 except Exception:
                     raise BrowserError(f"não consegui clicar em [{ref}]: {str(first).splitlines()[0][:200]}") from None
             await page.wait_for_timeout(800)
-            return await self._snapshot(self._page)
+            what = re.sub(r"\s+", " ", info["text"])[:80] or info["id"] or "elemento"
+            if info["checked"] is not None:
+                now = await el.evaluate("e => e.checked") if not page.is_closed() else None
+                what += f" (caixinha: {'marcada' if info['checked'] else 'desmarcada'} → {'marcada' if now else 'desmarcada'})"
+            return f"Cliquei em [{ref}] {what}\n" + await self._snapshot(self._page)
 
     async def fill(self, ref: str, text: str, submit: bool = False) -> str:
         async with self._lock:

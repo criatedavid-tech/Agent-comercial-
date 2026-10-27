@@ -61,6 +61,12 @@ def run(tmp_path):
     return go
 
 
+async def add_to_cart(b):
+    """Adiciona o controle (botão principal) e vai para o carrinho, ignorando as recomendações."""
+    await b.click(ref(await b.elements("DualSense"), "Adicionar ao carrinho"))
+    await b.click(ref(await b.elements("Ir para o carrinho"), "Ir para o carrinho"))
+
+
 def ref(listing: str, text: str) -> str:
     line = next(l for l in listing.splitlines() if text in l)
     return re.match(r"\[(\d+)\]", line).group(1)
@@ -87,13 +93,13 @@ def test_buy_now_is_refused_and_add_to_cart_works_under_overlay(loja, run):
         return await b.click(ref(listing, "Adicionar ao carrinho"))  # há uma barra fixa por cima do botão
 
     page = run(scenario)
-    assert "Página: Carrinho de compras" in page
+    assert page.startswith("Cliquei em [") and "Adicionado ao carrinho" in page
 
 
 def test_full_cart_flow_only_requested_item_and_final_click_refused(loja, run):
     async def scenario(b):
         await b.open(f"{loja}/produto.html")
-        await b.click(ref(await b.elements("carrinho"), "Adicionar ao carrinho"))
+        await add_to_cart(b)
         cart = await b.elements()
         # o carrinho já tinha itens do usuário: todos marcados, cada caixinha com o item a que pertence
         assert cart.count("☑ marcado") == 3
@@ -123,7 +129,7 @@ def test_hidden_amazon_style_checkboxes_are_listed_with_their_item(loja, run):
     """Visto na Amazon real: a caixinha de verdade é transparente; sem isto, as 32 sumiam da lista."""
     async def scenario(b):
         await b.open(f"{loja}/produto.html")
-        await b.click(ref(await b.elements("carrinho"), "Adicionar ao carrinho"))
+        await add_to_cart(b)
         return await b.elements("Headset")
 
     listing = run(scenario)
@@ -163,3 +169,33 @@ def test_buy_now_refusal_explains_the_cart_route(loja, run):
 
     message = run(scenario)
     assert "Adicionar ao carrinho" in message and "desmarque" in message and "pedir_ajuda_humana" in message
+
+
+
+def test_add_buttons_show_which_product_they_belong_to(loja, run):
+    """Visto na Amazon real: os "Adicionar ao carrinho" das recomendações tinham o mesmo nome do principal,
+    e o agente pôs um PS5 de R$ 3.783 e uma base no carrinho sem ninguém pedir."""
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        before = await b.elements("carrinho")
+        clicked = await b.click(ref(before, "Adicionar ao carrinho"))
+        after = await b.elements("Adicionar ao carrinho")
+        return before, clicked, after
+
+    before, clicked, after = run(scenario)
+    assert "produto da página: Controle sem fio DualSense - Branco" in before
+    assert clicked.startswith("Cliquei em [") and "Adicionar ao carrinho" in clicked
+    lines = [l for l in after.splitlines() if "Adicionar ao carrinho" in l]
+    assert len(lines) == 2  # as duas recomendações, cada uma com o seu produto
+    assert any("PlayStation 5 Slim" in l for l in lines) and any("Base De Carregamento" in l for l in lines)
+
+
+def test_click_reports_checkbox_change(loja, run):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        await add_to_cart(b)
+        listing = await b.elements("Headset")
+        line = next(l for l in listing.splitlines() if "checkbox" in l)
+        return await b.click(re.match(r"\[(\d+)\]", line).group(1))
+
+    assert "(caixinha: marcada → desmarcada)" in run(scenario)

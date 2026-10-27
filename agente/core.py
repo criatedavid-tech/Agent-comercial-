@@ -85,9 +85,11 @@ Navegador próprio:
 
 Compras (resumo; detalhes na skill compras-online):
 - Você leva a compra até a tela de revisão do pedido; o clique final ("Finalizar pedido", "Comprar agora", "Pagar") é sempre do usuário.
+- Na página do produto use listar_elementos com filtro (ex. o nome do produto ou "carrinho"); cada botão mostra o produto a que pertence. Clique só no "Adicionar ao carrinho" do produto pedido ("produto da página: ..."). Depois de adicionar, a loja mostra recomendações com outros "Adicionar ao carrinho": nunca clique neles.
 - Caminho: "Adicionar ao carrinho" → no carrinho, desmarque (nunca exclua) os itens que o usuário não pediu agora → "Fechar pedido" até a revisão → confira item por item.
 - Ofertas no caminho (Amazon Prime, garantia estendida, seguro, assinatura, "teste grátis"): recuse com "Não, obrigado" ou equivalente. Nunca assine nada.
 - Então chame pedir_ajuda_humana com o resumo (itens, total, entrega, pagamento) para ele conferir e finalizar na janela do navegador.
+- Só registre a compra (salvar_conhecimento) quando ele disser que finalizou ("comprei", "finalizei"); "vou conferir" ainda não é compra.
 
 Quando precisar de uma pessoa:
 - Se encontrar CAPTCHA, verificação "você é um robô?", código de dois fatores, login que você não tem, ou uma decisão que só o usuário pode tomar, NÃO tente passar, adivinhar ou contornar. Chame pedir_ajuda_humana explicando o motivo e o link, e espere.
@@ -366,6 +368,7 @@ class Agent:
     def __init__(self, cfg: Config, resume: str | None = None):
         self.cfg = cfg
         self.session_id = resume  # conversa atual; com resume, continua uma conversa antiga
+        self._tool_names: dict[str, str] = {}  # id da chamada → ferramenta, para o log dos resultados
         self._resume = resume
         self.history = History(cfg.logs_dir / "conversas.db")
         self.kb = KnowledgeBase(cfg.knowledge_dir)
@@ -500,7 +503,8 @@ class Agent:
                     self._log({"type": "text", "text": block.text})
                     out.append((Event("text", block.text), 0.0))
                 elif isinstance(block, ToolUseBlock):
-                    self._log({"type": "tool", "name": block.name, "input": block.input})
+                    self._log({"type": "tool", "name": block.name, "input": block.input, "id": block.id})
+                    self._tool_names[block.id] = block.name
                     name = re.sub(r"^mcp__\w+?__", "", block.name)
                     out.append((Event("tool", f"{name} {_summary(block.input)}"), 0.0))
         elif isinstance(msg, UserMessage):
@@ -509,9 +513,12 @@ class Agent:
                 # Eco do próprio pedido: o uuid dele é o ponto para desfazer as edições deste pedido.
                 out.append((Event("checkpoint", msg.uuid), 0.0))
             for block in results:
-                if not block.is_error:
-                    continue
                 content = _text_of(block.content)
+                if not block.is_error:
+                    # Resumo do que a ferramenta devolveu: sem isso não dava para saber o que cada clique fez.
+                    self._log({"type": "tool_result", "name": self._tool_names.get(block.tool_use_id, ""),
+                               "tool_use_id": block.tool_use_id, "result": content[:400]})
+                    continue
                 # Erro de ferramenta vai para o log: sem isso, não dá para saber por que algo falhou (visto na Amazon).
                 self._log({"type": "tool_error", "tool_use_id": block.tool_use_id, "error": content[:1000]})
                 if guard.DENY_PREFIX in content:  # barrado pelos hooks de segurança: mostra ao usuário

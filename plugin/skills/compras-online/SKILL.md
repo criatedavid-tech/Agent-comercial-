@@ -20,7 +20,9 @@ Você leva a compra **até a tela de revisão do pedido**. O clique final ("Fina
 ## 3. Produto
 - Em páginas grandes, use `listar_elementos` **com filtro** ("carrinho", "cor", "quantidade") em vez de listar tudo.
 - Confira **variação** (cor, tamanho, voltagem), **vendedor** e **quantidade** antes de adicionar.
-- Use **"Adicionar ao carrinho"**. Não use "Comprar agora" (é bloqueado: pode fechar a compra em um clique).
+- Use **"Adicionar ao carrinho"** do produto pedido: em `listar_elementos`, ele aparece como "— item: produto da página: …". Não use "Comprar agora" (é bloqueado: pode fechar a compra em um clique).
+- Depois de adicionar, a loja mostra **recomendações** ("comprados juntos", "você também pode gostar") com outros botões "Adicionar ao carrinho": **nunca clique neles**. Confirme pelo aviso "Adicionado ao carrinho" e vá para o carrinho.
+- Cada clique responde "Cliquei em [n] …": confira se foi o que você queria.
 
 ## 4. Carrinho (pode já ter itens do usuário!)
 - O carrinho é da **conta**: ele pode ter itens que o usuário guardou e **não pediu agora**.
@@ -40,5 +42,5 @@ Você leva a compra **até a tela de revisão do pedido**. O clique final ("Fina
 - Se a resposta for "não consegui" ou ele desistir, deixe como está e não tente de novo sozinho.
 
 ## 6. Depois
-- Quando o usuário confirmar que comprou, salve em `financas`: o que, onde, quanto, quando, número do pedido se ele informar.
+- Só registre a compra quando o usuário disser **com todas as letras que finalizou** ("comprei", "finalizei", "pedido feito"). "Vou conferir", "ok" ou "vou finalizar" ainda não é compra. Então salve em `financas`: o que, onde, quanto, quando, número do pedido se ele informar.
 - Salve em `geral` lojas boas ou ruins.

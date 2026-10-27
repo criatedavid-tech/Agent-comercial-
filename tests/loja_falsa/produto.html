@@ -19,14 +19,29 @@
   <button id="buy-now-button" onclick="location.href='revisao.html?agora=1'">Comprar agora</button>
 </div>
 <div id="barra"></div>
+<!-- como a Amazon: depois de adicionar, aparecem recomendações com botões de mesmo nome -->
+<div id="adicionado" style="display:none; margin: 40px;">
+  <h2>Adicionado ao carrinho</h2>
+  <a href="carrinho.html">Ir para o carrinho</a>
+  <h3>Frequentemente comprados juntos</h3>
+  <div class="rec"><p>PlayStation 5 Slim Digital 825GB – Pacote ASTRO BOT</p><p>R$ 3.783,12</p>
+    <button onclick="adicionarItem('ps5', 'PlayStation 5 Slim Digital', 3783.12)">Adicionar ao carrinho</button></div>
+  <div class="rec"><p>Base De Carregamento Do Dualsense</p><p>R$ 169,00</p>
+    <button onclick="adicionarItem('base', 'Base De Carregamento', 169.00)">Adicionar ao carrinho</button></div>
+</div>
 <script>
   const menu = document.getElementById('menu');
   for (let i = 1; i <= 250; i++) { const a = document.createElement('a'); a.href = '#cat' + i; a.textContent = 'Categoria ' + i; menu.appendChild(a); }
-  function adicionar() {
+  function adicionarItem(id, titulo, preco) {
     const cart = JSON.parse(localStorage.getItem('carrinho') || 'null') || inicial();
-    cart.push({id: 'dualsense', titulo: 'Controle DualSense Branco', preco: 376.20, marcado: true});
+    cart.push({id, titulo, preco, marcado: true});
     localStorage.setItem('carrinho', JSON.stringify(cart));
-    location.href = 'carrinho.html';
+  }
+  function adicionar() {
+    adicionarItem('dualsense', 'Controle DualSense Branco', 376.20);
+    document.getElementById('buybox').style.display = 'none';
+    document.getElementById('espaco').style.display = 'none';
+    document.getElementById('adicionado').style.display = 'block';
   }
   // o carrinho da conta já tem itens que o usuário guardou e não pediu agora
   function inicial() {

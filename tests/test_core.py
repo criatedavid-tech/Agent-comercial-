@@ -383,3 +383,17 @@ def test_free_mode_has_no_paid_web_search(cfg):
     assert "WebSearch" not in researcher.tools and "lite.duckduckgo.com" in researcher.prompt
     assert "lite.duckduckgo.com" in options.system_prompt
     assert "WebSearch" in AGENTS["pesquisador"].tools  # o original não é alterado
+
+
+def test_tool_results_are_logged_with_tool_name(cfg):
+    """Para diagnosticar (visto na Amazon): o log guardava só o número clicado, não o que aconteceu."""
+    agent = Agent(cfg)
+    agent.client = FakeClient([
+        AssistantMessage(content=[ToolUseBlock(id="t1", name="mcp__navegador__clicar", input={"ref": "72"})], model="m"),
+        UserMessage(content=[ToolResultBlock(tool_use_id="t1", content="Cliquei em [72] Adicionar ao carrinho")]),
+        ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False, num_turns=1, session_id="s"),
+    ])
+    collect(agent, "x")
+    log = [json.loads(line) for line in next(cfg.logs_dir.glob("*.jsonl")).read_text(encoding="utf-8").splitlines()]
+    result = next(e for e in log if e["type"] == "tool_result")
+    assert result["name"] == "mcp__navegador__clicar" and result["result"].startswith("Cliquei em [72]")
