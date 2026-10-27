@@ -172,7 +172,9 @@ async function load() {
   $("t-week").textContent = usd(t.week);
   $("t-month").textContent = usd(t.month);
   $("t-requests").textContent = t.requests_month;
-  $("t-budget").textContent = `teto por pedido: ${usd(t.budget_per_request)}`;
+  $("t-budget").textContent = t.provider
+    ? `provedor ${new URL(t.provider).hostname}: custo real no painel dele`
+    : `teto por pedido: ${usd(t.budget_per_request)}`;
   lastDays = p.costs; drawChart(lastDays);
 
   fill("convs", p.conversations, c => li(c.title || "(sem título)", `${fmtTs(c.updated)} · ${usd(c.cost_usd)}`, "/?sessao=" + encodeURIComponent(c.id)), "Nenhuma conversa ainda.");

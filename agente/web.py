@@ -192,6 +192,7 @@ async def panel() -> dict:
             "month": round(sum(d["cost_usd"] for d in days), 4),
             "requests_month": sum(d["requests"] for d in days),
             "budget_per_request": cfg.max_budget_usd,
+            "provider": cfg.base_url,  # provedor alternativo: o custo real fica no painel dele
         },
         "conversations": [vars(s) for s in history.sessions(limit=8)],
         "agenda": await list_agenda(),

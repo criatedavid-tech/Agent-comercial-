@@ -353,3 +353,15 @@ def test_no_auto_memory_and_no_background(cfg):
     assert env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
     assert env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
     assert all(a.background is False for a in AGENTS.values())
+
+
+def test_alternative_provider_does_not_show_fake_cost(cfg):
+    import dataclasses
+
+    alt = dataclasses.replace(cfg, base_url="https://openrouter.ai/api", auth_token="t", model="m:free")
+    agent = Agent(alt)
+    agent.client = FakeClient([ResultMessage(subtype="success", duration_ms=1, duration_api_ms=1, is_error=False,
+                                             num_turns=4, session_id="s", total_cost_usd=1.241)])
+    [event] = collect(agent, "x")
+    assert event.text == "ok · 4 passos · custo: veja no painel do provedor"
+    assert agent.history.sessions()[0].cost_usd == 0  # o painel não soma a estimativa falsa

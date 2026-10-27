@@ -509,7 +509,14 @@ class Agent:
                 status = "ok"
             else:
                 status = "erro" if msg.subtype == "success" else f"parou: {msg.subtype}"
-            out.append((Event("result", f"{status} · {msg.num_turns} passos · US$ {cost:.4f}"), cost))
+            if self.cfg.base_url:
+                # Provedor alternativo: o Claude Code estima pelo preço da Anthropic, que não é o cobrado.
+                # Não mostra nem soma um valor falso (o teste real mostrou US$ 1,24 para um gasto de ~US$ 0,12).
+                label = "custo: veja no painel do provedor"
+                cost = 0.0
+            else:
+                label = f"US$ {cost:.4f}"
+            out.append((Event("result", f"{status} · {msg.num_turns} passos · {label}"), cost))
         return out
 
     def _log(self, entry: dict) -> None:
