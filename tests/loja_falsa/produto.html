@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Controle DualSense Branco | Loja Falsa</title>
+<style>
+  body { font-family: sans-serif; margin: 0; }
+  #menu a { margin-right: 4px; font-size: 11px; }
+  #buybox { margin: 40px; padding: 20px; border: 1px solid #ccc; width: 320px; }
+  /* barra fixa que fica por cima do botão de adicionar (como avisos e barras da Amazon) */
+  #barra { position: fixed; left: 0; right: 0; bottom: 0; height: 140px; background: rgba(255,255,255,.01); z-index: 10; }
+  #espaco { height: 1600px; }
+</style></head>
+<body>
+<div id="menu"></div>
+<h1>Controle sem fio DualSense - Branco</h1>
+<div id="espaco"></div>
+<div id="buybox">
+  <p>R$ 376,20 · Vendido e entregue por Loja Falsa</p>
+  <label>Quantidade <select id="quantidade"><option>1</option><option>2</option></select></label>
+  <button id="add-to-cart-button" onclick="adicionar()">Adicionar ao carrinho</button>
+  <button id="buy-now-button" onclick="location.href='revisao.html?agora=1'">Comprar agora</button>
+</div>
+<div id="barra"></div>
+<script>
+  const menu = document.getElementById('menu');
+  for (let i = 1; i <= 250; i++) { const a = document.createElement('a'); a.href = '#cat' + i; a.textContent = 'Categoria ' + i; menu.appendChild(a); }
+  function adicionar() {
+    const cart = JSON.parse(localStorage.getItem('carrinho') || 'null') || inicial();
+    cart.push({id: 'dualsense', titulo: 'Controle DualSense Branco', preco: 376.20, marcado: true});
+    localStorage.setItem('carrinho', JSON.stringify(cart));
+    location.href = 'carrinho.html';
+  }
+  // o carrinho da conta já tem itens que o usuário guardou e não pediu agora
+  function inicial() {
+    return [
+      {id: 'headset', titulo: 'Headset Gamer Havit H2232d', preco: 94.06, marcado: true},
+      {id: 'odisseia', titulo: 'Odisseia - Homero', preco: 93.37, marcado: true},
+    ];
+  }
+</script>
+</body></html>

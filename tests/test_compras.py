@@ -1,0 +1,140 @@
+"""Trava de compra e fluxo de carrinho numa loja falsa que imita a Amazon (Chromium de verdade, invisível)."""
+
+import asyncio
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+import re
+import threading
+
+import pytest
+
+from agente.browser import Browser, BrowserError, is_purchase_button
+
+LOJA = Path(__file__).parent / "loja_falsa"
+
+
+@pytest.mark.parametrize("text, element_id", [
+    ("Finalizar pedido", ""), ("Confirmar compra", ""), ("Comprar agora", ""), ("Pagar", ""),
+    ("  finalizar   a compra ", ""), ("Comprar com 1-Clique", ""), ("Place your order", ""), ("Assine agora", ""),
+    ("", "buy-now-button"), ("Continuar", "placeYourOrder1"), ("x", "submitOrderButtonId"),
+])
+def test_detects_purchase_buttons(text, element_id):
+    assert is_purchase_button(text, element_id)
+
+
+@pytest.mark.parametrize("text", [
+    "Fechar pedido", "Adicionar ao carrinho", "Ver carrinho", "Comprar outros itens", "Pagamento e envio",
+    "Excluir", "Salvar para mais tarde", "Continuar comprando", "Política de pagamento",
+])
+def test_lets_normal_buttons_through(text):
+    assert not is_purchase_button(text)
+
+
+@pytest.fixture(scope="module")
+def loja():
+    handler = partial(SimpleHTTPRequestHandler, directory=str(LOJA))
+    handler.log_message = lambda *a: None
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+
+
+@pytest.fixture
+def run(tmp_path):
+    def go(scenario):
+        async def main():
+            b = Browser(tmp_path / "perfil", tmp_path / "capturas", headless=True, allow_private=True)
+            try:
+                return await scenario(b)
+            finally:
+                await b.close()
+
+        try:
+            return asyncio.run(main())
+        except BrowserError as e:
+            if "não consegui abrir o navegador" in str(e) or "Playwright não está instalado" in str(e):
+                pytest.skip(f"Chromium indisponível: {e}")
+            raise
+
+    return go
+
+
+def ref(listing: str, text: str) -> str:
+    line = next(l for l in listing.splitlines() if text in l)
+    return re.match(r"\[(\d+)\]", line).group(1)
+
+
+def test_buttons_come_before_hundreds_of_menu_links(loja, run):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        return await b.elements(), await b.elements("carrinho")
+
+    everything, filtered = run(scenario)
+    assert "Adicionar ao carrinho" in everything  # antes ficava além do limite, depois dos 250 links do menu
+    assert "use o filtro" in everything
+    assert filtered.count("\n") <= 2 and "Adicionar ao carrinho" in filtered
+
+
+def test_buy_now_is_refused_and_add_to_cart_works_under_overlay(loja, run):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        listing = await b.elements("comprar")
+        with pytest.raises(BrowserError, match="quem clica é o usuário"):
+            await b.click(ref(listing, "Comprar agora"))
+        listing = await b.elements("carrinho")
+        return await b.click(ref(listing, "Adicionar ao carrinho"))  # há uma barra fixa por cima do botão
+
+    page = run(scenario)
+    assert "Página: Carrinho de compras" in page
+
+
+def test_full_cart_flow_only_requested_item_and_final_click_refused(loja, run):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        await b.click(ref(await b.elements("carrinho"), "Adicionar ao carrinho"))
+        cart = await b.elements()
+        # o carrinho já tinha itens do usuário: todos marcados, cada caixinha com o item a que pertence
+        assert cart.count("☑ marcado") == 3
+        for other in ("Headset Gamer", "Odisseia"):
+            line = next(l for l in cart.splitlines() if "checkbox" in l and other in l)
+            await b.click(re.match(r"\[(\d+)\]", line).group(1))
+            cart = await b.elements()
+        subtotal = await b.read("#subtotal")
+        review = await b.click(ref(cart, "Fechar pedido"))  # só leva à revisão: permitido
+        with pytest.raises(BrowserError, match="fecha uma compra"):
+            await b.click(ref(await b.elements(), "Finalizar pedido"))
+        status = await b.read("#status")
+        return cart, subtotal, review, status
+
+    cart, subtotal, review, status = run(scenario)
+    assert cart.count("☑ marcado") == 1 and cart.count("☐ desmarcado") == 2
+    assert "R$ 376,20" in subtotal and "(1 produtos)" in subtotal
+    assert "Controle DualSense Branco" in review and "Headset" not in review and "Odisseia" not in review
+    assert "PEDIDO FINALIZADO" not in status  # a trava impediu o clique final
+
+
+def test_enter_in_checkout_form_is_refused(run, loja):
+    checkout = ('<meta charset="utf-8"><form><input id="cupom" placeholder="Cupom">'
+                '<button>Finalizar pedido</button></form>')
+
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        await b._page.set_content(checkout)  # Enter num campo de cupom enviaria o formulário do pedido
+        with pytest.raises(BrowserError, match="formulário de compra"):
+            await b.fill(ref(await b.elements(), "Cupom"), "PROMO10", submit=True)
+        return True
+
+    assert run(scenario)
+
+
+def test_buy_now_refusal_explains_the_cart_route(loja, run):
+    async def scenario(b):
+        await b.open(f"{loja}/produto.html")
+        with pytest.raises(BrowserError) as err:
+            await b.click(ref(await b.elements("comprar"), "Comprar agora"))
+        return str(err.value)
+
+    message = run(scenario)
+    assert "Adicionar ao carrinho" in message and "desmarque" in message and "pedir_ajuda_humana" in message

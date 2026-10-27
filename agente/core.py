@@ -83,6 +83,11 @@ Navegador próprio:
 - Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
 - Senhas, cartão e códigos: você não digita. Login, CAPTCHA ou "você é um robô?": chame pedir_ajuda_humana para o usuário resolver na janela do navegador e continue depois.
 
+Compras (resumo; detalhes na skill compras-online):
+- Você leva a compra até a tela de revisão do pedido; o clique final ("Finalizar pedido", "Comprar agora", "Pagar") é sempre do usuário.
+- Caminho: "Adicionar ao carrinho" → no carrinho, desmarque (nunca exclua) os itens que o usuário não pediu agora → "Fechar pedido" até a revisão → confira item por item.
+- Então chame pedir_ajuda_humana com o resumo (itens, total, entrega, pagamento) para ele conferir e finalizar na janela do navegador.
+
 Quando precisar de uma pessoa:
 - Se encontrar CAPTCHA, verificação "você é um robô?", código de dois fatores, login que você não tem, ou uma decisão que só o usuário pode tomar, NÃO tente passar, adivinhar ou contornar. Chame pedir_ajuda_humana explicando o motivo e o link, e espere.
 - A resposta dele vem no resultado da ferramenta ("resolvido", um código, uma escolha ou "não consegui"). Depois continue a tarefa de onde parou.
@@ -327,9 +332,12 @@ def browser_tools(browser: Browser) -> list[SdkMcpTool]:
     async def read_page(args: dict) -> dict[str, Any]:
         return await run(browser.read(args.get("trecho") or ""))
 
-    @tool("listar_elementos", "Lista os links, botões e campos visíveis da página, numerados para clicar ou preencher.", _schema({}))
+    @tool("listar_elementos",
+          "Lista botões, campos, caixinhas (com marcado/desmarcado e o item a que pertencem) e links visíveis, "
+          "numerados para clicar ou preencher. Use o filtro para achar algo específico em páginas grandes.",
+          _schema({}, {"filtro": (str, "texto para filtrar, ex. 'carrinho', 'comprar', 'cor'")}))
     async def list_elements(args: dict) -> dict[str, Any]:
-        return await run(browser.elements())
+        return await run(browser.elements(args.get("filtro") or ""))
 
     @tool("clicar", "Clica no elemento pelo número mostrado em listar_elementos e devolve a página resultante.",
           _schema({"ref": (str, "número do elemento, ex. '12'")}))
@@ -500,10 +508,16 @@ class Agent:
                 # Eco do próprio pedido: o uuid dele é o ponto para desfazer as edições deste pedido.
                 out.append((Event("checkpoint", msg.uuid), 0.0))
             for block in results:
-                # Resultado de ferramenta barrado pelos hooks de segurança: mostra ao usuário.
-                if block.is_error and guard.DENY_PREFIX in str(block.content):
-                    reason = str(block.content).split(guard.DENY_PREFIX, 1)[1].split(". Não tente")[0]
+                if not block.is_error:
+                    continue
+                content = _text_of(block.content)
+                # Erro de ferramenta vai para o log: sem isso, não dá para saber por que algo falhou (visto na Amazon).
+                self._log({"type": "tool_error", "tool_use_id": block.tool_use_id, "error": content[:1000]})
+                if guard.DENY_PREFIX in content:  # barrado pelos hooks de segurança: mostra ao usuário
+                    reason = content.split(guard.DENY_PREFIX, 1)[1].split(". Não tente")[0]
                     out.append((Event("blocked", reason.strip(" :")), 0.0))
+                elif "fecha uma compra, assinatura ou pagamento" in content:  # trava de compra do navegador
+                    out.append((Event("blocked", "clique de finalizar compra: esse é seu"), 0.0))
         elif isinstance(msg, ResultMessage):
             cost = msg.total_cost_usd or 0.0
             self._log({"type": "result", "subtype": msg.subtype, "turns": msg.num_turns, "cost_usd": cost})
@@ -574,6 +588,13 @@ def provider_env(cfg: Config) -> dict[str, str]:
         "ANTHROPIC_DEFAULT_HAIKU_MODEL": cfg.model,
         "CLAUDE_CODE_SUBAGENT_MODEL": cfg.model,
     }
+
+
+def _text_of(content: Any) -> str:
+    """Conteúdo de resultado de ferramenta (texto ou lista de blocos) como texto."""
+    if isinstance(content, list):
+        return " ".join(str(c.get("text", "")) if isinstance(c, dict) else str(c) for c in content)
+    return str(content or "")
 
 
 def _session_of(msg: Any) -> str | None:

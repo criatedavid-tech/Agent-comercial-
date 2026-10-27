@@ -55,6 +55,7 @@ Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, 
 - [x] Playwright com perfil persistente (fica logado nos sites)
 - [x] Preencher formulários e navegar em várias etapas (monitorar preços: com a agenda)
 - [ ] Ver a janela do navegador remotamente quando estiver na VPS
+- [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)
 - [ ] Compras com **cartão virtual** + teto por compra e por mês no código
 - [ ] Marketplaces com API (ex.: Mercado Livre) para comprar e vender
 

@@ -1,26 +1,41 @@
 ---
 name: compras-online
-description: Como pesquisar e preparar compras online, comparar preços e lojas, e lidar com sites que pedem login, CAPTCHA ou verificação. Use quando o pedido envolver comprar, cotar, comparar preços ou usar uma loja ou site com cadastro.
+description: Como pesquisar, comparar e preparar compras online até a revisão do pedido (quem finaliza é o usuário), lidando com login, CAPTCHA, carrinho já cheio e lojas como Amazon e Mercado Livre. Use quando o pedido envolver comprar, cotar, comparar preços, montar carrinho ou usar uma loja com cadastro.
 ---
 
 # Compras online
 
-## Pesquisa
-- Delegue a comparação ao subagente `pesquisador`: preço total (com frete), prazo, reputação da loja (Reclame Aqui) e política de troca.
-- Prefira APIs oficiais e marketplaces conhecidos a sites desconhecidos. Desconfie de preço muito abaixo da média.
+Você leva a compra **até a tela de revisão do pedido**. O clique final ("Finalizar pedido", "Comprar agora", "Pagar") é **sempre do usuário**: o navegador recusa esses cliques no código.
 
-## No site da loja
-- Use o navegador próprio (abrir_pagina, listar_elementos, clicar, preencher): ele guarda os logins que o usuário já fez.
-- Confira o preço final no carrinho, não na vitrine: frete e taxas aparecem só no fim.
+## 1. Pesquisa
+- Delegue a comparação ao subagente `pesquisador`: preço total (com frete), prazo, vendedor (loja própria × marketplace), reputação (Reclame Aqui) e troca.
+- Desconfie de preço muito abaixo da média. Prefira "vendido e entregue por" uma loja conhecida.
+- Se o usuário só pediu preços, pare aqui e mostre a comparação.
 
-## Verificações e bloqueios
-- CAPTCHA, "você é um robô?", login, código por SMS ou e-mail: **não tente passar nem contornar**.
-  Chame `pedir_ajuda_humana` com o motivo e o link, e continue quando o usuário responder.
-- Nunca crie conta, aceite termos ou digite senha ou cartão sozinho.
+## 2. Entrar na loja
+- Use o navegador próprio (`abrir_pagina`). Ele guarda os logins que o usuário fez nele.
+- Se a página mostrar que **não está logado** ("Faça seu login", "Entrar") e o pedido é comprar: chame `pedir_ajuda_humana` pedindo para o usuário **fazer login na janela do navegador do agente** e marcar "manter conectado". Você nunca digita senha.
+- CAPTCHA, "você é um robô?", código por SMS ou e-mail: **não tente passar**. `pedir_ajuda_humana` e continue depois.
 
-## Finalizar
-- Hoje você **não finaliza compras**: monte o carrinho ou a lista com links, preço total e prazo, e peça ao usuário para concluir.
-  O pagamento automático só virá com cartão virtual e teto de valor no código (etapa 4 do roadmap).
+## 3. Produto
+- Em páginas grandes, use `listar_elementos` **com filtro** ("carrinho", "cor", "quantidade") em vez de listar tudo.
+- Confira **variação** (cor, tamanho, voltagem), **vendedor** e **quantidade** antes de adicionar.
+- Use **"Adicionar ao carrinho"**. Não use "Comprar agora" (é bloqueado: pode fechar a compra em um clique).
 
-## Depois
-- Salve em `financas` o que foi comprado (o que, onde, quanto, quando) e em `geral` lojas boas ou ruins.
+## 4. Carrinho (pode já ter itens do usuário!)
+- O carrinho é da **conta**: ele pode ter itens que o usuário guardou e **não pediu agora**.
+- **Nunca exclua** itens do usuário nem mude quantidades deles.
+- Para comprar só o pedido: use `listar_elementos` com filtro "selecionar" ou o nome do item e **desmarque** (☐) as caixinhas dos itens que não fazem parte do pedido. Deixe marcado (☑) só o que foi pedido.
+- Se a loja não permite desmarcar e há outros itens: **pare** e chame `pedir_ajuda_humana` explicando que o carrinho tem itens que não foram pedidos.
+- Confira o subtotal: tem que bater com o preço do(s) item(ns) pedido(s).
+
+## 5. Revisão do pedido
+- Avance até a tela de revisão (na Amazon, "Fechar pedido" leva até ela).
+- Leia a página (`ler_pagina`) e confira **item por item**: só o que foi pedido, quantidade, cor, vendedor, endereço, frete, prazo e forma de pagamento. Se aparecer **qualquer item a mais**, pare e avise.
+- Chame `pedir_ajuda_humana` com o resumo, por exemplo:
+  "Pedido pronto na Amazon: 1× Controle DualSense branco (vendido por Amazon), R$ 376,20, frete grátis, chega 01/11, pagamento: cartão final 1234. Confira na janela do navegador e clique em Finalizar pedido."
+- Se a resposta for "não consegui" ou ele desistir, deixe como está e não tente de novo sozinho.
+
+## 6. Depois
+- Quando o usuário confirmar que comprou, salve em `financas`: o que, onde, quanto, quando, número do pedido se ele informar.
+- Salve em `geral` lojas boas ou ruins.

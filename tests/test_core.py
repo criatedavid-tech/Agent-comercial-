@@ -180,7 +180,7 @@ def test_ask_converts_messages_to_events_and_logs(cfg):
     assert agent.client.sent == ["anota meu aluguel"]
 
     log = [json.loads(line) for line in next(cfg.logs_dir.glob("*.jsonl")).read_text(encoding="utf-8").splitlines()]
-    assert [e["type"] for e in log] == ["user", "text", "tool", "tool", "result"]
+    assert [e["type"] for e in log] == ["user", "text", "tool", "tool", "tool_error", "result"]
     assert log[-1]["cost_usd"] == 0.0123
 
 

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Revisar pedido | Loja Falsa</title>
+<style> body { font-family: sans-serif; margin: 30px; } </style></head>
+<body>
+<h1>Revise seu pedido</h1>
+<p>Entregar para: David — Goiânia 74710450 · Pagamento: cartão final 1234 · Frete grátis, chega sex., 1 de nov.</p>
+<ul id="itens"></ul>
+<p id="total"></p>
+<button id="placeYourOrder" onclick="document.getElementById('status').textContent = 'PEDIDO FINALIZADO'">Finalizar pedido</button>
+<p id="status"></p>
+<script>
+  const agora = new URLSearchParams(location.search).get('agora');
+  const cart = agora
+    ? [{titulo: 'Controle DualSense Branco', preco: 376.20, marcado: true}]
+    : JSON.parse(localStorage.getItem('carrinho') || '[]').filter(i => i.marcado);
+  const ul = document.getElementById('itens');
+  cart.forEach(i => { const li = document.createElement('li'); li.textContent = `1× ${i.titulo} — R$ ${i.preco.toFixed(2).replace('.', ',')}`; ul.appendChild(li); });
+  document.getElementById('total').textContent = `Total do pedido: R$ ${cart.reduce((s, i) => s + i.preco, 0).toFixed(2).replace('.', ',')}`;
+</script>
+</body></html>

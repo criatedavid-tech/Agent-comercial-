@@ -44,6 +44,12 @@ Rode `agente-web` e abra http://127.0.0.1:8000. Cada aba é uma conversa separad
 
 No terminal: `/conversas`, `/retomar N` e `/desfazer` (último pedido).
 
+## Compras
+
+"Compra pra mim um controle DualSense branco na Amazon." O agente pesquisa, entra na loja pelo navegador dele, adiciona ao carrinho, **desmarca (sem excluir) os itens que já estavam no seu carrinho e você não pediu agora**, vai até a revisão do pedido e te chama com o resumo (itens, total, entrega, pagamento). **Quem clica em "Finalizar pedido" é você**: o navegador recusa esse clique no código.
+
+Na primeira vez, ele te pede para fazer login na janela do navegador dele; depois fica logado. Funciona no seu computador (na VPS o navegador não tem janela).
+
 ## Sites com login, formulários e verificação
 
 O agente tem um navegador próprio (uma janela do Chromium). Peça normalmente: "entra no site da loja X e vê o preço do frete para meu CEP". Se o site pedir login, CAPTCHA ou código, aparece o cartão **O agente precisa de você**: resolva **na janela do navegador do agente** e clique em *Resolvido*. Ele continua logado nas próximas vezes.
