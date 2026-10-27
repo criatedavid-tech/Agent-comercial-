@@ -22,6 +22,7 @@ from .history import History
 from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
+from .browser import close_browsers
 from .whatsapp import CloudApi, WhatsAppChannel, parse_messages, spawn, verify_signature
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -113,6 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     job.cancel()
     if whatsapp:
         await whatsapp.close()
+    await close_browsers()
 
 
 app = FastAPI(title="Agente pessoal", lifespan=lifespan)
@@ -205,7 +207,7 @@ async def status() -> dict:
         "workdir": str(cfg.workdir),
         "max_budget_usd": cfg.max_budget_usd,
         "max_turns": cfg.max_turns,
-        "api_key": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
+        "api_key": cfg.has_credentials,
         "whatsapp": whatsapp is not None,
     }
 

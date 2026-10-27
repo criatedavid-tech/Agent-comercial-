@@ -27,12 +27,19 @@ class Config:
     agenda_db: Path
     browser_profile: Path
     browser_headless: bool
+    base_url: str = ""  # vazio = API da Anthropic; ex. https://openrouter.ai/api
+    auth_token: str = ""  # token do provedor alternativo
     whatsapp_token: str = ""
     whatsapp_phone_id: str = ""
     whatsapp_verify_token: str = ""
     whatsapp_app_secret: str = ""
     whatsapp_allowed: tuple[str, ...] = ()  # números com DDI, só dígitos; o primeiro é o dono
     whatsapp_api_version: str = "v26.0"
+
+    @property
+    def has_credentials(self) -> bool:
+        """Tem como falar com um modelo: chave da Anthropic ou token de provedor alternativo."""
+        return bool(os.getenv("ANTHROPIC_API_KEY", "").strip() or (self.base_url and self.auth_token))
 
     @property
     def whatsapp_enabled(self) -> bool:
@@ -59,6 +66,8 @@ def load() -> Config:
         agenda_db=ROOT / "agenda.db",
         browser_profile=ROOT / "navegador",
         browser_headless=os.getenv("AGENT_BROWSER_HEADLESS", "false").strip().lower() in ("1", "true", "sim"),
+        base_url=os.getenv("AGENT_BASE_URL", "").strip(),
+        auth_token=os.getenv("AGENT_AUTH_TOKEN", "").strip(),
         whatsapp_token=os.getenv("WHATSAPP_TOKEN", "").strip(),
         whatsapp_phone_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", "").strip(),
         whatsapp_verify_token=os.getenv("WHATSAPP_VERIFY_TOKEN", "").strip(),

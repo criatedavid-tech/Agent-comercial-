@@ -151,3 +151,18 @@ def test_tools_turn_errors_into_replies(tmp_path):
     open_page = next(t for t in browser_tools(browser) if t.name == "abrir_pagina")
     reply = asyncio.run(open_page.handler({"url": "http://192.168.0.1"}))
     assert reply["is_error"] and "rede local" in reply["content"][0]["text"]
+
+
+def test_close_browsers_closes_shared_instances(tmp_path):
+    from agente import browser as module
+
+    b = module.shared_browser(tmp_path / "perfil", tmp_path / "capturas", True)
+    closed = []
+
+    async def fake_close():
+        closed.append(True)
+
+    b.close = fake_close
+    asyncio.run(module.close_browsers())
+    assert closed == [True]
+    module._shared.pop(tmp_path / "perfil")

@@ -16,6 +16,20 @@ Padrão: `claude-opus-5-5` (o mais capaz). Alternativas:
 | `claude-sonnet-5-5` | bom equilíbrio entre custo e qualidade no dia a dia |
 | `claude-haiku-5-5` | tarefas simples e repetitivas, mais barato e rápido |
 
+### `AGENT_BASE_URL` e `AGENT_AUTH_TOKEN` (provedor alternativo)
+Vazios por padrão: o agente usa a API da Anthropic com `ANTHROPIC_API_KEY`. Preenchidos, o Claude Code embutido fala com outro provedor compatível com a API da Anthropic. Exemplo para **testar de graça pelo OpenRouter**:
+
+```
+AGENT_BASE_URL=https://openrouter.ai/api
+AGENT_AUTH_TOKEN=sk-or-...        # chave do OpenRouter
+AGENT_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+```
+
+- Escolha um modelo `:free` **com suporte a ferramentas** (a lista muda; o OpenRouter mostra em openrouter.ai/models).
+- Os apelidos dos subagentes (`sonnet`...) passam a apontar para esse mesmo modelo.
+- **O custo mostrado não é real**: o Claude Code estima pelo preço da Anthropic. Com modelo gratuito o custo é zero, então aumente `AGENT_MAX_BUDGET_USD` para os testes (senão o teto corta tarefas longas). Volte para `2.00` ao usar chave paga.
+- Modelos gratuitos têm cota diária de requisições e erram mais com ferramentas: servem para testar, não para produção.
+
 ### `AGENT_WORKDIR`
 Padrão: `./workspace`. Pasta onde o agente cria arquivos e roda comandos. Caminhos relativos são resolvidos a partir da raiz do projeto.
 

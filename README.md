@@ -165,6 +165,7 @@ Tudo fica no `.env`:
 |---|---|---|
 | `ANTHROPIC_API_KEY` | (obrigatória) | chave da API da Anthropic |
 | `AGENT_MODEL` | `claude-opus-5-5` | modelo usado pelo agente |
+| `AGENT_BASE_URL`, `AGENT_AUTH_TOKEN` | (vazio) | provedor alternativo compatível com a API da Anthropic, ex. OpenRouter para testar de graça |
 | `AGENT_WORKDIR` | `./workspace` | pasta onde ele cria arquivos e roda comandos |
 | `AGENT_MAX_BUDGET_USD` | `2.00` | teto de gasto **por pedido**: ao atingir, ele para |
 | `AGENT_MAX_TURNS` | `40` | máximo de passos por pedido |

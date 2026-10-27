@@ -1,6 +1,8 @@
 """Núcleo do agente: opções do SDK, ferramentas próprias, skills e conversão de mensagens em eventos."""
 
 import asyncio
+
+import pytest
 import json
 import re
 
@@ -267,3 +269,78 @@ def test_resume_falls_back_to_new_conversation(cfg):
     assert asyncio.run(agent.resume("sumiu")) is False
     assert attempts == ["sumiu", None] and agent.session_id is None
     assert asyncio.run(agent.resume("existe")) is True and agent.session_id == "existe"
+
+
+def _required(tools, name):
+    """Campos obrigatórios. Visto no primeiro teste real: com todos obrigatórios o modelo errava e repetia a chamada."""
+    tool = next(t for t in tools if t.name == name)
+    return set(tool.input_schema["required"])
+
+
+def test_required_fields(cfg):
+    agent = Agent(cfg)
+    kb, human, agenda, browser = (knowledge_tools(agent.kb), human_tools(agent.human),
+                                  agenda_tools(agent.agenda), browser_tools(agent.browser))
+    assert _required(kb, "salvar_conhecimento") == {"area", "titulo", "conteudo"}
+    assert _required(kb, "buscar_conhecimento") == {"consulta"}
+    assert _required(human, "pedir_ajuda_humana") == {"motivo"}
+    assert _required(agenda, "agendar_tarefa") == {"titulo"}
+    assert _required(browser, "ler_pagina") == set()
+    assert _required(browser, "preencher") == {"ref", "texto"}
+
+
+def test_tools_work_with_only_required_fields(cfg):
+    agent = Agent(cfg)
+    save, search = knowledge_tools(agent.kb)
+    reply = asyncio.run(save.handler({"area": "financas", "titulo": "Aluguel", "conteudo": "R$ 1.500, dia 5",
+                                      "tags": '["aluguel", "fixo"]'}))
+    assert not reply["is_error"]
+    assert "tags: aluguel, fixo" in next((cfg.knowledge_dir / "financas").glob("*.md")).read_text(encoding="utf-8")
+    assert "Aluguel" in text_of(asyncio.run(search.handler({"consulta": "aluguel"})))
+    schedule = agenda_tools(agent.agenda)[0]
+    reply = asyncio.run(schedule.handler({"titulo": "Água", "instrucao": "Beba água", "modo": "lembrete",
+                                          "tipo": "diaria", "hora": "10:00"}))
+    assert not reply["is_error"], text_of(reply)
+
+
+@pytest.mark.parametrize("args, expected", [
+    # exatamente o que o modelo gratuito mandou no primeiro teste real
+    ({"quando": "2026-10-28T09:00:00-03:00", "modo": "lembrete", "texto": "Pagar o aluguel", "titulo": "Pagar aluguel"},
+     ("uma_vez", "2026-10-28", "09:00", "Pagar o aluguel", "lembrete")),
+    ({"titulo": "Pagar aluguel", "quando": "2026-10-28 9:00"}, ("uma_vez", "2026-10-28", "09:00", "Pagar aluguel", "lembrete")),
+    ({"titulo": "Água", "tipo": "diaria", "quando": "10:00"}, ("diaria", "", "10:00", "Água", "lembrete")),
+    ({"titulo": "Gastos", "modo": "tarefa", "instrucao": "Some os gastos", "tipo": "semanal", "dias_semana": "seg",
+      "hora": "09:00"}, ("semanal", "", "09:00", "Some os gastos", "tarefa")),
+])
+def test_task_from_natural_args(args, expected):
+    from agente.core import task_from_args
+
+    t = task_from_args(args)
+    assert (t.kind, t.on_date, t.at, t.prompt, t.mode) == expected
+
+
+def test_schedule_error_shows_examples(cfg):
+    schedule = agenda_tools(Agent(cfg).agenda)[0]
+    reply = asyncio.run(schedule.handler({"titulo": "Algo", "tipo": "lembrete"}))
+    assert reply["is_error"] and "Exemplos que funcionam" in text_of(reply)
+
+
+def test_builtin_tools_are_restricted(cfg):
+    options = Agent(cfg)._options()
+    assert options.tools == ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", "Skill"]
+    assert options.env["ENABLE_TOOL_SEARCH"] == "false"
+
+
+def test_provider_env_for_openrouter(cfg):
+    import dataclasses
+
+    from agente.core import provider_env
+
+    assert provider_env(cfg) == {}  # padrão: API da Anthropic
+    alt = dataclasses.replace(cfg, base_url="https://openrouter.ai/api", auth_token="sk-or-x", model="vendor/modelo:free")
+    env = Agent(alt)._options().env
+    assert env["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api" and env["ANTHROPIC_AUTH_TOKEN"] == "sk-or-x"
+    assert env["ANTHROPIC_API_KEY"] == ""  # senão a chave da Anthropic teria prioridade
+    # subagentes usam apelidos (sonnet): no provedor alternativo todos viram o modelo configurado
+    assert env["ANTHROPIC_DEFAULT_SONNET_MODEL"] == env["CLAUDE_CODE_SUBAGENT_MODEL"] == "vendor/modelo:free"
+    assert alt.has_credentials

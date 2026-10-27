@@ -252,6 +252,12 @@ class Browser:
 _shared: dict[Path, Browser] = {}
 
 
+async def close_browsers() -> None:
+    """Fecha os navegadores abertos ao encerrar o processo (senão o Chromium fica pendurado)."""
+    for browser in list(_shared.values()):
+        await browser.close()
+
+
 def shared_browser(profile_dir: Path, shots_dir: Path, headless: bool) -> Browser:
     """O perfil só pode ser aberto uma vez por processo: todas as conversas usam o mesmo navegador."""
     if profile_dir not in _shared:

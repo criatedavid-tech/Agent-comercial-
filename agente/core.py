@@ -6,7 +6,7 @@ from datetime import datetime
 import json
 import re
 
-from typing import Annotated, Any
+from typing import Any
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -37,7 +37,10 @@ HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
 BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
     "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
-TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS]
+# Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
+# tools=BUILTIN_TOOLS (no primeiro teste real o modelo achou e usou o CronCreate interno, que some com a sessão).
+BUILTIN_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", "Skill"]
+TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -101,6 +104,35 @@ class Event:
     text: str
 
 
+JSON_TYPES = {str: "string", int: "integer", bool: "boolean"}
+
+
+def _schema(required: dict[str, tuple[type, str]], optional: dict[str, tuple[type, str]] | None = None) -> dict:
+    """Esquema JSON das ferramentas com campos opcionais de verdade.
+
+    Um dicionário simples de tipos faz o SDK marcar todos os campos como obrigatórios; o modelo então
+    erra a chamada, recebe erro de validação e tenta de novo (visto no primeiro teste real).
+    """
+    fields = {**required, **(optional or {})}
+    return {
+        "type": "object",
+        "properties": {name: {"type": JSON_TYPES[t], "description": d} for name, (t, d) in fields.items()},
+        "required": list(required),
+    }
+
+
+def _tags(value: Any) -> str:
+    """Tags podem vir como texto, lista ou lista em JSON dentro de um texto: vira "a, b, c"."""
+    if isinstance(value, str) and value.strip().startswith("["):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            pass
+    if isinstance(value, list):
+        return ", ".join(str(v).strip() for v in value if str(v).strip())
+    return str(value or "").strip()
+
+
 def _reply(text: str, error: bool = False) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "is_error": error}
 
@@ -132,20 +164,24 @@ def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
     @tool(
         "salvar_conhecimento",
         f"Salva uma nota na base de conhecimento do usuário. Áreas: {areas}.",
-        {
-            "area": Annotated[str, f"uma de: {', '.join(AREAS)}"],
-            "titulo": Annotated[str, "título curto e específico"],
-            "conteudo": Annotated[str, "o conhecimento em Markdown, completo o bastante para ser útil sozinho"],
-            "tags": Annotated[str, "palavras-chave separadas por vírgula (pode ser vazio)"],
-            "nicho": Annotated[str, "só para estudos: o nicho, ex. python, ingles (senão vazio)"],
-            "fonte": Annotated[str, "link ou origem da informação (pode ser vazio)"],
-        },
+        _schema(
+            {
+                "area": (str, f"uma de: {', '.join(AREAS)}"),
+                "titulo": (str, "título curto e específico"),
+                "conteudo": (str, "o conhecimento em Markdown, completo o bastante para ser útil sozinho"),
+            },
+            {
+                "tags": (str, "palavras-chave separadas por vírgula"),
+                "nicho": (str, "obrigatório em estudos: o nicho, ex. python, ingles"),
+                "fonte": (str, "link ou origem da informação"),
+            },
+        ),
     )
     async def save(args: dict) -> dict[str, Any]:
         try:
             path = kb.save(
                 args["area"], args["titulo"], args["conteudo"],
-                args.get("tags", ""), args.get("nicho", ""), args.get("fonte", ""),
+                _tags(args.get("tags")), args.get("nicho") or "", args.get("fonte") or "",
             )
         except ValueError as e:
             return _reply(str(e), error=True)
@@ -154,13 +190,13 @@ def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
     @tool(
         "buscar_conhecimento",
         "Busca notas na base de conhecimento do usuário por palavras-chave. Devolve as mais relevantes.",
-        {
-            "consulta": Annotated[str, "palavras-chave do que procurar"],
-            "area": Annotated[str, f"filtra por área ({', '.join(AREAS)}) ou vazio para todas"],
-        },
+        _schema(
+            {"consulta": (str, "palavras-chave do que procurar")},
+            {"area": (str, f"filtra por uma área ({', '.join(AREAS)}); sem ela, busca em todas")},
+        ),
     )
     async def search(args: dict) -> dict[str, Any]:
-        hits = kb.search(args["consulta"], args.get("area", ""))
+        hits = kb.search(args["consulta"], args.get("area") or "")
         if not hits:
             return _reply("nada encontrado")
         return _reply("\n\n".join(
@@ -177,13 +213,13 @@ def human_tools(bridge: HumanBridge) -> list[SdkMcpTool]:
         "pedir_ajuda_humana",
         "Pausa e pede ao usuário algo que só uma pessoa resolve: CAPTCHA, verificação de robô, "
         "código de dois fatores, login, ou uma decisão. Devolve a resposta dele.",
-        {
-            "motivo": Annotated[str, "o que travou e o que o usuário precisa fazer, em uma ou duas frases"],
-            "link": Annotated[str, "endereço onde ele resolve (pode ser vazio)"],
-        },
+        _schema(
+            {"motivo": (str, "o que travou e o que o usuário precisa fazer, em uma ou duas frases")},
+            {"link": (str, "endereço onde ele resolve")},
+        ),
     )
     async def ask_human(args: dict) -> dict[str, Any]:
-        answer = await bridge.request(args["motivo"], args.get("link", ""))
+        answer = await bridge.request(args["motivo"], args.get("link") or "")
         return _reply(f"resposta do usuário: {answer}")
 
     return [ask_human]
@@ -195,32 +231,36 @@ def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
     @tool(
         "agendar_tarefa",
         "Agenda um lembrete ou uma tarefa que você mesmo vai executar depois, uma vez ou recorrente.",
-        {
-            "titulo": Annotated[str, "nome curto, ex. 'Revisar gastos da semana'"],
-            "instrucao": Annotated[str, "lembrete: o texto a entregar. tarefa: a instrução completa a executar"],
-            "modo": Annotated[str, f"um de: {', '.join(MODES)}"],
-            "tipo": Annotated[str, f"um de: {', '.join(KINDS)}"],
-            "hora": Annotated[str, "HH:MM (vazio só no tipo intervalo)"],
-            "dias_semana": Annotated[str, f"só no tipo semanal: lista de {', '.join(WEEKDAYS)}, ex. 'seg,qua'"],
-            "dia_mes": Annotated[int, "só no tipo mensal: 1 a 31 (senão 0)"],
-            "data": Annotated[str, "só no tipo uma_vez: AAAA-MM-DD"],
-            "intervalo_min": Annotated[int, f"só no tipo intervalo: minutos, mínimo {MIN_INTERVAL_MIN} (senão 0)"],
-        },
+        _schema(
+            {"titulo": (str, "nome curto, ex. 'Pagar o aluguel'")},
+            {
+                "instrucao": (str, "lembrete: o texto a entregar. tarefa: a instrução completa a executar"),
+                "modo": (str, f"lembrete (padrão, só entrega o texto) ou tarefa (você executa a instrução)"),
+                "tipo": (str, f"um de: {', '.join(KINDS)}. Com 'quando' contendo data, pode omitir (vira uma_vez)"),
+                "quando": (str, "data e hora juntas 'AAAA-MM-DD HH:MM' (uma vez) ou só 'HH:MM'"),
+                "hora": (str, "HH:MM; obrigatória em todos os tipos menos intervalo"),
+                "dias_semana": (str, f"tipo semanal: lista de {', '.join(WEEKDAYS)}, ex. 'seg,qua'"),
+                "dia_mes": (int, "tipo mensal: dia de 1 a 31"),
+                "data": (str, "tipo uma_vez: AAAA-MM-DD"),
+                "intervalo_min": (int, f"tipo intervalo: minutos, mínimo {MIN_INTERVAL_MIN}"),
+            },
+        ),
     )
     async def schedule(args: dict) -> dict[str, Any]:
-        task = Task(
-            new_id(args["titulo"]), args["titulo"], args["instrucao"],
-            mode=args.get("modo", "tarefa"), kind=args.get("tipo", ""), at=args.get("hora", ""),
-            weekdays=args.get("dias_semana", ""), month_day=int(args.get("dia_mes") or 0),
-            on_date=args.get("data", ""), interval_min=int(args.get("intervalo_min") or 0),
-        )
         try:
-            task = store.add(task)
+            task = store.add(task_from_args(args))
         except ValueError as e:
-            return _reply(f"não agendei: {e}", error=True)
+            return _reply(
+                f"não agendei: {e}. Exemplos que funcionam: "
+                '{"titulo": "Pagar aluguel", "quando": "2026-10-28 09:00"} (uma vez) · '
+                '{"titulo": "Beber água", "tipo": "diaria", "hora": "10:00"} · '
+                '{"titulo": "Revisar gastos", "modo": "tarefa", "instrucao": "Some os gastos da semana", '
+                '"tipo": "semanal", "dias_semana": "seg", "hora": "09:00"}',
+                error=True,
+            )
         return _reply(f"agendado [{task.id}] {task.describe()}; próxima: {task.next_run:%Y-%m-%d %H:%M}")
 
-    @tool("listar_tarefas", "Lista as tarefas e lembretes agendados que estão ativos.", {})
+    @tool("listar_tarefas", "Lista as tarefas e lembretes agendados que estão ativos.", _schema({}))
     async def list_tasks(args: dict) -> dict[str, Any]:
         tasks = store.list()
         if not tasks:
@@ -229,13 +269,40 @@ def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
             f"- [{t.id}] {t.title} ({t.mode}): {t.describe()}; próxima {t.next_run:%Y-%m-%d %H:%M}" for t in tasks
         ))
 
-    @tool("cancelar_tarefa", "Cancela uma tarefa agendada pelo id mostrado em listar_tarefas.", {"id": str})
+    @tool("cancelar_tarefa", "Cancela uma tarefa agendada pelo id mostrado em listar_tarefas.", _schema({"id": (str, "id da tarefa, como aparece em listar_tarefas")}))
     async def cancel(args: dict) -> dict[str, Any]:
         if store.cancel(args["id"]):
             return _reply(f"cancelada: {args['id']}")
         return _reply(f"não achei tarefa ativa com id {args['id']}", error=True)
 
     return [schedule, list_tasks, cancel]
+
+
+def task_from_args(args: dict) -> Task:
+    """Monta a tarefa a partir do que o modelo mandou, aceitando formas naturais.
+
+    Visto no teste real: o modelo mandou "quando" com data e hora juntas e "texto" no lugar de "instrucao".
+    """
+    title = str(args.get("titulo") or args.get("texto") or "").strip()
+    instruction = str(args.get("instrucao") or args.get("texto") or title).strip()
+    kind = str(args.get("tipo") or "").strip()
+    at = str(args.get("hora") or "").strip()
+    on_date = str(args.get("data") or "").strip()
+    when = str(args.get("quando") or "").strip()
+    if when:
+        found = re.match(r"^(\d{4}-\d{2}-\d{2})?[T ]?(\d{1,2}:\d{2})?", when)
+        if found and found.group(1):
+            on_date = on_date or found.group(1)
+        if found and found.group(2):
+            at = at or found.group(2).zfill(5)
+    if kind not in KINDS and on_date:
+        kind = "uma_vez"  # tem data e não disse o tipo: é uma vez só
+    mode = str(args.get("modo") or "lembrete").strip()
+    return Task(
+        new_id(title or "tarefa"), title, instruction, mode=mode, kind=kind, at=at,
+        weekdays=str(args.get("dias_semana") or ""), month_day=int(args.get("dia_mes") or 0),
+        on_date=on_date, interval_min=int(args.get("intervalo_min") or 0),
+    )
 
 
 def browser_tools(browser: Browser) -> list[SdkMcpTool]:
@@ -250,34 +317,33 @@ def browser_tools(browser: Browser) -> list[SdkMcpTool]:
             return _reply(f"erro no navegador: {type(e).__name__}: {e}", error=True)
 
     @tool("abrir_pagina", "Abre um endereço no navegador do agente e devolve o título e o texto da página.",
-          {"url": Annotated[str, "endereço http ou https"]})
+          _schema({"url": (str, "endereço http ou https")}))
     async def open_page(args: dict) -> dict[str, Any]:
         return await run(browser.open(args["url"]))
 
     @tool("ler_pagina", "Lê o texto da página aberta. Opcional: um seletor CSS para ler só um trecho.",
-          {"trecho": Annotated[str, "seletor CSS, ex. 'main' ou '#preco' (vazio para a página toda)"]})
+          _schema({}, {"trecho": (str, "seletor CSS, ex. 'main' ou '#preco'; sem ele, lê a página toda")}))
     async def read_page(args: dict) -> dict[str, Any]:
-        return await run(browser.read(args.get("trecho", "")))
+        return await run(browser.read(args.get("trecho") or ""))
 
-    @tool("listar_elementos", "Lista os links, botões e campos visíveis da página, numerados para clicar ou preencher.", {})
+    @tool("listar_elementos", "Lista os links, botões e campos visíveis da página, numerados para clicar ou preencher.", _schema({}))
     async def list_elements(args: dict) -> dict[str, Any]:
         return await run(browser.elements())
 
     @tool("clicar", "Clica no elemento pelo número mostrado em listar_elementos e devolve a página resultante.",
-          {"ref": Annotated[str, "número do elemento, ex. '12'"]})
+          _schema({"ref": (str, "número do elemento, ex. '12'")}))
     async def click(args: dict) -> dict[str, Any]:
         return await run(browser.click(str(args["ref"])))
 
     @tool("preencher", "Escreve num campo pelo número de listar_elementos. Nunca use para senhas ou cartão.",
-          {
-              "ref": Annotated[str, "número do campo"],
-              "texto": Annotated[str, "o que escrever"],
-              "enviar": Annotated[bool, "apertar Enter depois (busca, formulário de um campo)"],
-          })
+          _schema(
+              {"ref": (str, "número do campo"), "texto": (str, "o que escrever")},
+              {"enviar": (bool, "apertar Enter depois (busca, formulário de um campo)")},
+          ))
     async def fill(args: dict) -> dict[str, Any]:
         return await run(browser.fill(str(args["ref"]), args["texto"], bool(args.get("enviar", False))))
 
-    @tool("capturar_tela", "Salva uma imagem da página atual e devolve o caminho (abra com Read para ver).", {})
+    @tool("capturar_tela", "Salva uma imagem da página atual e devolve o caminho (abra com Read para ver).", _schema({}))
     async def screenshot(args: dict) -> dict[str, Any]:
         async def shot() -> str:
             return f"imagem salva em {await browser.screenshot()}"
@@ -320,7 +386,11 @@ class Agent:
                 "navegador": browser_server(self.browser),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
-            env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms)},
+            # ENABLE_TOOL_SEARCH=false: as ferramentas próprias ficam visíveis desde o início (sem passo de busca).
+            env={"MCP_TOOL_TIMEOUT": str(wait_ms), "CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT": str(wait_ms),
+                 "ENABLE_TOOL_SEARCH": "false",
+                 **provider_env(self.cfg)},
+            tools=BUILTIN_TOOLS,
             allowed_tools=TOOLS,
             agents=AGENTS,
             plugins=[{"type": "local", "path": str(PLUGIN_DIR)}],
@@ -442,6 +512,25 @@ class Agent:
         path = self.cfg.logs_dir / f"{datetime.now():%Y-%m-%d}.jsonl"
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def provider_env(cfg: Config) -> dict[str, str]:
+    """Variáveis para o Claude Code usar um provedor compatível com a API da Anthropic (ex.: OpenRouter).
+
+    Os apelidos de modelo (opus, sonnet, haiku) que os subagentes usam viram o modelo configurado,
+    porque o provedor não conhece esses nomes.
+    """
+    if not cfg.base_url:
+        return {}
+    return {
+        "ANTHROPIC_BASE_URL": cfg.base_url,
+        "ANTHROPIC_AUTH_TOKEN": cfg.auth_token,
+        "ANTHROPIC_API_KEY": "",  # com chave da Anthropic preenchida, o provedor alternativo seria ignorado
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": cfg.model,
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": cfg.model,
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": cfg.model,
+        "CLAUDE_CODE_SUBAGENT_MODEL": cfg.model,
+    }
 
 
 def _session_of(msg: Any) -> str | None:

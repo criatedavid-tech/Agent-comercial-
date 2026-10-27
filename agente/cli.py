@@ -93,6 +93,7 @@ async def run() -> None:
                     console.print(f"[dim]{event.text}[/dim]\n")
     finally:
         await agent.stop()
+        await agent.browser.close()
 
 
 def main() -> None:
