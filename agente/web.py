@@ -461,7 +461,7 @@ async def remote_screen(ws: WebSocket, token: str) -> None:
         return
     await ws.accept()
     try:
-        await ws.send_json({"kind": "url", "text": await browser().current_url()})  # ex. página em branco: avisa
+        await ws.send_json({"kind": "url", "text": await browser().current_url(restore=True)})  # em branco: volta à última
     except BrowserError:
         pass
 

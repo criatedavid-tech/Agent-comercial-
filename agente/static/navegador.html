@@ -62,6 +62,10 @@
     </div>
     <div id="field" class="field">1) toque no campo na tela · 2) digite aqui: cada letra vai direto para ele</div>
   </div>
+  <div class="bar">
+    <input id="url" placeholder="endereço do site (ex. amazon.com.br)" autocomplete="off" spellcheck="false" inputmode="url">
+    <button id="go">Abrir</button>
+  </div>
   <div class="screen" id="screen" tabindex="0" aria-label="Tela do navegador do agente; toque para interagir">
     <div class="wait" id="wait">Conectando…</div>
     <img id="img" alt="" hidden>
@@ -71,10 +75,6 @@
     <button id="zoom" type="button" title="Ampliar a tela (arraste para os lados)">🔍 Ampliar</button>
     <button data-key="Tab">Tab</button>
     <button id="back" title="Voltar">← Voltar</button>
-  </div>
-  <div class="bar">
-    <input id="url" placeholder="endereço do site (opcional)" autocomplete="off" spellcheck="false" inputmode="url">
-    <button id="go">Abrir</button>
   </div>
   <p class="hint">Toque no campo (e-mail, senha, código) na tela: o teclado abre e cada letra que você digitar vai direto para ele.
     A seta azul do teclado confirma (Continuar, Entrar, Verificar). No computador, clique na tela e digite direto.</p>
@@ -141,7 +141,7 @@ function onMessage(e) {
   if (m.kind === "url" && document.activeElement !== $("url")) {
     $("url").value = lastUrl = m.text === "about:blank" ? "" : m.text;
     if (m.text === "about:blank") {  // navegador recém-aberto: ainda não há site nenhum
-      $("field").textContent = "Página em branco: escreva o site em \"endereço do site\" (ex. amazon.com.br) e toque em Abrir.";
+      $("field").textContent = "Página em branco: escreva o site no campo de endereço logo acima da tela (ex. amazon.com.br) e toque em Abrir.";
       $("field").className = "field bad";
     }
   }

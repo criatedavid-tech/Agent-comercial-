@@ -191,7 +191,7 @@ class FakeBrowser:
     async def view(self):
         return b"\xff\xd8jpeg"
 
-    async def current_url(self):
+    async def current_url(self, restore=False):
         return "about:blank"
 
     async def remote(self, action):

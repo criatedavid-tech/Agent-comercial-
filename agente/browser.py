@@ -358,7 +358,21 @@ class Browser:
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
                 raise BrowserError(f"não consegui abrir {url}: {e}") from None
+            self._remember(page.url)
             return await self._snapshot(page)
+
+    @property
+    def _last_file(self) -> Path:
+        return self.profile_dir / "ultima-pagina.txt"
+
+    def _remember(self, url: str) -> None:
+        """Última página aberta: a tela remota volta para ela quando o navegador reabre em branco."""
+        if url.startswith(("http://", "https://")):
+            try:
+                self.profile_dir.mkdir(parents=True, exist_ok=True)
+                self._last_file.write_text(url, encoding="utf-8")
+            except OSError:
+                pass
 
     async def read(self, selector: str = "") -> str:
         async with self._lock:
@@ -498,9 +512,17 @@ class Browser:
             finally:
                 await page.close()
 
-    async def current_url(self) -> str:
+    async def current_url(self, restore: bool = False) -> str:
+        """Endereço atual. restore: se o navegador reabriu em branco (ex. servidor reiniciado), volta à última página."""
         async with self._lock:
-            return (await self._get_page()).url
+            page = await self._get_page()
+            if restore and page.url == "about:blank" and self._last_file.exists():
+                try:
+                    last = check_url(self._last_file.read_text(encoding="utf-8").strip(), self.allow_private)
+                    await page.goto(last, wait_until="domcontentloaded", timeout=30000)
+                except (BrowserError, OSError, Exception):
+                    pass  # sem a última página, fica em branco e a tela remota pede o endereço
+            return page.url
 
     async def view(self) -> bytes:
         """Imagem da aba do agente para a tela remota."""
@@ -536,6 +558,7 @@ class Browser:
             elif kind == "goto":
                 await page.goto(check_url(str(action.get("url", "")), self.allow_private),
                                 wait_until="domcontentloaded", timeout=30000)
+                self._remember(page.url)
             elif kind == "back":
                 await page.go_back(timeout=15000)
             else:

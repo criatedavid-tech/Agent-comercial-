@@ -207,3 +207,15 @@ def test_remote_typing_without_focus_goes_to_the_first_empty_field(site, run_bro
     state, value = run_browser(scenario)
     assert value == "130746"
     assert state["field"] == {"name": "Buscar", "length": 6, "secret": False}  # o nome e o tamanho, nunca o conteúdo
+
+
+def test_browser_returns_to_the_last_page_when_it_reopens_blank(site, run_browser, tmp_path):
+    async def first(b: Browser):
+        await b.open(f"{site}/produto.html")
+
+    async def second(b: Browser):
+        return await b.current_url(), await b.current_url(restore=True)
+
+    run_browser(first)  # mesmo perfil (tmp_path/perfil): simula o servidor reiniciando
+    blank, restored = run_browser(second)
+    assert blank == "about:blank" and restored.endswith("/produto.html")
