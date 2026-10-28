@@ -32,6 +32,7 @@ import hmac
 import logging
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -612,18 +613,23 @@ class WhatsAppChannel:
         if not self.remote_link:
             return "A tela remota do navegador não está ligada neste servidor."
         return ("🌐 Navegador do agente (vale 30 min): " + self.remote_link() + "\n"
-                "Abra no celular, entre no site e faça o login: você digita a senha, o agente não vê. "
+                "Abra no celular e faça o login *dentro dessa tela* (não pelo aplicativo da loja): você digita a senha, "
+                "o agente não vê. "
                 "O login fica salvo no navegador do agente. Depois é só me dizer \"pronto\".")
 
     async def ask_help(self, contact: Contact, req: HelpRequest, targets: list) -> None:
         contact.help_id, contact.help_targets = req.id, targets
         text = f"⚠ *Preciso de você:* {req.reason}"
-        if req.link:
+        if req.link and self.remote_link:
+            # Só o link da tela remota: o link do site, tocado no celular, abre o APLICATIVO da loja e o login fica
+            # no celular, não no navegador do agente (visto no teste real com a Amazon).
+            site = (urlparse(req.link).hostname or "").removeprefix("www.")
+            text += (f"\n\nA página ({site.replace('.', '·')}) já está aberta no navegador do agente. Toque *só neste link*: "
+                     f"{self.remote_link()}\nEle mostra a tela do navegador do agente; faça o login *ali dentro* "
+                     "(não pelo aplicativo da loja). Você digita a senha; o agente não vê.")
+        elif req.link:
             text += f"\nPágina: {req.link}"
-            if self.remote_link:  # o link acima abriria o site no SEU celular; o login tem de ser no navegador do agente
-                text += ("\n\nPara resolver no navegador do agente pelo celular (login, código, verificação), abra: "
-                         f"{self.remote_link()}\nVocê digita a senha; o agente não vê.")
-        text += "\n\nQuando resolver, responda aqui: OK, um código, uma escolha ou \"não consegui\"."
+        text += "\n\nQuando resolver, responda aqui: OK (ou \"pronto\"), um código, uma escolha ou \"não consegui\"."
         await self.send(contact.number, text)
 
     async def help_from_schedule(self, req: HelpRequest, bridges: list) -> None:

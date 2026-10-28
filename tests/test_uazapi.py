@@ -279,8 +279,10 @@ def test_help_request_brings_the_remote_screen_link(ucfg, tmp_path):
     channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
     asyncio.run(channel.ask_help(Contact(OWNER), HelpRequest("1", "Login na Amazon para finalizar", "https://www.amazon.com.br/cart"), []))
     text = api.sent[0][1]
-    assert "Página: https://www.amazon.com.br/cart" in text
+    # o link do site abriria o app da loja no celular: só vai o da tela remota
+    assert "https://www.amazon.com.br" not in text and "amazon.com.br" not in text and "amazon·com·br" in text
     assert "https://vm.exemplo.com/acesso-navegador/abc" in text and "o agente não vê" in text
+    assert "não pelo aplicativo" in text
     api.sent.clear()
     asyncio.run(channel.ask_help(Contact(OWNER), HelpRequest("2", "Qual cor você prefere?", ""), []))
     assert "acesso-navegador" not in api.sent[0][1]  # decisão sem página: sem link da tela remota
