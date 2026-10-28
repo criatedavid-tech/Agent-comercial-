@@ -136,12 +136,18 @@ def test_hidden_amazon_style_checkboxes_are_listed_with_their_item(loja, run):
     assert "input[checkbox]" in listing and "☑ marcado" in listing and "Headset Gamer" in listing
 
 
-@pytest.mark.parametrize("text", ["Assine o Amazon Prime", "Experimente grátis por 30 dias", "Iniciar teste gratuito"])
+@pytest.mark.parametrize("text", [
+    "Assine o Amazon Prime", "Experimente grátis por 30 dias", "Iniciar teste gratuito",
+    "Obter frete GRÁTIS com o Prime", "Obter Prime", "Inscreva-se no Prime e economize", "Experimente o Prime grátis",
+    "Programe e Poupe", "Programe e Poupe: economize 10%", "Assine e economize", "Subscribe & Save",
+    "Assine o Kindle Unlimited", "Assinar Amazon Music Unlimited",
+])
 def test_subscription_offers_are_blocked(text):
     assert is_purchase_button(text)
 
 
-@pytest.mark.parametrize("text", ["Não, obrigado(a)", "Voltar ao início", "Assinatura e pagamentos"])
+@pytest.mark.parametrize("text", ["Não, obrigado(a)", "Voltar ao início", "Assinatura e pagamentos", "Compra única",
+                                  "Adicionar ao carrinho", "Fechar pedido"])
 def test_declining_offers_is_allowed(text):
     assert not is_purchase_button(text)
 

@@ -154,6 +154,12 @@ SUBSCRIPTION_STARTS = ("assine", "assinar", "inscreva-se e pague", "subscribe", 
 SUBSCRIPTION_TEXTS = (
     "teste gratis", "periodo de teste", "experimente gratis", "experimente o prime", "comecar teste",
     "iniciar teste", "free trial", "start your free", "ativar prime", "seja prime", "seja membro",
+    # Prime oferecido no fechamento do pedido ("frete grátis com o Prime", caixinha "Obter Prime")
+    "com o prime", "com prime", "prime gratis", "obter prime", "inscreva-se no prime", "teste o prime",
+    "aproveite o prime", "assinatura prime", "join prime", "try prime", "get prime",
+    # Programe e Poupe / Subscribe & Save: entrega e cobrança recorrentes
+    "programe e poupe", "assine e economize", "assine e poupe", "subscribe & save", "subscribe and save",
+    "entrega recorrente", "compra recorrente",
 )
 # Página de oferta de assinatura (ex.: tela do Prime no meio do checkout): só é permitido recusar.
 OFFER_MARKERS = (

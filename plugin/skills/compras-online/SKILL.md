@@ -33,6 +33,9 @@ Você leva a compra **até a tela de revisão do pedido**. O clique final ("Fina
 
 ## 4b. Ofertas no caminho (REGRA EXPRESSA: nunca assine nada)
 - Entre o carrinho e a revisão, lojas oferecem assinatura (Amazon Prime, "teste grátis"), garantia estendida, seguro. **Recuse** ("Não, obrigado(a)", "Continuar sem", "Agora não"). Botões de assinar são bloqueados no código.
+- **Programe e Poupe / Assine e economize** (Amazon, na página do produto): é entrega e cobrança recorrentes. Escolha sempre **"Compra única"** antes de "Adicionar ao carrinho"; o código bloqueia clicar na opção de assinatura.
+- No fechamento, caixinhas como "Obter frete grátis com o Prime" ou "Experimente o Prime" ficam **desmarcadas**: o código bloqueia marcar.
+- Na revisão, confira se não entrou nenhuma assinatura (Prime, Programe e Poupe, Kindle Unlimited) junto com o pedido.
 
 ## 5. Revisão do pedido
 - Avance até a tela de revisão (na Amazon, "Fechar pedido" leva até ela).
