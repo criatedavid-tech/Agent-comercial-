@@ -33,6 +33,15 @@ CHALLENGE_TEXTS = (
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
 
 MAX_ELEMENTS = 200
+FOCUS_FIRST_FIELD_JS = """() => {
+  const a = document.activeElement;
+  if (a && (a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))) return;
+  const ok = el => !el.disabled && !el.readOnly && el.offsetParent !== null
+    && !['hidden', 'checkbox', 'radio', 'submit', 'button', 'image', 'file'].includes((el.type || '').toLowerCase());
+  const fields = [...document.querySelectorAll('input, textarea')].filter(ok);
+  const target = fields.find(el => !el.value) || fields[0];
+  if (target) target.focus();
+}"""
 VIEWPORT = {"width": 1280, "height": 860}
 REMOTE_KEYS = {"Enter", "Tab", "Shift+Tab", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown",
                "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"}
@@ -499,6 +508,9 @@ class Browser:
                     raise BrowserError("clique fora da tela")
                 await page.mouse.click(x, y)
             elif kind == "type":
+                # No celular a pessoa às vezes digita sem ter tocado no campo (ex. o código de verificação):
+                # sem nada focado, o texto vai para o primeiro campo visível e vazio da página.
+                await page.evaluate(FOCUS_FIRST_FIELD_JS)
                 await page.keyboard.type(str(action.get("text", ""))[:500])
             elif kind == "key":
                 key = str(action.get("key", ""))

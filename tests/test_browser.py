@@ -196,3 +196,12 @@ def test_insecure_pages():
     assert insecure_page("http://amazon-ofertas.com/login")
     assert not insecure_page("https://www.amazon.com.br/cart")
     assert not insecure_page("http://127.0.0.1:8123/x", allow_private=True)  # rede local liberada (testes)
+
+
+def test_remote_typing_without_focus_goes_to_the_first_empty_field(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/index.html")
+        await b.remote({"type": "type", "text": "130746"})  # ninguém tocou no campo antes
+        return await b._page.evaluate("() => document.querySelector('input[name=q]').value")
+
+    assert run_browser(scenario) == "130746"
