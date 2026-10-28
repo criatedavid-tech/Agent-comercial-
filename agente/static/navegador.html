@@ -84,6 +84,14 @@ let lastUrl = null;
 let zoomedOnce = false;
 
 function say(text, error) { $("msg").textContent = text; $("msg").className = error ? "error" : ""; }
+function showField(f, after) {
+  if (!f) {
+    if (after === "click" || after === "type") say("Nenhum campo selecionado: toque bem em cima do campo na tela.", true);
+    return;
+  }
+  const count = f.length ? ` · ${f.length} caractere${f.length > 1 ? "s" : ""}` : " · vazio";
+  say(`✓ Campo selecionado: ${f.name}${count}`);
+}
 function send(action) { if (ws.readyState === 1) ws.send(JSON.stringify(action)); }
 
 ws.onmessage = (e) => {
@@ -97,6 +105,7 @@ ws.onmessage = (e) => {
   }
   const m = JSON.parse(e.data);
   if (m.kind === "url" && document.activeElement !== $("url")) $("url").value = lastUrl = m.text;
+  else if (m.kind === "field") showField(m.field, m.after);
   else if (m.kind === "error") say(m.text, true);
   else if (m.kind === "status") say(m.text);
   else if (m.kind === "expired") say("Este link expirou. Peça um novo no painel ou espere o próximo aviso.", true);

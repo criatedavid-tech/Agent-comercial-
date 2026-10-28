@@ -33,6 +33,15 @@ CHALLENGE_TEXTS = (
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
 
 MAX_ELEMENTS = 200
+# Campo com o foco agora: nome visível e quantos caracteres tem (nunca o conteúdo: pode ser senha ou código).
+FOCUSED_FIELD_JS = """() => {
+  const a = document.activeElement;
+  if (!a || !(a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))) return null;
+  const byLabel = a.labels && a.labels[0] ? a.labels[0].innerText : '';
+  const name = (a.getAttribute('aria-label') || byLabel || a.placeholder || a.name || a.id || a.type || 'campo').trim();
+  return {name: name.replace(/\\s+/g, ' ').slice(0, 60), length: (a.value || a.innerText || '').length,
+          secret: (a.type || '').toLowerCase() === 'password'};
+}"""
 FOCUS_FIRST_FIELD_JS = """() => {
   const a = document.activeElement;
   if (a && (a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))) return;
@@ -494,8 +503,8 @@ class Browser:
             page = await self._get_page()
             return await page.screenshot(type="jpeg", quality=60)
 
-    async def remote(self, action: dict) -> str:
-        """Comando da tela remota, feito por uma pessoa (login). Devolve o endereço atual.
+    async def remote(self, action: dict) -> dict:
+        """Comando da tela remota, feito por uma pessoa (login). Devolve o endereço e o campo com o foco.
 
         As travas de senha e cartão de fill() valem para o agente; aqui quem digita é a pessoa.
         Mesmo assim só aceita teclas comuns e não abre rede local."""
@@ -527,7 +536,11 @@ class Browser:
             else:
                 raise BrowserError(f"comando desconhecido: {kind}")
             await page.wait_for_timeout(300)
-            return self._page.url
+            try:
+                field = await self._page.evaluate(FOCUSED_FIELD_JS)
+            except Exception:  # a página mudou no meio (ex. Enter enviou o formulário)
+                field = None
+            return {"url": self._page.url, "field": field}
 
 
 _shared: dict[Path, Browser] = {}

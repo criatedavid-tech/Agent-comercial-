@@ -1,6 +1,7 @@
 """Acessos aos sistemas da loja: cadastro, checagem de login, avisos, trava do agente e tela remota."""
 
 import asyncio
+import json
 from dataclasses import replace
 from datetime import datetime, timedelta
 
@@ -192,7 +193,7 @@ class FakeBrowser:
 
     async def remote(self, action):
         self.actions.append(action)
-        return "https://app.oficina.com.br/login"
+        return {"url": "https://app.oficina.com.br/login", "field": {"name": "Usuário", "length": 6, "secret": False}}
 
 
 @pytest.fixture
@@ -227,8 +228,12 @@ def test_remote_screen_streams_and_forwards_input(remote):
     with client.websocket_connect(f"/ws/acesso-navegador/{token}", headers=headers) as ws:
         assert ws.receive_bytes().startswith(b"\xff\xd8")
         ws.send_json({"type": "type", "text": "rafael"})
-        while (msg := ws.receive()) and "text" not in msg:
-            pass  # pula as imagens
+        replies = []
+        while len(replies) < 2:
+            msg = ws.receive()
+            if "text" in msg:
+                replies.append(json.loads(msg["text"]))  # pula as imagens
+        assert replies[1] == {"kind": "field", "field": {"name": "Usuário", "length": 6, "secret": False}, "after": "type"}
     assert fake_browser.actions == [{"type": "type", "text": "rafael"}]
 
 

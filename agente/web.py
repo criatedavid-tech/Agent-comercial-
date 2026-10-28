@@ -476,8 +476,9 @@ async def remote_screen(ws: WebSocket, token: str) -> None:
                 await ws.send_json({"kind": "status", "text": await access_report()})
                 continue
             try:
-                url = await browser().remote(msg)  # o que a pessoa digita não vai para log nenhum
-                await ws.send_json({"kind": "url", "text": url})
+                state = await browser().remote(msg)  # o que a pessoa digita não vai para log nenhum
+                await ws.send_json({"kind": "url", "text": state["url"]})
+                await ws.send_json({"kind": "field", "field": state.get("field"), "after": msg.get("type")})
             except (BrowserError, KeyError, ValueError) as e:
                 await ws.send_json({"kind": "error", "text": str(e)})
     except (WebSocketDisconnect, RuntimeError):
