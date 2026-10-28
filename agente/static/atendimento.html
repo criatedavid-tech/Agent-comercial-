@@ -1,21 +1,20 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atendimento · Equipe</title>
 <style>
   :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+    --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
+    --me: #22312a; --them: #262623; --tool: #262623; --error: #f2b8b5; --warn: #e0b45c;
+  }
+  :root[data-theme="light"] {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
     --border: #e4e3de; --accent: #2f6f4f; --accent-text: #ffffff;
     --me: #dcf3e3; --them: #ffffff; --tool: #f1f0eb; --error: #b3261e; --warn: #9a6400;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
-      --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
-      --me: #22312a; --them: #262623; --tool: #262623; --error: #f2b8b5; --warn: #e0b45c;
-    }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -62,6 +61,7 @@
 <body>
 <header>
   <h1>Atendimento: clientes com a equipe</h1>
+  <button id="tema" type="button" title="Alternar tema claro/escuro">☀ Claro</button>
   <a href="/painel">Painel</a>
   <a href="/simulador">Simulador</a>
 </header>
@@ -155,6 +155,18 @@ $("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preven
 
 loadQueue();
 setInterval(() => { loadQueue(); loadConversation(); }, 4000);
+</script>
+<script>
+(() => {
+  const b = document.getElementById("tema"), root = document.documentElement;
+  const show = () => { b.textContent = root.dataset.theme === "light" ? "🌙 Escuro" : "☀ Claro"; };
+  b.onclick = () => {
+    if (root.dataset.theme === "light") delete root.dataset.theme; else root.dataset.theme = "light";
+    try { localStorage.setItem("tema", root.dataset.theme === "light" ? "claro" : "escuro"); } catch {}
+    show();
+  };
+  show();
+})();
 </script>
 </body>
 </html>

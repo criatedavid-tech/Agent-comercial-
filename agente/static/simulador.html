@@ -1,21 +1,20 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Simulador de cliente</title>
 <style>
   :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+    --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
+    --me: #22312a; --them: #262623; --tool: #262623; --error: #f2b8b5;
+  }
+  :root[data-theme="light"] {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
     --border: #e4e3de; --accent: #2f6f4f; --accent-text: #ffffff;
     --me: #dcf3e3; --them: #ffffff; --tool: #f1f0eb; --error: #b3261e;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
-      --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
-      --me: #22312a; --them: #262623; --tool: #262623; --error: #f2b8b5;
-    }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -63,6 +62,7 @@
   <button id="reset" type="button" disabled>Conversa nova</button>
   <button id="silence" type="button" disabled title="Simula que o cliente parou de responder: o agente manda a próxima retomada agora">Cliente sumiu (retomar agora)</button>
   <button id="other" type="button">Outro cliente</button>
+  <button id="tema" type="button" title="Alternar tema claro/escuro">☀ Claro</button>
   <a href="/atendimento" target="_blank">equipe</a>
   <a href="/">operador</a>
 </header>
@@ -199,6 +199,18 @@ reset.onclick = () => { log.replaceChildren(); ws.send(JSON.stringify({type: "re
 document.getElementById("other").onclick = () => { try { sessionStorage.removeItem("simulador-telefone"); } catch {} location.reload(); };
 for (const li of document.querySelectorAll("#tips li")) li.onclick = () => { input.value = li.textContent; input.focus(); };
 connect();
+</script>
+<script>
+(() => {
+  const b = document.getElementById("tema"), root = document.documentElement;
+  const show = () => { b.textContent = root.dataset.theme === "light" ? "🌙 Escuro" : "☀ Claro"; };
+  b.onclick = () => {
+    if (root.dataset.theme === "light") delete root.dataset.theme; else root.dataset.theme = "light";
+    try { localStorage.setItem("tema", root.dataset.theme === "light" ? "claro" : "escuro"); } catch {}
+    show();
+  };
+  show();
+})();
 </script>
 </body>
 </html>

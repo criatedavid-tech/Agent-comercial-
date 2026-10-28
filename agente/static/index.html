@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agente pessoal</title>
@@ -8,16 +9,14 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <style>
   :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+    --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
+    --user: #22312a; --tool: #262623; --error: #f2b8b5; --warn-bg: #3a3220;
+  }
+  :root[data-theme="light"] {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
     --border: #e4e3de; --accent: #2f6f4f; --accent-text: #ffffff;
     --user: #e8f1ec; --tool: #f1f0eb; --error: #b3261e; --warn-bg: #fff4d6;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
-      --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
-      --user: #22312a; --tool: #262623; --error: #f2b8b5; --warn-bg: #3a3220;
-    }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -86,6 +85,7 @@
   <span id="dot" title="conexão"></span>
   <h1>Agente pessoal</h1>
   <span id="meta">conectando…</span>
+  <button id="tema" type="button" title="Alternar tema claro/escuro">☀ Claro</button>
   <button id="convs" type="button">Conversas</button>
   <a class="btn" href="/painel">Painel</a>
   <button id="reset" type="button" disabled>Nova conversa</button>
@@ -246,6 +246,18 @@ fetch("/api/status").then(r => r.json()).then(s => {
   if (!s.api_key) $("warn").style.display = "block";
 });
 connect();
+</script>
+<script>
+(() => {
+  const b = document.getElementById("tema"), root = document.documentElement;
+  const show = () => { b.textContent = root.dataset.theme === "light" ? "🌙 Escuro" : "☀ Claro"; };
+  b.onclick = () => {
+    if (root.dataset.theme === "light") delete root.dataset.theme; else root.dataset.theme = "light";
+    try { localStorage.setItem("tema", root.dataset.theme === "light" ? "claro" : "escuro"); } catch {}
+    show();
+  };
+  show();
+})();
 </script>
 </body>
 </html>

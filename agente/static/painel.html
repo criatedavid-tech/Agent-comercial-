@@ -1,21 +1,20 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel · Agente pessoal</title>
 <style>
   :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993; --text-secondary: #c3c2b7;
+    --border: #33332f; --grid: #2a2a27; --accent: #5fae84; --tool: #262623; --error: #f2b8b5;
+    --series-1: #3987e5;
+  }
+  :root[data-theme="light"] {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f; --text-secondary: #52514e;
     --border: #e4e3de; --grid: #ecebe6; --accent: #2f6f4f; --tool: #f1f0eb; --error: #b3261e;
     --series-1: #2a78d6;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993; --text-secondary: #c3c2b7;
-      --border: #33332f; --grid: #2a2a27; --accent: #5fae84; --tool: #262623; --error: #f2b8b5;
-      --series-1: #3987e5;
-    }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -66,6 +65,7 @@
 <header>
   <h1>Painel do agente</h1>
   <span id="updated" class="empty"></span>
+  <button id="tema" type="button" title="Alternar tema claro/escuro">☀ Claro</button>
   <a href="/atendimento">Atendimento</a>
   <a href="/">← Chat</a>
 </header>
@@ -211,6 +211,18 @@ async function load() {
 window.addEventListener("resize", () => lastDays.length && drawChart(lastDays));
 load();
 setInterval(load, 30000);
+</script>
+<script>
+(() => {
+  const b = document.getElementById("tema"), root = document.documentElement;
+  const show = () => { b.textContent = root.dataset.theme === "light" ? "🌙 Escuro" : "☀ Claro"; };
+  b.onclick = () => {
+    if (root.dataset.theme === "light") delete root.dataset.theme; else root.dataset.theme = "light";
+    try { localStorage.setItem("tema", root.dataset.theme === "light" ? "claro" : "escuro"); } catch {}
+    show();
+  };
+  show();
+})();
 </script>
 </body>
 </html>

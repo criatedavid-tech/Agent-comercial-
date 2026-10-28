@@ -1,20 +1,19 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>Navegador do agente</title>
 <style>
   :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+    --border: #33332f; --accent: #5fae84; --error: #f2b8b5; --tool: #262623;
+  }
+  :root[data-theme="light"] {
     --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
     --border: #e4e3de; --accent: #2f6f4f; --error: #b3261e; --tool: #f1f0eb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
-      --border: #33332f; --accent: #5fae84; --error: #f2b8b5; --tool: #262623;
-    }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
