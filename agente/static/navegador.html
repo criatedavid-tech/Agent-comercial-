@@ -143,6 +143,9 @@ function onMessage(e) {
     if (m.text === "about:blank") {  // navegador recém-aberto: ainda não há site nenhum
       $("field").textContent = "Página em branco: escreva o site no campo de endereço logo acima da tela (ex. amazon.com.br) e toque em Abrir.";
       $("field").className = "field bad";
+    } else if ($("field").textContent.startsWith("Página em branco")) {  // o site carregou: o aviso não vale mais
+      $("field").textContent = "Toque no campo na tela e digite: cada letra vai direto para ele.";
+      $("field").className = "field";
     }
   }
   else if (m.kind === "field") showField(m.field, m.after);
