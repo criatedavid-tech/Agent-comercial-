@@ -227,6 +227,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         api = UazApi(cfg) if cfg.whatsapp_provider == "uazapi" else CloudApi(cfg)
         whatsapp = WhatsAppChannel(cfg, api, history, Agent, on_pause=set_paused, customer_factory=customers)
         whatsapp.desk = desk
+        whatsapp.remote_link = remote_link
     followups = build_followups()
     watch = build_watch()
     jobs = [asyncio.create_task(scheduler.run_forever())]

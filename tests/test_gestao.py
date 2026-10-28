@@ -246,3 +246,10 @@ def test_example_generator_is_reproducible(tmp_path, monkeypatch):
         # compara linhas, não bytes: o git troca CRLF por LF conforme o sistema
         generated = (tmp_path / f"{name}.csv").read_text(encoding="utf-8").splitlines()
         assert generated == (EXAMPLE_DATA / f"{name}.csv").read_text(encoding="utf-8").splitlines()
+
+
+def test_funnel_ignores_simulator_contacts(tmp_path):
+    crm = Crm(tmp_path / "crm.db")
+    crm.ensure("5519988887777", "whatsapp", opt_in=True)
+    crm.ensure("sim-ab12cd", "simulador", opt_in=True)
+    assert gestao.crm_funnel(crm, days=30)["leads"] == 1

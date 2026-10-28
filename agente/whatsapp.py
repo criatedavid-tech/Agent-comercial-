@@ -24,7 +24,7 @@ o webhook na instância: agente-uazapi https://seu-endereco-publico.
 import asyncio
 from collections import deque
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
 import hmac
@@ -47,6 +47,7 @@ WORKING_NOTICE_SECONDS = 20  # tarefa demorada: avisa uma vez que está trabalha
 STOP_WORDS = {"parar", "pare", "stop"}
 CONTINUE_WORDS = {"continuar", "continue", "voltar"}
 NEW_WORDS = {"nova", "/nova", "nova conversa"}
+AUDIO_KINDS = {"audio", "ptt", "voice"}  # áudio comum e mensagem de voz
 
 
 @dataclass
@@ -95,9 +96,33 @@ def parse_messages(payload: dict) -> list[Incoming]:
     return out
 
 
+def _cells(line: str) -> list[str]:
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def tables_to_lists(text: str) -> str:
+    """Tabela Markdown → lista: o WhatsApp não desenha tabela (mostraria os | e ---)."""
+    lines, out, i = text.split("\n"), [], 0
+    row = re.compile(r"^\s*\|.*\|\s*$")
+    while i < len(lines):
+        if row.match(lines[i]) and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{2,}", lines[i + 1]):
+            header = _cells(lines[i])
+            i += 2
+            while i < len(lines) and row.match(lines[i]):
+                cells = _cells(lines[i])
+                i += 1
+                pairs = [f"{h}: {v}" for h, v in zip(header[1:], cells[1:]) if v and v not in ("—", "-", "–")]
+                out.append(f"- {cells[0]}" + (f" — {' · '.join(pairs)}" if pairs else ""))
+            continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out)
+
+
 def to_whatsapp(markdown: str) -> str:
-    """Markdown do agente → formatação do WhatsApp (*negrito*, _itálico_, ~riscado~)."""
-    text = re.sub(r"^#{1,6}\s+(.+)$", r"*\1*", markdown, flags=re.M)  # títulos viram negrito
+    """Markdown do agente → formatação do WhatsApp (*negrito*, _itálico_, ~riscado~, tabela vira lista)."""
+    text = tables_to_lists(markdown)
+    text = re.sub(r"^#{1,6}\s+(.+)$", r"*\1*", text, flags=re.M)  # títulos viram negrito
     text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
     text = re.sub(r"__(.+?)__", r"*\1*", text)
     text = re.sub(r"~~(.+?)~~", r"~\1~", text)
@@ -163,7 +188,8 @@ class UazApi:
     def __init__(self, cfg: Config, client: httpx.AsyncClient | None = None):
         self.base = cfg.uazapi_url.rstrip("/")
         self.headers = {"token": cfg.uazapi_token}
-        self.client = client or httpx.AsyncClient(timeout=20)
+        self.openai_key = cfg.openai_api_key
+        self.client = client or httpx.AsyncClient(timeout=60)
 
     async def _post(self, path: str, body: dict) -> dict:
         resp = await self.client.post(self.base + path, json=body, headers=self.headers)
@@ -185,6 +211,13 @@ class UazApi:
 
     async def mark_read(self, message_id: str) -> None:
         await self._post("/message/markread", {"id": [message_id]})
+
+    async def transcribe(self, message_id: str) -> str:
+        """Texto de um áudio recebido (Whisper da OpenAI, feito pela UAZAPI)."""
+        body = {"id": message_id, "transcribe": True, "generate_mp3": False}
+        if self.openai_key:
+            body["openai_apikey"] = self.openai_key
+        return str((await self._post("/message/download", body)).get("transcription") or "")
 
     async def set_webhook(self, url: str) -> dict:
         """Só mensagens recebidas, de pessoas (sem grupos), sem as que o próprio agente mandou."""
@@ -255,6 +288,12 @@ def uazapi_main() -> None:
     print(f"webhook cadastrado: {base}/whatsapp/uazapi/<segredo>")
 
 
+NOT_UNDERSTOOD = {
+    "audio": "Não consegui ouvir esse áudio agora. Pode escrever, por favor?",
+    "ptt": "Não consegui ouvir esse áudio agora. Pode escrever, por favor?",
+}
+
+
 @dataclass
 class Contact:
     number: str
@@ -288,6 +327,7 @@ class WhatsAppChannel:
         self.paused = False
         self._seen: deque[str] = deque(maxlen=500)  # a Meta pode reenviar a mesma mensagem
         self.desk: Any = None  # passagem para a equipe (web.py liga quando a empresa carrega)
+        self.remote_link: Callable[[], str] | None = None  # link da tela remota do navegador (web.py)
 
     @property
     def owner(self) -> str:
@@ -326,8 +366,9 @@ class WhatsAppChannel:
             await self.api.mark_read(msg.id)
         except Exception:
             pass
+        msg = await self._listen(msg)
         if msg.kind != "text" and not msg.text:
-            await self.send(msg.sender, "Por enquanto só leio mensagens de texto. Áudio e imagem vêm numa próxima etapa.")
+            await self.send(msg.sender, NOT_UNDERSTOOD.get(msg.kind, "Por enquanto só leio texto e áudio. Pode escrever?"))
             return
         text = msg.text.strip()
         word = text.lower().strip(" .!")
@@ -366,11 +407,24 @@ class WhatsAppChannel:
             await self.api.mark_read(msg.id)
         except Exception:
             pass
+        msg = await self._listen(msg)
         if msg.kind != "text" and not msg.text:
-            await self.send(msg.sender, "Por enquanto consigo ler só mensagens de texto. Pode escrever, por favor?")
+            await self.send(msg.sender, NOT_UNDERSTOOD.get(msg.kind, "Por enquanto consigo ler texto e áudio. Pode escrever, por favor?"))
             return
         await contact.queue.put(msg.text.strip())
         self._ensure_worker(contact)
+
+    async def _listen(self, msg: Incoming) -> Incoming:
+        """Áudio vira texto antes de seguir (quem ouve é o Whisper, pela UAZAPI). Sem transcrição, segue como veio."""
+        transcribe = getattr(self.api, "transcribe", None)
+        if msg.kind not in AUDIO_KINDS or msg.text or transcribe is None or not self.cfg.transcribe_audio:
+            return msg
+        try:
+            text = (await transcribe(msg.id)).strip()
+        except Exception as e:
+            log.warning("não consegui transcrever o áudio de %s: %s", msg.sender, e)
+            return msg
+        return replace(msg, kind="text", text=f"🎤 (áudio) {text}") if text else msg
 
     async def _team_command(self, member: Contact, text: str, word: str) -> bool:
         """Passagem para a equipe: FILA, ASSUMIR n, DEVOLVER e o repasse para o cliente assumido.
@@ -514,7 +568,10 @@ class WhatsAppChannel:
         contact.help_id, contact.help_targets = req.id, targets
         text = f"⚠ *Preciso de você:* {req.reason}"
         if req.link:
-            text += f"\n{req.link}"
+            text += f"\nPágina: {req.link}"
+            if self.remote_link:  # o link acima abriria o site no SEU celular; o login tem de ser no navegador do agente
+                text += ("\n\nPara resolver no navegador do agente pelo celular (login, código, verificação), abra: "
+                         f"{self.remote_link()}\nVocê digita a senha; o agente não vê.")
         text += "\n\nQuando resolver, responda aqui: OK, um código, uma escolha ou \"não consegui\"."
         await self.send(contact.number, text)
 

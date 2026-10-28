@@ -8,6 +8,7 @@ Regras no código (não só no prompt):
 - só http/https e nada de rede local (localhost, 192.168.x...), para uma página não conseguir
   usar o agente contra o roteador ou contra o próprio painel;
 - nunca digita em campo de senha nem digita números de cartão, CPF ou senhas;
+- não digita nada em página sem HTTPS (dá para ler, não para preencher);
 - o texto das páginas volta marcado como informação, nunca como instrução.
 """
 
@@ -243,6 +244,12 @@ def _is_private(host: str) -> bool:
     return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified
 
 
+def insecure_page(url: str, allow_private: bool = False) -> bool:
+    """Página sem HTTPS: o que se digita nela trafega aberto e o endereço é fácil de falsificar.
+    allow_private: rede local liberada (testes e sistemas da loja na própria rede) também libera http."""
+    return urlparse(url).scheme == "http" and not allow_private
+
+
 def looks_like_challenge(title: str, text: str, frames: list[str]) -> bool:
     """Heurística: página de verificação de robô (Cloudflare, reCAPTCHA, hCaptcha...)."""
     haystack = f"{title}\n{text[:3000]}".lower()
@@ -310,6 +317,8 @@ class Browser:
         text = await page.evaluate("() => document.body ? document.body.innerText : ''")
         frames = [f.url for f in page.frames]
         lines = [f"Página: {title}", f"Endereço: {page.url}"]
+        if insecure_page(page.url, self.allow_private):
+            lines.append("⚠ PÁGINA SEM HTTPS: só leia. Não preencha nada, não faça login e não compre aqui; avise o usuário.")
         if looks_like_challenge(title, text, frames):
             where = ("na janela do navegador do agente" if not self.headless
                      else "(o navegador está invisível, AGENT_BROWSER_HEADLESS=true: o usuário não consegue resolver daqui)")
@@ -410,6 +419,8 @@ class Browser:
     async def fill(self, ref: str, text: str, submit: bool = False) -> str:
         async with self._lock:
             page = await self._get_page()
+            if insecure_page(page.url, self.allow_private):
+                raise BrowserError("página sem HTTPS: não digito nada aqui. Confira se o endereço é o site certo.")
             el = await self._element(page, ref)
             info = await el.evaluate(
                 "e => ({type: (e.type || '').toLowerCase(), auto: (e.autocomplete || '').toLowerCase(),"

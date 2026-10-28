@@ -41,6 +41,8 @@ class Config:
     uazapi_url: str = ""  # endereço do servidor UAZAPI, ex. https://suaempresa.uazapi.com
     uazapi_token: str = ""  # token da instância (cabeçalho "token")
     uazapi_webhook_secret: str = ""  # segredo no caminho do webhook: /whatsapp/uazapi/<segredo>
+    transcribe_audio: bool = True  # áudio vira texto (Whisper da OpenAI, pela UAZAPI)
+    openai_api_key: str = ""  # chave da OpenAI só para transcrever áudio; vazia = a salva na instância UAZAPI
     company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
     crm_db: Path = ROOT / "crm.db"
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
@@ -95,6 +97,8 @@ def load() -> Config:
         uazapi_url=os.getenv("UAZAPI_URL", "").strip().rstrip("/"),
         uazapi_token=os.getenv("UAZAPI_TOKEN", "").strip(),
         uazapi_webhook_secret=os.getenv("UAZAPI_WEBHOOK_SEGREDO", "").strip(),
+        transcribe_audio=os.getenv("AGENT_TRANSCREVER_AUDIO", "true").strip().lower() in ("1", "true", "sim"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),

@@ -172,3 +172,115 @@ def test_meta_setup_does_not_answer_the_uazapi_route(monkeypatch, ucfg):
     monkeypatch.setattr(web, "whatsapp", FakeChannel())
     client = TestClient(web.app, base_url="http://127.0.0.1:8000")
     assert client.post(f"/whatsapp/uazapi/{SECRET}", json=event()).status_code == 404
+
+
+# --- áudio (Whisper pela UAZAPI) ----------------------------------------------------------------
+
+def test_transcribe_asks_uazapi_with_the_openai_key(ucfg):
+    api, calls = mock_api(dataclasses.replace(ucfg, openai_api_key="sk-teste"), reply={"transcription": " quanto custa o óleo? "})
+    assert asyncio.run(api.transcribe("3EB0ABC")) == " quanto custa o óleo? "
+    path, token, body = calls[0]
+    assert path == "/message/download" and body["transcribe"] is True and body["id"] == "3EB0ABC"
+    assert body["openai_apikey"] == "sk-teste"
+    api, calls = mock_api(ucfg, reply={"transcription": "oi"})
+    asyncio.run(api.transcribe("x"))
+    assert "openai_apikey" not in calls[0][2]  # sem chave no .env: a UAZAPI usa a salva na instância
+
+
+class AudioApi:
+    def __init__(self, transcription="quanto custa o alinhamento?", fail=False):
+        self.sent: list[tuple[str, str]] = []
+        self.transcription, self.fail = transcription, fail
+
+    async def send_text(self, to, text):
+        self.sent.append((to, text))
+
+    async def mark_read(self, message_id):
+        pass
+
+    async def transcribe(self, message_id):
+        if self.fail:
+            raise WhatsAppError("sem chave da OpenAI")
+        return self.transcription
+
+
+class Recorder:
+    def __init__(self, cfg, resume=None):
+        raise AssertionError("não deve chegar ao operador")
+
+
+def customer_channel(ucfg, tmp_path, api, received):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+
+    class Customer:
+        def __init__(self):
+            from agente.human import HumanBridge
+            self.human = HumanBridge(1)
+            self.session_id = None
+
+        async def start(self):
+            pass
+
+        async def stop(self):
+            pass
+
+        async def ask(self, text):
+            from agente.core import Event
+            received.append(text)
+            yield Event("text", "resposta")
+
+    return WhatsAppChannel(ucfg, api, History(tmp_path / "c.db"), Recorder, customer_factory=lambda n: Customer())
+
+
+def run_channel(channel, *messages):
+    async def main():
+        for m in messages:
+            await channel.handle(m)
+        for _ in range(50):
+            await asyncio.sleep(0.01)
+        await channel.close()
+    asyncio.run(main())
+
+
+def test_audio_becomes_text_for_the_attendant(ucfg, tmp_path):
+    received, api = [], AudioApi()
+    channel = customer_channel(ucfg, tmp_path, api, received)
+    run_channel(channel, Incoming("a1", CUSTOMER, "audio", ""))
+    assert received == ["🎤 (áudio) quanto custa o alinhamento?"]
+    assert api.sent == [(CUSTOMER, "resposta")]
+
+
+def test_audio_that_cannot_be_transcribed_asks_to_write(ucfg, tmp_path):
+    received, api = [], AudioApi(fail=True)
+    run_channel(customer_channel(ucfg, tmp_path, api, received), Incoming("a2", CUSTOMER, "ptt", ""))
+    assert received == [] and "ouvir esse áudio" in api.sent[0][1]
+    received, api = [], AudioApi()
+    run_channel(customer_channel(dataclasses.replace(ucfg, transcribe_audio=False), tmp_path, api, received),
+                Incoming("a3", CUSTOMER, "audio", ""))
+    assert received == []  # transcrição desligada no .env
+
+
+# --- tabelas e pedido de ajuda ---------------------------------------------------------------------
+
+def test_tables_become_lists_on_whatsapp():
+    from agente.whatsapp import to_whatsapp
+    md = "Estoque:\n| Produto | Qtd | OS |\n|---|---|---|\n| Óleo 5W30 | 20 | 5 OS |\n| Filtro | 5 | — |\n\nfim"
+    assert to_whatsapp(md) == "Estoque:\n• Óleo 5W30 — Qtd: 20 · OS: 5 OS\n• Filtro — Qtd: 5\n\nfim"
+    assert to_whatsapp("a | b sem tabela") == "a | b sem tabela"
+
+
+def test_help_request_brings_the_remote_screen_link(ucfg, tmp_path):
+    from agente.history import History
+    from agente.human import HelpRequest
+    from agente.whatsapp import Contact, WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(ucfg, api, History(tmp_path / "c.db"), Recorder)
+    channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
+    asyncio.run(channel.ask_help(Contact(OWNER), HelpRequest("1", "Login na Amazon para finalizar", "https://www.amazon.com.br/cart"), []))
+    text = api.sent[0][1]
+    assert "Página: https://www.amazon.com.br/cart" in text
+    assert "https://vm.exemplo.com/acesso-navegador/abc" in text and "o agente não vê" in text
+    api.sent.clear()
+    asyncio.run(channel.ask_help(Contact(OWNER), HelpRequest("2", "Qual cor você prefere?", ""), []))
+    assert "acesso-navegador" not in api.sent[0][1]  # decisão sem página: sem link da tela remota

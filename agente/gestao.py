@@ -553,7 +553,9 @@ def crm_funnel(crm, days: int = 30, now: datetime | None = None) -> dict:
     """Funil do atendente: leads por etapa, origem, retomadas e motivos de perda (do crm.db)."""
     now = now or datetime.now()
     since = now - timedelta(days=days)
-    contacts = [c for c in crm.contacts(limit=100000) if datetime.fromisoformat(c.created) >= since]
+    # contatos "sim-" são do simulador de cliente (testes): não são leads de verdade
+    contacts = [c for c in crm.contacts(limit=100000)
+                if not c.phone.startswith("sim-") and datetime.fromisoformat(c.created) >= since]
     stages = Counter(c.stage for c in contacts)
     reasons, followups = Counter(), 0
     for c in contacts:

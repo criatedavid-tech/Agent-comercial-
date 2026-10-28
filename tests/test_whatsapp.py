@@ -302,8 +302,8 @@ def test_blocked_and_non_text(channel):
         await wait_for(lambda: len(channel.api.sent) == 2)
 
     run(channel, scenario)
-    texts = dict((t[:12], t) for _, t in channel.api.sent)
-    assert any("só leio mensagens de texto" in t for t in texts.values())
+    texts = {i: t for i, (_, t) in enumerate(channel.api.sent)}
+    assert any("ouvir esse áudio" in t for t in texts.values())  # Meta: sem transcrição, pede para escrever
     assert any("🛡 Bloqueado pela segurança: comando bloqueado (apagar a raiz)" in t for t in texts.values())
 
 

@@ -189,3 +189,10 @@ def test_close_browsers_closes_shared_instances(tmp_path):
     asyncio.run(module.close_browsers())
     assert closed == [True]
     module._shared.pop(tmp_path / "perfil")
+
+
+def test_insecure_pages():
+    from agente.browser import insecure_page
+    assert insecure_page("http://amazon-ofertas.com/login")
+    assert not insecure_page("https://www.amazon.com.br/cart")
+    assert not insecure_page("http://127.0.0.1:8123/x", allow_private=True)  # rede local liberada (testes)

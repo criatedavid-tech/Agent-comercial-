@@ -20,7 +20,8 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 ```
 
 - **Só a resposta final** volta pelo WhatsApp (sem os passos intermediários). Se a tarefa demorar mais de 20 s, ele avisa "⏳ Estou trabalhando nisso".
-- Markdown vira formatação do WhatsApp (`**negrito**` → `*negrito*`, listas → `•`). Respostas longas são divididas em partes.
+- Markdown vira formatação do WhatsApp (`**negrito**` → `*negrito*`, listas → `•`, tabelas viram lista). Respostas longas são divididas em partes.
+- **Áudio** (UAZAPI): vira texto pelo Whisper da OpenAI antes de ir para o agente, que recebe "🎤 (áudio) ..." e responde em texto. Precisa de `OPENAI_API_KEY` no `.env` (ou de uma chave já salva na instância); custa cerca de US$ 0,006 por minuto. Sem transcrição, o agente pede para escrever.
 - Cada contato tem sua conversa, que continua mesmo se o `agente-web` reiniciar.
 - Bloqueios de segurança aparecem no fim da resposta (🛡).
 
@@ -39,7 +40,7 @@ Os quatro últimos são da passagem para a equipe ([atendente.md](atendente.md#p
 
 ## Ponte humana e agenda pelo WhatsApp
 
-- Quando o agente precisa de você (CAPTCHA, login, código, decisão), chega **"⚠ Preciso de você"** com o motivo e o link. **A sua próxima mensagem é a resposta** ("ok", um código, uma escolha ou "não consegui").
+- Quando o agente precisa de você (CAPTCHA, login, código, decisão), chega **"⚠ Preciso de você"** com o motivo e a página. Se for algo no navegador do agente (login na Amazon, código, verificação), vem junto o **link da tela remota**: abra no celular e resolva no navegador do agente (o link da página abriria o site no seu celular, fora do agente). **A sua próxima mensagem é a resposta** ("ok", um código, uma escolha ou "não consegui").
 - Resultados da agenda (resumo do dia, tarefas, lembretes) chegam como **⏰ título**.
 
 ### A regra das 24 horas
@@ -108,6 +109,6 @@ A UAZAPI conecta um número de WhatsApp comum (pelo QR code, como o WhatsApp Web
 
 ## Limitações atuais
 
-- Só texto (e respostas de botão). Áudio e imagem respondem "por enquanto só leio texto".
+- Texto e áudio (áudio só pela UAZAPI). Imagem só pela legenda; sem legenda, o agente pede para escrever.
 - Avisos da agenda fora da janela de 24 h ficam na caixa de entrada (falta o template aprovado).
 - Grupos não são suportados.
