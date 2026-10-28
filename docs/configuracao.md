@@ -78,8 +78,8 @@ Padrão: `false`. Com `true`, quem não está em `WHATSAPP_ALLOWED_NUMBERS` (a e
 ### `WHATSAPP_PROVEDOR`, `UAZAPI_*`
 `WHATSAPP_PROVEDOR`: `meta` (API oficial) ou `uazapi` (não oficial, para testes); vazio escolhe `uazapi` quando `UAZAPI_URL` está preenchida. A UAZAPI liga com `UAZAPI_URL`, `UAZAPI_TOKEN`, `UAZAPI_WEBHOOK_SEGREDO` e `WHATSAPP_ALLOWED_NUMBERS`. Passo a passo e riscos em [whatsapp.md](whatsapp.md#uazapi-para-testes).
 
-### `OPENAI_API_KEY`, `AGENT_TRANSCREVER_AUDIO`
-Áudio do WhatsApp (UAZAPI) vira texto pelo Whisper da OpenAI, cerca de US$ 0,006 por minuto. A chave é usada só para isso e é enviada à UAZAPI, que guarda na instância; vazia, vale a chave já salva lá. `AGENT_TRANSCREVER_AUDIO=false` desliga (o agente pede para escrever).
+### `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `AGENT_TRANSCRICAO_MODELO`, `AGENT_TRANSCREVER_AUDIO`
+Áudio do WhatsApp (UAZAPI) vira texto. Com `OPENAI_API_KEY`: Whisper, feito pela UAZAPI (que guarda a chave na instância), cerca de US$ 0,006 por minuto. Sem ela, com `OPENROUTER_API_KEY` (ou o `AGENT_AUTH_TOKEN` quando o provedor é o OpenRouter): o áudio é baixado e transcrito por `AGENT_TRANSCRICAO_MODELO` (padrão `google/gemini-2.5-flash-lite`, cerca de US$ 0,001 por minuto; os gratuitos testados não ouviram o áudio). Sem nenhuma, vale a chave da OpenAI já salva na instância. `AGENT_TRANSCREVER_AUDIO=false` desliga (o agente pede para escrever).
 
 ### `WHATSAPP_*`
 `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` e `WHATSAPP_ALLOWED_NUMBERS` ligam o canal WhatsApp (todas obrigatórias); `WHATSAPP_API_VERSION` (padrão `v26.0`) é a versão da Graph API. Passo a passo em [whatsapp.md](whatsapp.md).

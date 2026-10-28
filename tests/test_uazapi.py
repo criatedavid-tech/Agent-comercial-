@@ -284,3 +284,34 @@ def test_help_request_brings_the_remote_screen_link(ucfg, tmp_path):
     api.sent.clear()
     asyncio.run(channel.ask_help(Contact(OWNER), HelpRequest("2", "Qual cor você prefere?", ""), []))
     assert "acesso-navegador" not in api.sent[0][1]  # decisão sem página: sem link da tela remota
+
+
+def test_transcribe_through_openrouter_when_there_is_no_openai_key(ucfg):
+    calls = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        calls.append((request.url.host, request.url.path, request.headers.get("authorization") or request.headers.get("token"), body))
+        if request.url.host == "openrouter.ai":
+            return httpx.Response(200, json={"choices": [{"message": {"content": "\"quanto custa o óleo?\""}}]})
+        return httpx.Response(200, json={"base64Data": "AAAA", "mimetype": "audio/mpeg"})
+
+    cfg = dataclasses.replace(ucfg, openrouter_api_key="sk-or-teste", transcription_model="google/gemini-2.5-flash-lite")
+    api = UazApi(cfg, httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    assert asyncio.run(api.transcribe("3EB0ABC")) == "quanto custa o óleo?"
+    (h1, p1, t1, b1), (h2, p2, t2, b2) = calls
+    assert (p1, b1["return_base64"], b1["generate_mp3"]) == ("/message/download", True, True) and "transcribe" not in b1
+    assert h2 == "openrouter.ai" and t2 == "Bearer sk-or-teste" and b2["model"] == "google/gemini-2.5-flash-lite"
+    audio = b2["messages"][0]["content"][1]
+    assert audio == {"type": "input_audio", "input_audio": {"data": "AAAA", "format": "mp3"}}
+
+
+def test_openrouter_refusal_becomes_an_error(ucfg):
+    def handler(request):
+        if request.url.host == "openrouter.ai":
+            return httpx.Response(402, json={"error": {"message": "Insufficient credits"}})
+        return httpx.Response(200, json={"base64Data": "AAAA"})
+
+    api = UazApi(dataclasses.replace(ucfg, openrouter_api_key="k"), httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    with pytest.raises(WhatsAppError, match="Insufficient credits"):
+        asyncio.run(api.transcribe("x"))

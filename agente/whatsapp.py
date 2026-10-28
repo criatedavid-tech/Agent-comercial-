@@ -189,6 +189,8 @@ class UazApi:
         self.base = cfg.uazapi_url.rstrip("/")
         self.headers = {"token": cfg.uazapi_token}
         self.openai_key = cfg.openai_api_key
+        self.openrouter_key = cfg.openrouter_api_key
+        self.transcription_model = cfg.transcription_model
         self.client = client or httpx.AsyncClient(timeout=60)
 
     async def _post(self, path: str, body: dict) -> dict:
@@ -213,7 +215,14 @@ class UazApi:
         await self._post("/message/markread", {"id": [message_id]})
 
     async def transcribe(self, message_id: str) -> str:
-        """Texto de um áudio recebido (Whisper da OpenAI, feito pela UAZAPI)."""
+        """Texto de um áudio recebido. Com chave da OpenAI, o Whisper (feito pela própria UAZAPI); senão, com chave
+        do OpenRouter, baixa o áudio e pede a um modelo que ouve áudio; sem nenhuma, a chave salva na instância."""
+        if self.openrouter_key and not self.openai_key:
+            data = await self._post("/message/download", {"id": message_id, "return_base64": True, "generate_mp3": True})
+            if not data.get("base64Data"):
+                raise WhatsAppError("a UAZAPI não devolveu o áudio")
+            return await transcribe_openrouter(self.client, self.openrouter_key, self.transcription_model,
+                                               data["base64Data"], "mp3")
         body = {"id": message_id, "transcribe": True, "generate_mp3": False}
         if self.openai_key:
             body["openai_apikey"] = self.openai_key
@@ -226,6 +235,21 @@ class UazApi:
 
 
 TEXT_TYPES = ("conversation", "extendedtext", "text")
+TRANSCRIBE_PROMPT = ("Transcreva este áudio de WhatsApp em português do Brasil, exatamente como foi falado. "
+                     "Responda só com a transcrição, sem comentários. Se não houver fala, responda vazio.")
+
+
+async def transcribe_openrouter(client: httpx.AsyncClient, key: str, model: str, audio_b64: str, fmt: str) -> str:
+    """Áudio (base64) → texto por um modelo do OpenRouter que aceita áudio (ex. Gemini Flash Lite)."""
+    resp = await client.post(
+        "https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {key}"},
+        json={"model": model, "temperature": 0, "messages": [{"role": "user", "content": [
+            {"type": "text", "text": TRANSCRIBE_PROMPT},
+            {"type": "input_audio", "input_audio": {"data": audio_b64, "format": fmt}}]}]})
+    data = resp.json() if resp.content else {}
+    if resp.status_code >= 400 or "choices" not in data:
+        raise WhatsAppError(f"transcrição recusada: {(data.get('error') or {}).get('message') or resp.status_code}")
+    return str(data["choices"][0]["message"].get("content") or "").strip().strip('"')
 
 
 def jid_number(jid: str) -> str:

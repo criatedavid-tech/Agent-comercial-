@@ -21,7 +21,7 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 
 - **Só a resposta final** volta pelo WhatsApp (sem os passos intermediários). Se a tarefa demorar mais de 20 s, ele avisa "⏳ Estou trabalhando nisso".
 - Markdown vira formatação do WhatsApp (`**negrito**` → `*negrito*`, listas → `•`, tabelas viram lista). Respostas longas são divididas em partes.
-- **Áudio** (UAZAPI): vira texto pelo Whisper da OpenAI antes de ir para o agente, que recebe "🎤 (áudio) ..." e responde em texto. Precisa de `OPENAI_API_KEY` no `.env` (ou de uma chave já salva na instância); custa cerca de US$ 0,006 por minuto. Sem transcrição, o agente pede para escrever.
+- **Áudio** (UAZAPI): vira texto antes de ir para o agente, que recebe "🎤 (áudio) ..." e responde em texto. Com `OPENAI_API_KEY`, quem transcreve é o Whisper, pela própria UAZAPI (cerca de US$ 0,006 por minuto). Sem ela, com `OPENROUTER_API_KEY` (ou o token do OpenRouter que o agente já usa), o áudio é baixado e transcrito por um modelo que ouve áudio, `AGENT_TRANSCRICAO_MODELO` (padrão `google/gemini-2.5-flash-lite`, cerca de US$ 0,001 por minuto). Sem transcrição, o agente pede para escrever.
 - Cada contato tem sua conversa, que continua mesmo se o `agente-web` reiniciar.
 - Bloqueios de segurança aparecem no fim da resposta (🛡).
 

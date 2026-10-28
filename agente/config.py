@@ -42,7 +42,9 @@ class Config:
     uazapi_token: str = ""  # token da instância (cabeçalho "token")
     uazapi_webhook_secret: str = ""  # segredo no caminho do webhook: /whatsapp/uazapi/<segredo>
     transcribe_audio: bool = True  # áudio vira texto (Whisper da OpenAI, pela UAZAPI)
-    openai_api_key: str = ""  # chave da OpenAI só para transcrever áudio; vazia = a salva na instância UAZAPI
+    openai_api_key: str = ""  # chave da OpenAI: transcrição pelo Whisper (feita pela UAZAPI)
+    openrouter_api_key: str = ""  # sem chave da OpenAI: transcrição por um modelo que ouve áudio, pelo OpenRouter
+    transcription_model: str = "google/gemini-2.5-flash-lite"
     company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
     crm_db: Path = ROOT / "crm.db"
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
@@ -99,6 +101,8 @@ def load() -> Config:
         uazapi_webhook_secret=os.getenv("UAZAPI_WEBHOOK_SEGREDO", "").strip(),
         transcribe_audio=os.getenv("AGENT_TRANSCREVER_AUDIO", "true").strip().lower() in ("1", "true", "sim"),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip() or openrouter_token(),
+        transcription_model=os.getenv("AGENT_TRANSCRICAO_MODELO", "").strip() or "google/gemini-2.5-flash-lite",
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
@@ -110,6 +114,13 @@ def load() -> Config:
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def openrouter_token() -> str:
+    """O token do provedor alternativo serve para a transcrição quando o provedor é o OpenRouter."""
+    if "openrouter.ai" in os.getenv("AGENT_BASE_URL", ""):
+        return os.getenv("AGENT_AUTH_TOKEN", "").strip()
+    return ""
 
 
 def whatsapp_provider(value: str, uazapi_url: str) -> str:
