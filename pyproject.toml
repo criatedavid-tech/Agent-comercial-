@@ -25,6 +25,7 @@ agente-web = "agente.web:main"
 agente-backup = "agente.backup:main"
 agente-vigia = "agente.vigia:main"
 agente-gestao = "agente.gestao_cli:main"
+agente-uazapi = "agente.whatsapp:uazapi_main"
 
 [build-system]
 requires = ["setuptools>=68"]

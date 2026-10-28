@@ -37,6 +37,10 @@ class Config:
     whatsapp_app_secret: str = ""
     whatsapp_allowed: tuple[str, ...] = ()  # números com DDI, só dígitos; o primeiro é o dono
     whatsapp_api_version: str = "v26.0"
+    whatsapp_provider: str = "meta"  # "meta" (API oficial) ou "uazapi" (não oficial, para testes)
+    uazapi_url: str = ""  # endereço do servidor UAZAPI, ex. https://suaempresa.uazapi.com
+    uazapi_token: str = ""  # token da instância (cabeçalho "token")
+    uazapi_webhook_secret: str = ""  # segredo no caminho do webhook: /whatsapp/uazapi/<segredo>
     company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
     crm_db: Path = ROOT / "crm.db"
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
@@ -52,6 +56,8 @@ class Config:
 
     @property
     def whatsapp_enabled(self) -> bool:
+        if self.whatsapp_provider == "uazapi":
+            return all((self.uazapi_url, self.uazapi_token, self.uazapi_webhook_secret, self.whatsapp_allowed))
         return all((self.whatsapp_token, self.whatsapp_phone_id, self.whatsapp_verify_token,
                     self.whatsapp_app_secret, self.whatsapp_allowed))
 
@@ -85,6 +91,10 @@ def load() -> Config:
             re.sub(r"\D", "", n) for n in os.getenv("WHATSAPP_ALLOWED_NUMBERS", "").split(",") if re.sub(r"\D", "", n)
         ),
         whatsapp_api_version=os.getenv("WHATSAPP_API_VERSION", "v26.0").strip(),
+        whatsapp_provider=whatsapp_provider(os.getenv("WHATSAPP_PROVEDOR", ""), os.getenv("UAZAPI_URL", "")),
+        uazapi_url=os.getenv("UAZAPI_URL", "").strip().rstrip("/"),
+        uazapi_token=os.getenv("UAZAPI_TOKEN", "").strip(),
+        uazapi_webhook_secret=os.getenv("UAZAPI_WEBHOOK_SEGREDO", "").strip(),
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
@@ -96,6 +106,14 @@ def load() -> Config:
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def whatsapp_provider(value: str, uazapi_url: str) -> str:
+    """WHATSAPP_PROVEDOR (meta ou uazapi); vazio: uazapi se UAZAPI_URL estiver preenchida, senão meta."""
+    value = value.strip().lower()
+    if value in ("meta", "uazapi"):
+        return value
+    return "uazapi" if uazapi_url.strip() else "meta"
 
 
 def company_dir(value: str) -> Path:

@@ -1,6 +1,11 @@
 # WhatsApp
 
-O agente conversa com você pelo WhatsApp usando a **API oficial da Meta** (WhatsApp Cloud API). Nada de bibliotecas que imitam o WhatsApp Web: essas violam os termos e o número costuma ser banido.
+O agente conversa pelo WhatsApp de dois jeitos (`WHATSAPP_PROVEDOR`):
+
+- **Meta** (API oficial, WhatsApp Cloud API): o caminho para clientes reais.
+- **UAZAPI** (não oficial, conecta um número comum pelo QR code): o caminho rápido para **testes**. Veja [UAZAPI](#uazapi-para-testes) e os riscos.
+
+O resto (equipe × clientes, comandos, passagem para a equipe, regras) é igual nos dois.
 
 ## Como funciona
 
@@ -63,12 +68,43 @@ Você vai precisar de uma conta no Facebook e, para uso real, de um **número de
 
 O WhatsApp só liga quando as cinco variáveis estão preenchidas; `/api/status` mostra `"whatsapp": true`.
 
+## UAZAPI (para testes)
+
+A UAZAPI conecta um número de WhatsApp comum (pelo QR code, como o WhatsApp Web) e oferece uma API para enviar e receber. É paga e não é da Meta.
+
+**Riscos, leia antes:**
+- Não é oficial: viola os termos do WhatsApp e **o número pode ser banido**, principalmente se mandar mensagem para quem não falou com ele. Use um **número de teste**, nunca o número principal da loja.
+- Por isso o agente mantém as mesmas regras da Meta: só responde quem escreveu, retomada e avisos só dentro de 24 h, PARAR respeitado, sem disparo em massa.
+- Não há modelos aprovados: fora das 24 h, o retorno combinado fica para a equipe.
+- Para cliente pagante, o caminho é a API oficial da Meta.
+
+**Passo a passo:**
+1. No painel da UAZAPI, crie uma instância e conecte o número de teste pelo QR code.
+2. No `.env`:
+   - `UAZAPI_URL`: o endereço do servidor (ex. `https://suaempresa.uazapi.com`);
+   - `UAZAPI_TOKEN`: o token da instância;
+   - `UAZAPI_WEBHOOK_SEGREDO`: um texto longo e aleatório inventado por você (vai no caminho do webhook);
+   - `WHATSAPP_ALLOWED_NUMBERS`: os números da equipe (o primeiro é o dono);
+   - `AGENT_ATENDENTE_WHATSAPP=true` para que os demais números falem com o atendente.
+   `WHATSAPP_PROVEDOR` pode ficar vazio: com `UAZAPI_URL` preenchida, a UAZAPI é usada.
+3. **Endereço público.** A UAZAPI precisa chamar o agente:
+   - no computador, um túnel: `cloudflared tunnel --url http://127.0.0.1:8000` mostra um `https://xxxx.trycloudflare.com` (muda a cada vez);
+   - na VM, o domínio com HTTPS do Caddy (`AGENT_PUBLIC_URL`).
+4. **Reinicie o `agente-web`** e cadastre o webhook na instância:
+   ```bash
+   agente-uazapi https://xxxx.trycloudflare.com
+   ```
+   (na VM, só `agente-uazapi`, que usa `AGENT_PUBLIC_URL`). O comando configura só mensagens recebidas, sem grupos e sem as que o próprio agente mandou.
+5. Mande "oi" para o número de teste de outro celular: se ele não estiver em `WHATSAPP_ALLOWED_NUMBERS`, quem responde é o atendente.
+
+**Segurança:** a UAZAPI não assina as chamadas. O webhook só aceita o caminho `/whatsapp/uazapi/<UAZAPI_WEBHOOK_SEGREDO>` e, quando o corpo traz o token da instância, ele precisa bater com `UAZAPI_TOKEN`. Grupos, mensagens enviadas pelo próprio número e contatos sem número de telefone (só LID) são ignorados.
+
 ## Segurança
 
-- **Assinatura:** toda chamada do webhook precisa do cabeçalho `X-Hub-Signature-256` válido (HMAC-SHA256 do corpo com o App Secret). Sem isso, 403.
+- **Assinatura (Meta):** toda chamada do webhook precisa do cabeçalho `X-Hub-Signature-256` válido (HMAC-SHA256 do corpo com o App Secret). Sem isso, 403.
 - **Lista de permitidos:** mensagens de outros números são ignoradas (e ficam no log).
-- **O túnel só abre o webhook:** qualquer outra rota acessada pelo domínio público (painel, conversas, chat) é recusada, porque o servidor só aceita Host local fora de `/whatsapp/webhook`.
-- O `WHATSAPP_TOKEN` envia mensagens em nome do seu número: trate como senha (fica só no `.env`).
+- **O túnel só abre o webhook:** qualquer outra rota acessada pelo domínio público (painel, conversas, chat) é recusada, porque o servidor só aceita Host local fora dos webhooks (`/whatsapp/webhook` e `/whatsapp/uazapi/<segredo>`) e da tela remota com link válido.
+- O `WHATSAPP_TOKEN` e o `UAZAPI_TOKEN` enviam mensagens em nome do número: trate como senha (ficam só no `.env`).
 
 ## Limitações atuais
 

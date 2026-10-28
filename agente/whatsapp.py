@@ -1,4 +1,4 @@
-"""Canal WhatsApp pela API oficial da Meta (WhatsApp Cloud API).
+"""Canal WhatsApp: API oficial da Meta (WhatsApp Cloud API) ou UAZAPI (não oficial, para testes).
 
 Fluxo: a Meta chama POST /whatsapp/webhook com cada mensagem → conferimos a assinatura
 (HMAC-SHA256 com o App Secret) → números da equipe (WHATSAPP_ALLOWED_NUMBERS) falam com o operador;
@@ -13,6 +13,12 @@ mensagem do usuário é a resposta.
 
 Regra da Meta: mensagem livre só até 24h depois da última mensagem do usuário. Fora disso,
 avisos da agenda ficam na caixa de entrada (web/terminal) em vez de ir pelo WhatsApp.
+Com a UAZAPI a regra vale do mesmo jeito: mandar para quem não falou com a empresa é o que faz
+o WhatsApp banir o número.
+
+UAZAPI: o webhook chega em /whatsapp/uazapi/<UAZAPI_WEBHOOK_SEGREDO> (a UAZAPI não assina as
+chamadas; o segredo no caminho e o token da instância no corpo fazem esse papel). Para cadastrar
+o webhook na instância: agente-uazapi https://seu-endereco-publico.
 """
 
 import asyncio
@@ -149,6 +155,104 @@ class CloudApi:
 
     async def mark_read(self, message_id: str) -> None:
         await self._post({"messaging_product": "whatsapp", "status": "read", "message_id": message_id})
+
+
+class UazApi:
+    """Cliente da UAZAPI: enviar texto, marcar como lida e cadastrar o webhook. Mesma interface do CloudApi."""
+
+    def __init__(self, cfg: Config, client: httpx.AsyncClient | None = None):
+        self.base = cfg.uazapi_url.rstrip("/")
+        self.headers = {"token": cfg.uazapi_token}
+        self.client = client or httpx.AsyncClient(timeout=20)
+
+    async def _post(self, path: str, body: dict) -> dict:
+        resp = await self.client.post(self.base + path, json=body, headers=self.headers)
+        try:
+            data = resp.json() if resp.content else {}
+        except ValueError:
+            data = {}
+        if resp.status_code >= 400:
+            message = (data.get("error") or data.get("message")) if isinstance(data, dict) else ""
+            raise WhatsAppError(str(message or f"HTTP {resp.status_code}"), resp.status_code)
+        return data if isinstance(data, dict) else {}
+
+    async def send_text(self, to: str, text: str) -> None:
+        for part in split_message(to_whatsapp(text)):
+            await self._post("/send/text", {"number": to, "text": part})
+
+    async def send_template(self, to: str, name: str, params: list[str], language: str = "pt_BR") -> None:
+        raise WhatsAppError("a UAZAPI não tem modelos aprovados da Meta: fora das 24 h a equipe fala com o cliente")
+
+    async def mark_read(self, message_id: str) -> None:
+        await self._post("/message/markread", {"id": [message_id]})
+
+    async def set_webhook(self, url: str) -> dict:
+        """Só mensagens recebidas, de pessoas (sem grupos), sem as que o próprio agente mandou."""
+        return await self._post("/webhook", {"enabled": True, "url": url, "events": ["messages"],
+                                             "excludeMessages": ["wasSentByApi", "fromMeYes", "isGroupYes"]})
+
+
+TEXT_TYPES = ("conversation", "extendedtext", "text")
+
+
+def jid_number(jid: str) -> str:
+    """Número de um JID de pessoa (5511...@s.whatsapp.net). LID e grupo não são número de telefone: vazio."""
+    jid = str(jid or "")
+    if not jid.endswith(("@s.whatsapp.net", "@c.us")):
+        return ""
+    return re.sub(r"\D", "", jid.split("@")[0].split(":")[0])
+
+
+def parse_uazapi(payload: dict) -> list[Incoming]:
+    """Mensagem recebida pela UAZAPI (EventType "messages"). Ignora as nossas, grupos e quem não tem número."""
+    if payload.get("EventType") != "messages":
+        return []
+    m = payload.get("message") or {}
+    if m.get("fromMe") or m.get("isGroup") or m.get("wasSentByApi"):
+        return []
+    sender = jid_number(m.get("sender_pn")) or jid_number(m.get("chatid")) or jid_number(m.get("sender"))
+    if not sender:
+        log.warning("mensagem da UAZAPI sem número de telefone (chatid %s): ignorada", m.get("chatid"))
+        return []
+    kind = str(m.get("messageType") or "").lower()
+    kind = "text" if not kind or any(t in kind for t in TEXT_TYPES) else kind.removesuffix("message")
+    msg_id = str(m.get("messageid") or m.get("id") or "")
+    return [Incoming(msg_id, sender, kind, str(m.get("text") or ""), str(m.get("senderName") or ""))]
+
+
+def uazapi_main() -> None:
+    """agente-uazapi [endereço público]: cadastra o webhook na instância da UAZAPI."""
+    import argparse
+    import sys
+
+    from . import config
+
+    parser = argparse.ArgumentParser(description="Cadastra o webhook do agente na instância da UAZAPI")
+    parser.add_argument("endereco", nargs="?", default="",
+                        help="endereço público do agente (padrão: AGENT_PUBLIC_URL), ex. https://abc.trycloudflare.com")
+    args = parser.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")
+    cfg = config.load()
+    base = (args.endereco or cfg.public_url).rstrip("/")
+    missing = [n for n, v in (("UAZAPI_URL", cfg.uazapi_url), ("UAZAPI_TOKEN", cfg.uazapi_token),
+                              ("UAZAPI_WEBHOOK_SEGREDO", cfg.uazapi_webhook_secret)) if not v]
+    if missing:
+        sys.exit(f"preencha no .env: {', '.join(missing)}")
+    if not base.startswith("https://"):
+        sys.exit("informe o endereço público com https:// (ou preencha AGENT_PUBLIC_URL)")
+
+    async def configure() -> dict:
+        api = UazApi(cfg)
+        try:
+            return await api.set_webhook(f"{base}/whatsapp/uazapi/{cfg.uazapi_webhook_secret}")
+        finally:
+            await api.client.aclose()
+
+    try:
+        asyncio.run(configure())
+    except (WhatsAppError, httpx.HTTPError) as e:
+        sys.exit(f"a UAZAPI recusou: {e}")
+    print(f"webhook cadastrado: {base}/whatsapp/uazapi/<segredo>")
 
 
 @dataclass

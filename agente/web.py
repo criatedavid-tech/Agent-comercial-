@@ -30,7 +30,7 @@ from .human import HelpRequest, HumanBridge
 from .retomada import FollowupEngine, model_composer
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
 from .browser import BrowserError, close_browsers, shared_browser
-from .whatsapp import CloudApi, WhatsAppChannel, parse_messages, spawn, verify_signature
+from .whatsapp import CloudApi, UazApi, WhatsAppChannel, parse_messages, parse_uazapi, spawn, verify_signature
 
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -42,6 +42,7 @@ crm = Crm(cfg.crm_db)
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos que a página redesenha
 WEBHOOK = "/whatsapp/webhook"
+UAZAPI_HOOK = "/whatsapp/uazapi"  # + "/<UAZAPI_WEBHOOK_SEGREDO>"
 
 whatsapp: WhatsAppChannel | None = None  # ligado quando as variáveis WHATSAPP_* estão preenchidas
 scheduler: Scheduler | None = None
@@ -223,7 +224,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     desk = build_desk()
     if cfg.whatsapp_enabled:
         customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm, desk=desk)) if cfg.attendant_whatsapp else None
-        whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused, customer_factory=customers)
+        api = UazApi(cfg) if cfg.whatsapp_provider == "uazapi" else CloudApi(cfg)
+        whatsapp = WhatsAppChannel(cfg, api, history, Agent, on_pause=set_paused, customer_factory=customers)
         whatsapp.desk = desk
     followups = build_followups()
     watch = build_watch()
@@ -263,7 +265,8 @@ async def local_only(request: Request, call_next):
     # O navegador mantém o Host original, então basta recusar qualquer Host que não seja local.
     # Exceção: o webhook do WhatsApp chega pelo túnel/proxy com o domínio público e é autenticado pela assinatura.
     host, path = request.headers.get("host", ""), request.url.path
-    if not is_local(host) and path != WEBHOOK and not remote_allowed(host, path):
+    webhook = path == WEBHOOK or path.startswith(UAZAPI_HOOK + "/")
+    if not is_local(host) and not webhook and not remote_allowed(host, path):
         return PlainTextResponse("host não permitido", status_code=403)
     return await call_next(request)
 
@@ -299,6 +302,25 @@ async def whatsapp_receive(request: Request) -> dict:
     if not verify_signature(cfg.whatsapp_app_secret, body, request.headers.get("x-hub-signature-256", "")):
         raise HTTPException(403, "assinatura inválida")
     for msg in parse_messages(await request.json()):
+        spawn(background, whatsapp.handle(msg))
+    return {"ok": True}
+
+
+@app.post(UAZAPI_HOOK + "/{secret}")
+async def uazapi_receive(secret: str, request: Request) -> dict:
+    """Mensagens pela UAZAPI. Ela não assina: vale o segredo no caminho e, quando vem, o token da instância."""
+    if whatsapp is None or cfg.whatsapp_provider != "uazapi":
+        raise HTTPException(404, "UAZAPI não configurada")
+    if not hmac.compare_digest(secret, cfg.uazapi_webhook_secret):
+        raise HTTPException(403, "segredo inválido")
+    try:
+        payload = await request.json()
+    except ValueError:
+        raise HTTPException(400, "corpo inválido") from None
+    token = payload.get("token") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict) or (token and not hmac.compare_digest(str(token), cfg.uazapi_token)):
+        raise HTTPException(403, "token da instância inválido")
+    for msg in parse_uazapi(payload):
         spawn(background, whatsapp.handle(msg))
     return {"ok": True}
 

@@ -31,6 +31,13 @@ def is_up(url: str, client: httpx.Client) -> bool:
 def send_whatsapp(cfg: Config, text: str, client: httpx.Client) -> bool:
     if not cfg.whatsapp_enabled:
         return False
+    if cfg.whatsapp_provider == "uazapi":
+        try:
+            resp = client.post(f"{cfg.uazapi_url}/send/text", json={"number": cfg.whatsapp_allowed[0], "text": text},
+                               headers={"token": cfg.uazapi_token}, timeout=20)
+            return resp.status_code < 400
+        except httpx.HTTPError:
+            return False
     url = f"https://graph.facebook.com/{cfg.whatsapp_api_version}/{cfg.whatsapp_phone_id}/messages"
     body = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+" + cfg.whatsapp_allowed[0],
             "type": "text", "text": {"preview_url": False, "body": text}}

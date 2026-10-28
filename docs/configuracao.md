@@ -75,6 +75,9 @@ Padrão: 12. Passos (chamadas de ferramenta) do atendente por mensagem de client
 ### `AGENT_ATENDENTE_WHATSAPP`
 Padrão: `false`. Com `true`, quem não está em `WHATSAPP_ALLOWED_NUMBERS` (a equipe) é tratado como **cliente** e conversa com o atendente, e as retomadas automáticas passam a sair pelo WhatsApp. Ligue só com a pasta `empresa/` revisada: a partir daí, clientes de verdade recebem respostas.
 
+### `WHATSAPP_PROVEDOR`, `UAZAPI_*`
+`WHATSAPP_PROVEDOR`: `meta` (API oficial) ou `uazapi` (não oficial, para testes); vazio escolhe `uazapi` quando `UAZAPI_URL` está preenchida. A UAZAPI liga com `UAZAPI_URL`, `UAZAPI_TOKEN`, `UAZAPI_WEBHOOK_SEGREDO` e `WHATSAPP_ALLOWED_NUMBERS`. Passo a passo e riscos em [whatsapp.md](whatsapp.md#uazapi-para-testes).
+
 ### `WHATSAPP_*`
 `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` e `WHATSAPP_ALLOWED_NUMBERS` ligam o canal WhatsApp (todas obrigatórias); `WHATSAPP_API_VERSION` (padrão `v26.0`) é a versão da Graph API. Passo a passo em [whatsapp.md](whatsapp.md).
 
