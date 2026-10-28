@@ -1,0 +1,16 @@
+# Sistemas da loja que o agente usa pelo navegador (sistema da oficina, banco, portal de nota fiscal...).
+# Alguém da equipe faz o login uma vez pela tela remota do navegador; o agente segue logado.
+# De hora em hora (AGENT_ACESSOS_MIN) o código confere se cada um continua logado e, se o site
+# encerrar a sessão, avisa no WhatsApp com um link para entrar de novo.
+#
+# Tire o # das linhas abaixo e troque pelos sistemas da sua loja:
+#
+# [[sistema]]
+# nome = "Sistema da oficina"
+# endereco = "https://app.sistemadaoficina.com.br/painel"   # página que só abre logado
+# logado = "Sair"                                            # texto que só aparece com a sessão ativa
+#
+# [[sistema]]
+# nome = "Banco"
+# endereco = "https://www.banco.com.br/empresas/inicio"
+# logado = "Olá, Auto Center Rota Certa"

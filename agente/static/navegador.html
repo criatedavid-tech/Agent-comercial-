@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Navegador do agente</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
+    --border: #e4e3de; --accent: #2f6f4f; --error: #b3261e; --tool: #f1f0eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+      --border: #33332f; --accent: #5fae84; --error: #f2b8b5; --tool: #262623;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  main { max-width: 1320px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 10px; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, button { font: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #url { flex: 1; min-width: 0; }
+  #typed { flex: 1; min-width: 140px; }
+  .screen { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--tool); outline: none; }
+  .screen:focus { border-color: var(--accent); }
+  .screen img { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; -webkit-user-drag: none; }
+  .screen .wait { padding: 60px 16px; text-align: center; color: var(--muted); }
+  #msg { font-size: 14px; color: var(--muted); white-space: pre-line; min-height: 1.5em; }
+  #msg.error { color: var(--error); }
+  .hint { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Navegador do agente</h1>
+  <p>Faça o login como faria no seu navegador. Você digita a senha; o agente não vê nem guarda. Este link vale poucos minutos.</p>
+</header>
+<main>
+  <div class="bar">
+    <button id="back" title="Voltar">←</button>
+    <input id="url" placeholder="endereço do sistema" autocomplete="off" spellcheck="false">
+    <button id="go">Abrir</button>
+  </div>
+  <div class="screen" id="screen" tabindex="0" aria-label="Tela do navegador do agente; clique para interagir">
+    <div class="wait" id="wait">Conectando…</div>
+    <img id="img" alt="" hidden>
+  </div>
+  <div class="bar">
+    <input id="typed" type="password" placeholder="toque no campo da página e digite aqui" autocomplete="off">
+    <button id="send">Digitar</button>
+    <button data-key="Tab">Tab</button>
+    <button data-key="Backspace">Apagar</button>
+    <button data-key="Enter">Enter</button>
+  </div>
+  <div class="bar">
+    <button class="primary" id="done">Já entrei</button>
+    <span class="hint">No computador, clique na tela e digite direto. No celular, toque no campo da página e use a caixa acima.</span>
+  </div>
+  <div id="msg" role="status"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const token = location.pathname.split("/").pop();
+const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/acesso-navegador/" + token);
+ws.binaryType = "blob";
+const VIEW = { width: 1280, height: 860 };  // tamanho da aba do agente (browser.py VIEWPORT)
+let lastUrl = null;
+
+function say(text, error) { $("msg").textContent = text; $("msg").className = error ? "error" : ""; }
+function send(action) { if (ws.readyState === 1) ws.send(JSON.stringify(action)); }
+
+ws.onmessage = (e) => {
+  if (e.data instanceof Blob) {
+    const old = $("img").src;
+    $("img").src = URL.createObjectURL(e.data);
+    if (old) URL.revokeObjectURL(old);
+    $("img").hidden = false; $("wait").hidden = true;
+    return;
+  }
+  const m = JSON.parse(e.data);
+  if (m.kind === "url" && document.activeElement !== $("url")) $("url").value = lastUrl = m.text;
+  else if (m.kind === "error") say(m.text, true);
+  else if (m.kind === "status") say(m.text);
+  else if (m.kind === "expired") say("Este link expirou. Peça um novo no painel ou espere o próximo aviso.", true);
+};
+ws.onclose = () => { $("wait").hidden = false; $("wait").textContent = "Desconectado. Para entrar de novo, use um link novo."; $("img").hidden = true; };
+
+$("img").addEventListener("click", (e) => {
+  const box = $("img").getBoundingClientRect();
+  send({ type: "click", x: (e.clientX - box.left) * VIEW.width / box.width, y: (e.clientY - box.top) * VIEW.height / box.height });
+  $("screen").focus();
+});
+$("screen").addEventListener("wheel", (e) => { e.preventDefault(); send({ type: "scroll", dy: e.deltaY }); }, { passive: false });
+
+const KEYS = new Set(["Enter", "Tab", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
+$("screen").addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.length === 1) { send({ type: "type", text: e.key }); e.preventDefault(); }
+  else if (KEYS.has(e.key)) { send({ type: "key", key: e.key === "Tab" && e.shiftKey ? "Shift+Tab" : e.key }); e.preventDefault(); }
+});
+$("screen").addEventListener("paste", (e) => { send({ type: "type", text: e.clipboardData.getData("text") }); e.preventDefault(); });
+
+$("send").onclick = () => { if ($("typed").value) { send({ type: "type", text: $("typed").value }); $("typed").value = ""; } };
+$("typed").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("send").click(); } });
+document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => send({ type: "key", key: b.dataset.key }));
+$("go").onclick = () => send({ type: "goto", url: $("url").value.trim() });
+$("url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });
+$("back").onclick = () => send({ type: "back" });
+$("done").onclick = () => { say("Conferindo os acessos…"); send({ type: "done" }); };
+</script>
+</body>
+</html>

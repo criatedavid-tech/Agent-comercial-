@@ -374,11 +374,11 @@ class WhatsAppChannel:
             contact = self.contacts.setdefault(self.owner, Contact(self.owner))
             await self.ask_help(contact, req, bridges)
 
-    async def deliver(self, title: str, text: str) -> bool:
-        """Resultado da agenda para o dono. Fora da janela de 24h a Meta não deixa: fica na caixa de entrada."""
+    async def deliver(self, title: str, text: str, icon: str = "⏰") -> bool:
+        """Resultado da agenda (ou aviso) para o dono. Fora da janela de 24h a Meta não deixa: fica na caixa de entrada."""
         if self.paused or not self.in_service_window(self.owner):
             return False
-        return await self.send(self.owner, f"⏰ *{title}*\n\n{text}")
+        return await self.send(self.owner, f"{icon} *{title}*\n\n{text}")
 
     async def close(self) -> None:
         for contact in self.contacts.values():

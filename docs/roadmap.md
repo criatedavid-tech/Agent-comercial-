@@ -67,7 +67,8 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 ## ⬜ Etapa 4: Navegador e compras
 - [x] Playwright com perfil persistente (fica logado nos sites)
 - [x] Preencher formulários e navegar em várias etapas (monitorar preços: com a agenda)
-- [ ] Ver a janela do navegador remotamente quando estiver na VPS
+- [x] Ver a janela do navegador remotamente quando estiver na VPS (tela remota com link temporário) e aviso quando um login dos sistemas da loja expira ([acessos.md](acessos.md))
+- [ ] Backup criptografado do perfil do navegador fora da VM
 - [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)
 - [ ] Compras com **cartão virtual** + teto por compra e por mês no código
 - [ ] Marketplaces com API (ex.: Mercado Livre) para comprar e vender

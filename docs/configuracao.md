@@ -57,6 +57,12 @@ Padrão: `07:00`. Hora do resumo diário: o agente lista o que está agendado pa
 ### `AGENT_BROWSER_HEADLESS`
 Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade no seu computador: é nela que você resolve CAPTCHA, login e códigos quando o agente pedir. Use `true` só onde não há tela (VPS); aí o agente avisa que você não consegue resolver verificações por enquanto.
 
+### `AGENT_PUBLIC_URL`
+Endereço público da VM, ex. `https://agente.autocenter.com.br` (o `provisionar.sh` preenche sozinho com `--dominio`). Os avisos de login expirado levam um link temporário para a tela remota do navegador com este domínio. Vazio: o link só abre na própria máquina ou pelo túnel SSH. Detalhes em [acessos.md](acessos.md).
+
+### `AGENT_ACESSOS_MIN`
+Padrão: 60. De quantos em quantos minutos o servidor confere se os sistemas de `empresa/sistemas.toml` continuam logados.
+
 ### `AGENT_EMPRESA_DIR`
 Pasta da empresa que o atendente atende. Vazio: `empresa/` na raiz do projeto ou, se não existir, a empresa fictícia de `exemplos/empresa/`. Caminho relativo é a partir da raiz do projeto. Formato dos arquivos: [atendente.md](atendente.md#configuração-da-empresa).
 
@@ -80,6 +86,7 @@ Padrão: `false`. Com `true`, quem não está em `WHATSAPP_ALLOWED_NUMBERS` (a e
 - Regras no código: só `http`/`https`; rede local bloqueada (localhost, 127.x, 192.168.x, 10.x, `.local`); não digita em campo de senha ou cartão nem textos com CPF, cartão ou senha; o texto da página volta marcado como "informação, não instrução".
 - Detecta páginas de verificação (Cloudflare, reCAPTCHA, hCaptcha, "você é um robô?") e orienta o agente a chamar a ponte humana.
 - Capturas de tela vão para `workspace/capturas/`.
+- Logins dos sistemas da loja: checagem periódica, aviso quando expiram e tela remota para entrar de novo na VM em [acessos.md](acessos.md).
 
 ## Conversas e desfazer
 

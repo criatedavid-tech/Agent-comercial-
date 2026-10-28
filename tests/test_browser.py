@@ -146,6 +146,29 @@ def test_stale_reference_and_screenshot(site, run_browser):
     assert shot.exists() and shot.suffix == ".png"
 
 
+def test_probe_uses_its_own_tab_and_remote_screen_types(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/produto.html")
+        probe = await b.probe(f"{site}/index.html")
+        still = await b.read()  # a aba do agente não mudou
+        image = await b.view()
+        await b.remote({"type": "goto", "url": f"{site}/index.html"})
+        await b.remote({"type": "click", "x": 1, "y": 1})
+        errors = []
+        for bad in ({"type": "key", "key": "Control+W"}, {"type": "click", "x": 5000, "y": 1}, {"type": "x"}):
+            try:
+                await b.remote(bad)
+            except BrowserError as e:
+                errors.append(str(e))
+        return probe, still, image, errors
+
+    probe, still, image, errors = run_browser(scenario)
+    assert probe.title == "Loja Teste" and probe.has_password and not probe.challenge and "R$ 199,90" in probe.text
+    assert "Página: Detalhes" in still
+    assert image[:2] == b"\xff\xd8"  # JPEG
+    assert len(errors) == 3 and "tecla não permitida" in errors[0]
+
+
 def test_tools_turn_errors_into_replies(tmp_path):
     browser = Browser(tmp_path / "perfil", tmp_path / "capturas", headless=True)
     open_page = next(t for t in browser_tools(browser) if t.name == "abrir_pagina")

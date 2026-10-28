@@ -15,9 +15,10 @@ import os
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, PlainTextResponse
+from urllib.parse import urlparse
 import uvicorn
 
-from . import config
+from . import config, sessoes
 from .atendente import Attendant
 from .core import Agent
 from .crm import Crm, clean_phone
@@ -27,7 +28,7 @@ from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
 from .retomada import FollowupEngine, model_composer
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
-from .browser import close_browsers
+from .browser import BrowserError, close_browsers, shared_browser
 from .whatsapp import CloudApi, WhatsAppChannel, parse_messages, spawn, verify_signature
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -46,6 +47,10 @@ scheduler: Scheduler | None = None
 followups: FollowupEngine | None = None  # retomada automática (ligada quando a empresa carrega)
 background: set[asyncio.Task] = set()
 simulated: dict[str, set[WebSocket]] = {}  # abas do simulador por contato "sim-...": recebem as retomadas
+watch: sessoes.SessionWatch | None = None  # checagem dos logins dos sistemas da loja
+remote_access = sessoes.RemoteAccess()  # links temporários da tela remota do navegador
+REMOTE = sessoes.REMOTE_PATH
+FRAME_S = 0.7  # intervalo entre imagens da tela remota
 log = logging.getLogger(__name__)
 
 
@@ -150,16 +155,48 @@ def build_followups() -> FollowupEngine | None:
         return None
 
 
+def remote_link() -> str:
+    """Link novo para a tela remota. Com AGENT_PUBLIC_URL, abre no celular; sem ela, só na VM (túnel SSH)."""
+    base = cfg.public_url or f"http://127.0.0.1:{cfg.web_port}"
+    return f"{base}{REMOTE}/{remote_access.issue()}"
+
+
+async def alert_team(title: str, text: str) -> None:
+    """Aviso de acesso: abas abertas e WhatsApp do dono; se não chegou a lugar nenhum, fica na caixa de entrada."""
+    item = agenda.add_inbox(Task("acessos", title, ""), text)
+    on_web = await hub.broadcast(inbox_payload(item))
+    on_whatsapp = bool(whatsapp) and await whatsapp.deliver(title, text, icon="🔐")
+    if on_web or on_whatsapp:
+        agenda.mark_read([item.id])
+
+
+def browser():
+    return shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless)
+
+
+def build_watch() -> sessoes.SessionWatch | None:
+    try:
+        systems = sessoes.load_systems(cfg.company_dir)
+    except sessoes.SystemsError as e:
+        log.warning("checagem dos acessos desligada: %s", e)
+        return None
+    store = sessoes.SessionStore(cfg.logs_dir / "sessoes.json")
+    return sessoes.SessionWatch(systems, browser().probe, store, alert_team, remote_link)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global scheduler, whatsapp, followups
+    global scheduler, whatsapp, followups, watch
     agenda.ensure_summary(cfg.daily_summary)
     scheduler = Scheduler(agenda, run_scheduled, deliver)
     if cfg.whatsapp_enabled:
         customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm)) if cfg.attendant_whatsapp else None
         whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused, customer_factory=customers)
     followups = build_followups()
+    watch = build_watch()
     jobs = [asyncio.create_task(scheduler.run_forever())]
+    if watch and watch.systems:
+        jobs.append(asyncio.create_task(watch.run_forever(cfg.access_check_min)))
     if followups:
         jobs.append(asyncio.create_task(followups.run_forever()))
     yield
@@ -177,12 +214,23 @@ def is_local(host: str) -> bool:
     return host.rsplit(":", 1)[0] in LOCAL_HOSTS
 
 
+def remote_allowed(host: str, path: str) -> bool:
+    """Tela remota: só com link válido, e de fora só pelo domínio de AGENT_PUBLIC_URL."""
+    if not path.startswith((REMOTE + "/", "/ws" + REMOTE + "/")):
+        return False
+    public = urlparse(cfg.public_url).hostname if cfg.public_url else None
+    if not (is_local(host) or (public and host.rsplit(":", 1)[0] == public)):
+        return False
+    return remote_access.valid(path.removeprefix("/ws").removeprefix(REMOTE + "/"))
+
+
 @app.middleware("http")
 async def local_only(request: Request, call_next):
     # DNS rebinding: um site malicioso pode apontar o domínio dele para 127.0.0.1 e ler esta API.
     # O navegador mantém o Host original, então basta recusar qualquer Host que não seja local.
     # Exceção: o webhook do WhatsApp chega pelo túnel/proxy com o domínio público e é autenticado pela assinatura.
-    if not is_local(request.headers.get("host", "")) and request.url.path != WEBHOOK:
+    host, path = request.headers.get("host", ""), request.url.path
+    if not is_local(host) and path != WEBHOOK and not remote_allowed(host, path):
         return PlainTextResponse("host não permitido", status_code=403)
     return await call_next(request)
 
@@ -244,6 +292,70 @@ def contact_payload(phone: str) -> dict:
             "followups": [vars(f) for f in crm.followups(phone)]}
 
 
+@app.get(REMOTE + "/{token}")
+async def remote_page(token: str) -> FileResponse:
+    if not remote_access.valid(token):
+        raise HTTPException(404, "link expirado: peça um novo no painel ou espere o próximo aviso")
+    return FileResponse(STATIC / "navegador.html",
+                        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.post("/api/navegador/link")
+async def new_remote_link(request: Request) -> dict:
+    """Botão do painel (local): link novo para a tela remota, aberto na mesma máquina."""
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+    return {"url": f"{REMOTE}/{remote_access.issue()}"}
+
+
+async def access_report() -> str:
+    """Confere os acessos agora (botão "Já entrei" da tela remota) e devolve o resumo."""
+    if watch is None or not watch.systems:
+        return "nenhum sistema cadastrado em empresa/sistemas.toml"
+    await watch.tick()
+    return sessoes.describe(watch.systems, watch.store.load())
+
+
+@app.websocket("/ws" + REMOTE + "/{token}")
+async def remote_screen(ws: WebSocket, token: str) -> None:
+    """Tela remota do navegador do agente: a pessoa vê a aba e clica/digita para fazer login."""
+    origin, host = ws.headers.get("origin", ""), ws.headers.get("host", "")
+    if origin not in (f"http://{host}", f"https://{host}") or not remote_allowed(host, f"/ws{REMOTE}/{token}"):
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+
+    async def frames() -> None:
+        while remote_access.valid(token):
+            try:
+                await ws.send_bytes(await browser().view())
+            except BrowserError as e:
+                await ws.send_json({"kind": "error", "text": str(e)})
+                await asyncio.sleep(3)
+            await asyncio.sleep(FRAME_S)
+        await ws.send_json({"kind": "expired"})
+        await ws.close()
+
+    sending = asyncio.create_task(frames())
+    try:
+        while True:
+            msg = await ws.receive_json()
+            if not remote_access.valid(token):
+                break
+            if msg.get("type") == "done":
+                await ws.send_json({"kind": "status", "text": await access_report()})
+                continue
+            try:
+                url = await browser().remote(msg)  # o que a pessoa digita não vai para log nenhum
+                await ws.send_json({"kind": "url", "text": url})
+            except (BrowserError, KeyError, ValueError) as e:
+                await ws.send_json({"kind": "error", "text": str(e)})
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        sending.cancel()
+
+
 @app.post("/api/simulador/retomar/{phone}")
 async def simulator_follow_up(phone: str, request: Request) -> dict:
     """Simula o cliente ter sumido: manda agora a próxima retomada para o contato simulado (sem esperar as horas)."""
@@ -303,7 +415,17 @@ async def panel() -> dict:
         "agenda": await list_agenda(),
         "blocked": history.blocked(limit=10),
         "knowledge": {"counts": knowledge.stats(), "recent": knowledge.recent(limit=8)},
+        "access": access_summary(),
     }
+
+
+def access_summary() -> list[dict]:
+    try:
+        systems = sessoes.load_systems(cfg.company_dir)
+    except sessoes.SystemsError as e:
+        return [{"name": "sistemas.toml", "status": "erro", "note": str(e)}]
+    states = sessoes.SessionStore(cfg.logs_dir / "sessoes.json").load()
+    return [{"name": s.name, "host": s.host, **vars(states.get(s.name, sessoes.State()))} for s in systems]
 
 
 @app.get("/api/status")

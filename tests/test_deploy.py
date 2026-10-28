@@ -71,10 +71,11 @@ def test_timers_point_to_existing_services():
     assert unit("agente-backup.timer")["Timer"]["Persistent"] == "true"
 
 
-def test_caddy_exposes_only_the_webhook():
+def test_caddy_exposes_only_the_webhook_and_the_remote_screen():
     text = (DEPLOY / "Caddyfile").read_text(encoding="utf-8")
     proxied = re.findall(r"handle\s+(\S+)\s*\{\s*reverse_proxy", text)
-    assert proxied == [web.WEBHOOK], "só o webhook do WhatsApp pode ser público"
+    # a tela remota é pública, mas o servidor só a abre com link temporário válido (tests/test_sessoes.py)
+    assert proxied == [web.WEBHOOK, f"{web.REMOTE}/*", f"/ws{web.REMOTE}/*"], "nada além disso pode ser público"
     assert 'respond "Not found" 404' in text
     assert "DOMINIO_AQUI" in text
 
@@ -84,5 +85,6 @@ def test_provisioning_installs_every_unit_and_keeps_ssh_safe():
     assert 'deploy/agente*.service "$APP_DIR"/deploy/agente*.timer' in text
     assert "AGENT_BROWSER_HEADLESS=true" in text  # VPS não tem tela
     assert "chmod 600" in text  # .env legível só pelo agente
+    assert "AGENT_PUBLIC_URL=https://$DOMINIO" in text  # links da tela remota com o domínio da VM
     # só desliga senha no SSH se houver chave cadastrada
     assert text.index("TEM_CHAVE") < text.index("PasswordAuthentication no")

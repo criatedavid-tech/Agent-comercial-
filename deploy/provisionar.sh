@@ -108,6 +108,8 @@ chmod 600 "$APP_DIR/.env"
 if [ -n "$DOMINIO" ]; then
   passo "Caddy para https://$DOMINIO (só o webhook do WhatsApp fica público)"
   sed "s/DOMINIO_AQUI/$DOMINIO/" "$APP_DIR/deploy/Caddyfile" > /etc/caddy/Caddyfile
+  # Links da tela remota do navegador (login nos sistemas da loja) saem com este domínio.
+  sed -i "s|^AGENT_PUBLIC_URL=.*|AGENT_PUBLIC_URL=https://$DOMINIO|" "$APP_DIR/.env"
   mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy 2>/dev/null || true
   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 else

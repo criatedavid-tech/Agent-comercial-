@@ -1,6 +1,6 @@
 """Núcleo do agente: o loop do Claude Agent SDK com memória, ferramentas e log."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
 import json
@@ -23,7 +23,7 @@ from claude_agent_sdk import (
     tool,
 )
 
-from . import gestao, guard, memory
+from . import gestao, guard, memory, sessoes
 from .browser import Browser, BrowserError, shared_browser
 from .config import EXAMPLE_DATA, ROOT, Config
 from .crm import Crm
@@ -36,7 +36,7 @@ from .subagents import AGENTS
 KB_TOOLS = ["mcp__conhecimento__salvar_conhecimento", "mcp__conhecimento__buscar_conhecimento"]
 HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
 BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
-    "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela")]
+    "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
 GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
 # Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
@@ -89,6 +89,7 @@ Agenda e proatividade:
 Navegador próprio:
 - Para só ler uma página simples, WebFetch basta. Use o navegador (abrir_pagina, listar_elementos, clicar, preencher, ler_pagina) quando o site precisa de JavaScript, de login já feito, de formulários ou de várias etapas.
 - O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
+- Os sistemas da loja cadastrados são conferidos sozinhos de tempos em tempos; quando um login expira, a equipe recebe um aviso com link para entrar de novo. Se abrir_pagina disser que o acesso expirou, não tente logar: avise o usuário. Para saber quais acessos estão ativos, use ver_acessos.
 - Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
 - Senhas, cartão e códigos: você não digita. Login, CAPTCHA ou "você é um robô?": chame pedir_ajuda_humana para o usuário resolver na janela do navegador e continue depois.
 
@@ -171,9 +172,24 @@ def agenda_server(store: AgendaStore):
     return create_sdk_mcp_server("agenda", tools=agenda_tools(store))
 
 
-def browser_server(browser: Browser):
+def browser_server(browser: Browser, cfg: Config | None = None):
     """Servidor MCP do navegador próprio."""
-    return create_sdk_mcp_server("navegador", tools=browser_tools(browser))
+    return create_sdk_mcp_server("navegador", tools=browser_tools(browser, cfg))
+
+
+def access_checks(cfg: Config | None) -> tuple[Callable[[str], str], Callable[[], str]]:
+    """Trava e resumo dos acessos aos sistemas da loja (empresa/sistemas.toml + logs/sessoes.json)."""
+    if cfg is None:
+        return (lambda url: ""), (lambda: "nenhum sistema cadastrado")
+
+    def systems() -> list[sessoes.System]:
+        try:
+            return sessoes.load_systems(cfg.company_dir)
+        except sessoes.SystemsError:
+            return []  # arquivo com problema: o servidor avisa no log; o navegador segue sem trava
+
+    store = sessoes.SessionStore(cfg.logs_dir / "sessoes.json")
+    return (lambda url: sessoes.blocked_message(url, systems(), store.load())),         (lambda: sessoes.describe(systems(), store.load()))
 
 
 def gestao_server(cfg: Config):
@@ -397,8 +413,9 @@ def task_from_args(args: dict) -> Task:
     )
 
 
-def browser_tools(browser: Browser) -> list[SdkMcpTool]:
-    """Ferramentas do navegador: abrir, ler, listar elementos, clicar, preencher e capturar a tela."""
+def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpTool]:
+    """Ferramentas do navegador: abrir, ler, listar elementos, clicar, preencher, capturar a tela e ver os acessos."""
+    gate, access_status = access_checks(cfg)
 
     async def run(action) -> dict[str, Any]:
         try:
@@ -411,6 +428,9 @@ def browser_tools(browser: Browser) -> list[SdkMcpTool]:
     @tool("abrir_pagina", "Abre um endereço no navegador do agente e devolve o título e o texto da página.",
           _schema({"url": (str, "endereço http ou https")}))
     async def open_page(args: dict) -> dict[str, Any]:
+        blocked = gate(str(args["url"]))
+        if blocked:
+            return _reply(f"não fiz: {blocked}", error=True)
         return await run(browser.open(args["url"]))
 
     @tool("ler_pagina", "Lê o texto da página aberta. Opcional: um seletor CSS para ler só um trecho.",
@@ -444,7 +464,11 @@ def browser_tools(browser: Browser) -> list[SdkMcpTool]:
             return f"imagem salva em {await browser.screenshot()}"
         return await run(shot())
 
-    return [open_page, read_page, list_elements, click, fill, screenshot]
+    @tool("ver_acessos", "Mostra os sistemas da loja cadastrados e se o login de cada um está ativo.", _schema({}))
+    async def access(args: dict) -> dict[str, Any]:
+        return _reply(access_status())
+
+    return [open_page, read_page, list_elements, click, fill, screenshot, access]
 
 
 class Agent:
@@ -482,7 +506,7 @@ class Agent:
                 "conhecimento": knowledge_server(self.kb),
                 "humano": human_server(self.human),
                 "agenda": agenda_server(self.agenda),
-                "navegador": browser_server(self.browser),
+                "navegador": browser_server(self.browser, self.cfg),
                 "gestao": gestao_server(self.cfg),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.

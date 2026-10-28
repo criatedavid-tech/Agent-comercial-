@@ -126,5 +126,6 @@ Ele roda o `provisionar.sh` duas vezes, valida as units com `systemd-analyze`, s
 
 ## Limitações atuais
 
-- O navegador próprio roda invisível na VPS: verificações de robô e logins ainda não podem ser resolvidos por você lá. A visualização remota está no roadmap. Até lá, faça os logins no computador e use a VPS para tarefas que não precisam disso.
+- O navegador próprio roda invisível na VPS. Logins e verificações se resolvem pela tela remota: o aviso de login expirado traz um link temporário (precisa de `--dominio`, que preenche `AGENT_PUBLIC_URL`). Veja [acessos.md](acessos.md).
+- O backup ainda não leva a pasta `navegador/` (logins salvos): se a VM for perdida, alguém da equipe entra de novo pela tela remota.
 - O alerta do vigia pelo WhatsApp segue a regra das 24 h da Meta. Fora dela, o registro fica em `journalctl -u agente-vigia`.

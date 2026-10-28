@@ -164,6 +164,7 @@ agent/
 │   ├── guard.py           ← hooks de segurança (bloqueios no código)
 │   ├── scheduler.py       ← agenda: lembretes, tarefas recorrentes, resumo diário
 │   ├── history.py         ← histórico de conversas (retomar, painel)
+│   ├── sessoes.py         ← confere os logins dos sistemas da loja, avisa quando caem, links da tela remota
 │   ├── browser.py         ← navegador próprio (Playwright, perfil persistente)
 │   ├── whatsapp.py        ← canal WhatsApp (Cloud API: webhook, envio, comandos)
 │   ├── backup.py          ← agente-backup: cópia consistente dos dados, com rotação
@@ -205,6 +206,8 @@ Tudo fica no `.env`:
 | `AGENT_TIMEZONE` | `America/Sao_Paulo` | fuso da agenda |
 | `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
+| `AGENT_PUBLIC_URL` | (vazio) | `https://` da VM: os avisos de login expirado levam link da tela remota com este domínio |
+| `AGENT_ACESSOS_MIN` | `60` | de quantos em quantos minutos conferir os logins de `empresa/sistemas.toml` |
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
 | `AGENT_EMPRESA_DIR` | `empresa/` ou o exemplo | pasta da empresa que o atendente atende |
 | `AGENT_ATENDENTE_MAX_TURNS` | `12` | máximo de passos do atendente por mensagem de cliente |
@@ -223,6 +226,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Conceitos](docs/conceitos.md) | o que é um agente, loop, ferramentas, memória, MCP, proatividade |
 | [Comparativo das big techs](docs/comparativo.md) | Grok Bot, Dots, Claude Duet, Instinct, Muse: o que fazem e seus limites |
 | [Produto](docs/produto.md) | público, MVP, atendente × operador, fases |
+| [Acessos aos sistemas](docs/acessos.md) | login salvo no navegador, aviso quando expira, tela remota na VM |
 | [Gestão](docs/gestao.md) | planilhas da loja, números, alertas, como o operador usa |
 | [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |
 | [Arquitetura](docs/arquitetura.md) | como o código está organizado e o fluxo de um pedido |

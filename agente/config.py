@@ -42,6 +42,8 @@ class Config:
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
     attendant_whatsapp: bool = False  # números fora de WHATSAPP_ALLOWED_NUMBERS falam com o atendente
     data_dir: Path = EXAMPLE_DATA  # planilhas da loja para a gestão: vendas, despesas, estoque, caixa
+    public_url: str = ""  # https://dominio da VM; vazio = links da tela remota só funcionam pelo túnel SSH
+    access_check_min: float = 60  # de quantos em quantos minutos confere os logins dos sistemas da loja
 
     @property
     def has_credentials(self) -> bool:
@@ -87,6 +89,8 @@ def load() -> Config:
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
         data_dir=data_dir(os.getenv("AGENT_DADOS_DIR", "").strip()),
+        public_url=os.getenv("AGENT_PUBLIC_URL", "").strip().rstrip("/"),
+        access_check_min=float(os.getenv("AGENT_ACESSOS_MIN", "60")),
         attendant_whatsapp=os.getenv("AGENT_ATENDENTE_WHATSAPP", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):

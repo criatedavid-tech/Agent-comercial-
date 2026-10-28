@@ -87,6 +87,8 @@
     <section class="card"><h2>Agenda</h2><ul class="list" id="agenda"></ul></section>
     <section class="card"><h2>Base de conhecimento</h2><div class="areas" id="areas"></div><ul class="list" id="notes"></ul></section>
     <section class="card blocked"><h2>Bloqueios de segurança</h2><ul class="list" id="blocked"></ul></section>
+    <section class="card"><h2>Acessos aos sistemas da loja</h2><ul class="list" id="access"></ul>
+      <p><button id="open-browser">Abrir navegador do agente</button></p></section>
   </div>
 </main>
 <script>
@@ -164,6 +166,15 @@ async function cancelTask(id, title) {
   load();
 }
 
+async function openBrowser() {
+  const r = await fetch("/api/navegador/link", { method: "POST" });
+  if (!r.ok) { alert("Não consegui abrir: " + (await r.text())); return; }
+  window.open((await r.json()).url, "_blank", "noopener");
+}
+$("open-browser").onclick = openBrowser;
+
+const ACCESS = { ok: "🟢 logado", deslogado: "🔴 login expirou", erro: "🟠 não abre", desconhecido: "⚪ ainda não conferido" };
+
 let lastDays = [];
 async function load() {
   const p = await fetch("/api/painel").then(r => r.json());
@@ -183,6 +194,9 @@ async function load() {
     const b = document.createElement("button"); b.textContent = "Cancelar"; b.onclick = () => cancelTask(a.id, a.title);
     el.appendChild(b); return el;
   }, "Nada agendado.");
+  fill("access", p.access, a => li(`${a.name}${a.host ? " · " + a.host : ""}`,
+    (ACCESS[a.status] || a.status) + (a.checked ? " · " + fmtTs(a.checked) : "") + (a.note ? " · " + a.note : "")),
+    "Nenhum sistema cadastrado (empresa/sistemas.toml).");
   fill("blocked", p.blocked, b => li(b.reason, `${fmtTs(b.ts)} · ${b.conversation || "(conversa sem título)"}`), "Nenhum bloqueio. 🛡");
 
   const areas = $("areas"); areas.innerHTML = "";

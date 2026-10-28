@@ -32,6 +32,9 @@ CHALLENGE_TEXTS = (
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
 
 MAX_ELEMENTS = 200
+VIEWPORT = {"width": 1280, "height": 860}
+REMOTE_KEYS = {"Enter", "Tab", "Shift+Tab", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown",
+               "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"}
 
 # Nome real de um elemento, igual para a lista e para a trava. Visto na Amazon: o botão é um <input> sem texto e o
 # nome visível ("Assine o Amazon Prime") fica em outro elemento (aria-labelledby / o botão desenhado em volta).
@@ -260,6 +263,7 @@ class Browser:
         self._pw: Any = None
         self._ctx: Any = None
         self._page: Any = None
+        self._probing = False  # aba da checagem de acesso: não vira a aba do agente
 
     async def _get_page(self) -> Any:
         if self._page and not self._page.is_closed():
@@ -273,7 +277,7 @@ class Browser:
             try:
                 self._ctx = await self._pw.chromium.launch_persistent_context(
                     str(self.profile_dir), headless=self.headless, locale="pt-BR",
-                    viewport={"width": 1280, "height": 860}, accept_downloads=False,
+                    viewport=VIEWPORT, accept_downloads=False,
                 )
             except Exception as e:
                 await self._pw.stop()
@@ -287,7 +291,8 @@ class Browser:
         return self._page
 
     def _new_tab(self, page: Any) -> None:
-        self._page = page  # link que abre em nova aba: o agente passa a usar a aba nova
+        if not self._probing:
+            self._page = page  # link que abre em nova aba: o agente passa a usar a aba nova
 
     async def close(self) -> None:
         if self._ctx:
@@ -436,6 +441,70 @@ class Browser:
             path = self.shots_dir / f"tela-{datetime.now():%Y%m%d-%H%M%S}.png"
             await page.screenshot(path=str(path))
             return path
+
+    # --- checagem de acesso e tela remota (agente/sessoes.py, web.py) --------------------
+
+    async def probe(self, url: str) -> "Probe":
+        """Abre o endereço numa aba à parte (sem mexer na aba do agente) e diz o que apareceu."""
+        from .sessoes import Probe
+        url = check_url(url, self.allow_private)
+        async with self._lock:
+            await self._get_page()
+            self._probing = True
+            try:
+                page = await self._ctx.new_page()
+            finally:
+                self._probing = False
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                await page.wait_for_timeout(1500)  # sistemas que montam a tela por JavaScript
+                title = await page.title()
+                text = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                has_password = await page.evaluate("() => !!document.querySelector('input[type=password]')")
+                frames = [f.url for f in page.frames]
+                return Probe(page.url, title, text[:20000], has_password, looks_like_challenge(title, text, frames))
+            except Exception as e:
+                raise BrowserError(f"não consegui abrir {url}: {str(e).splitlines()[0][:200]}") from None
+            finally:
+                await page.close()
+
+    async def view(self) -> bytes:
+        """Imagem da aba do agente para a tela remota."""
+        async with self._lock:
+            page = await self._get_page()
+            return await page.screenshot(type="jpeg", quality=60)
+
+    async def remote(self, action: dict) -> str:
+        """Comando da tela remota, feito por uma pessoa (login). Devolve o endereço atual.
+
+        As travas de senha e cartão de fill() valem para o agente; aqui quem digita é a pessoa.
+        Mesmo assim só aceita teclas comuns e não abre rede local."""
+        kind = str(action.get("type", ""))
+        async with self._lock:
+            page = await self._get_page()
+            if kind == "click":
+                x, y = float(action["x"]), float(action["y"])
+                if not (0 <= x <= VIEWPORT["width"] and 0 <= y <= VIEWPORT["height"]):
+                    raise BrowserError("clique fora da tela")
+                await page.mouse.click(x, y)
+            elif kind == "type":
+                await page.keyboard.type(str(action.get("text", ""))[:500])
+            elif kind == "key":
+                key = str(action.get("key", ""))
+                if key not in REMOTE_KEYS:
+                    raise BrowserError(f"tecla não permitida: {key}")
+                await page.keyboard.press(key)
+            elif kind == "scroll":
+                await page.mouse.wheel(0, max(-3000, min(3000, float(action.get("dy", 0)))))
+            elif kind == "goto":
+                await page.goto(check_url(str(action.get("url", "")), self.allow_private),
+                                wait_until="domcontentloaded", timeout=30000)
+            elif kind == "back":
+                await page.go_back(timeout=15000)
+            else:
+                raise BrowserError(f"comando desconhecido: {kind}")
+            await page.wait_for_timeout(300)
+            return self._page.url
 
 
 _shared: dict[Path, Browser] = {}
