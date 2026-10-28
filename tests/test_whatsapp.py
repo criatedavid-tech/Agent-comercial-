@@ -425,3 +425,55 @@ def test_server_startup_turns_whatsapp_on(monkeypatch, wcfg, tmp_path):
         assert client.get("/api/status").json()["whatsapp"] is True
         web.whatsapp.set_paused(True)
         assert web.scheduler.paused  # PARAR no WhatsApp pausa a agenda
+
+
+# --- clientes da empresa (atendente) ---------------------------------------------------
+
+def test_customers_go_to_attendant_when_enabled(wcfg, tmp_path):
+    made = []
+
+    def customer(number):
+        agent = FakeAgent(wcfg)
+        made.append((number, agent))
+        return agent
+
+    paused = []
+    ch = WhatsAppChannel(wcfg, FakeApi(), History(tmp_path / "conversas.db"), FakeAgent, on_pause=paused.append,
+                         customer_factory=customer)
+
+    async def scenario():
+        await ch.handle(msg("quanto custa o alinhamento?", sender=STRANGER))
+        await wait_for(lambda: ch.api.sent)
+        await ch.handle(msg("parar", sender=STRANGER))  # de cliente é opt-out (atendente), não pausa a agenda
+        await wait_for(lambda: len(ch.api.sent) == 2)
+
+    run(ch, scenario)
+    assert [n for n, _ in made] == [STRANGER]  # um atendente por cliente
+    assert ch.api.sent[0] == (STRANGER, "**Resposta:** quanto custa o alinhamento?")  # só o texto final
+    assert made[0][1].calls == ["quanto custa o alinhamento?", "parar"]
+    assert paused == [] and not ch.paused
+    assert ch.history.channel_session(f"cliente:{STRANGER}") == "sessao-wa"
+
+
+def test_customer_reply_has_no_internal_details(wcfg, tmp_path):
+    ch = WhatsAppChannel(wcfg, FakeApi(), History(tmp_path / "c.db"), FakeAgent, customer_factory=lambda n: FakeAgent(wcfg))
+
+    async def scenario():
+        await ch.handle(msg("rm", sender=STRANGER))
+        await wait_for(lambda: ch.api.sent)
+
+    run(ch, scenario)
+    assert ch.api.sent == [(STRANGER, "Não consegui apagar.")]  # sem "Bloqueado pela segurança" nem custo
+
+
+def test_send_template_body(wcfg):
+    calls = []
+
+    def handler(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"messages": [{"id": "x"}]})
+
+    api = CloudApi(wcfg, httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    asyncio.run(api.send_template(STRANGER, "retomada_orcamento", ["Ana"]))
+    assert calls[0]["type"] == "template" and calls[0]["template"]["name"] == "retomada_orcamento"
+    assert calls[0]["template"]["components"][0]["parameters"] == [{"type": "text", "text": "Ana"}]

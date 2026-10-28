@@ -124,7 +124,8 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Orçamento pelo preço de tabela | `calcular_orcamento` | "4 pneus 175/70 R14 com alinhamento e balanceamento, quanto fica?" (a conta é do código) |
 | FAQ e políticas | `consultar_informacoes` | "tem leva e traz?", "parcela no cartão?" |
 | Qualificar e registrar o lead | `registrar_lead`, `ver_cadastro` | nome, interesse, necessidade, prazo, orçamento e etapa no CRM |
-| Combinar retorno | `agendar_retorno` | "me chama segunda de manhã" |
+| Combinar retorno | `agendar_retorno` | "me chama segunda de manhã" (o código entende a data e chama na hora) |
+| Retomar quem sumiu | retomada automática (`agente/retomada.py`) | cliente achou caro e parou de responder: 4 h e 22 h depois recebe uma mensagem baseada na conversa; PARAR encerra |
 | Regras no código | `regras.screen`, hook e `tools=[]` | sem desconto, sem fechar venda, sem fingir ser humano, sem dados de outros clientes |
 
 ---
@@ -143,6 +144,7 @@ agent/
 │   ├── empresa.py         ← empresa/: catálogo, FAQ, políticas; preço calculado no código
 │   ├── crm.py             ← CRM em SQLite: contatos, interações, retornos
 │   ├── regras.py          ← filtro da resposta do atendente (desconto, preço, venda, "sou humano")
+│   ├── retomada.py        ← retomada automática de quem parou de responder, retornos combinados, PARAR
 │   ├── core.py            ← o loop do agente (coração do projeto)
 │   ├── memory.py          ← carrega a memória de longo prazo
 │   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
@@ -192,6 +194,7 @@ Tudo fica no `.env`:
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
 | `AGENT_EMPRESA_DIR` | `empresa/` ou o exemplo | pasta da empresa que o atendente atende |
 | `AGENT_ATENDENTE_MAX_TURNS` | `12` | máximo de passos do atendente por mensagem de cliente |
+| `AGENT_ATENDENTE_WHATSAPP` | `false` | clientes (números fora da equipe) falam com o atendente pelo WhatsApp |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).

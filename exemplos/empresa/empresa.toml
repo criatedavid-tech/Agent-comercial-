@@ -34,3 +34,16 @@ objeto = "veículo (modelo e ano)"
 qualificacao = ["modelo e ano do carro", "serviço que precisa ou o problema que o carro apresenta", "quando quer trazer o carro", "bairro ou cidade"]
 # Quando a equipe assume.
 chamar_humano = ["confirmar dia e horário na oficina", "diagnóstico de defeito (barulho, luz no painel, vazamento)", "carro fora do catálogo (SUV, picape, importado)", "negociação ou desconto", "reclamação ou garantia", "pedido para falar com uma pessoa"]
+
+[retomada]
+# Mensagem automática para quem parou de responder. Limites aplicados no código.
+ativo = true
+# Horas depois da última mensagem do cliente para cada tentativa. A Meta só deixa mandar texto livre
+# até 24 h depois da última mensagem do cliente; depois disso, só com modelo aprovado (modelo_whatsapp).
+tentativas_horas = [4, 22]
+# Etapas em que vale retomar (lead novo que só disse "oi" não recebe).
+etapas = ["qualificando", "qualificado", "orcamento"]
+# Sem resposta depois da última tentativa: o lead vira "perdido" depois destas horas.
+perdido_apos_horas = 48
+# Nome do modelo aprovado na Meta para retornos combinados fora da janela de 24 h (vazio = a equipe faz).
+modelo_whatsapp = ""

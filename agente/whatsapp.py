@@ -1,8 +1,9 @@
 """Canal WhatsApp pela API oficial da Meta (WhatsApp Cloud API).
 
 Fluxo: a Meta chama POST /whatsapp/webhook com cada mensagem → conferimos a assinatura
-(HMAC-SHA256 com o App Secret) → só números permitidos passam → cada contato tem sua
-conversa com o agente, uma mensagem por vez → a resposta final volta pelo WhatsApp.
+(HMAC-SHA256 com o App Secret) → números da equipe (WHATSAPP_ALLOWED_NUMBERS) falam com o operador;
+os demais, se AGENT_ATENDENTE_WHATSAPP estiver ligado, com o atendente (clientes); senão são ignorados
+→ cada contato tem sua conversa, uma mensagem por vez → a resposta final volta pelo WhatsApp.
 
 Comandos: PARAR (interrompe tudo e pausa a agenda), CONTINUAR, NOVA (conversa do zero).
 Ponte humana: quando o agente pede ajuda, a pergunta vai pelo WhatsApp e a próxima
@@ -136,6 +137,14 @@ class CloudApi:
                 "type": "text", "text": {"preview_url": False, "body": part},
             })
 
+    async def send_template(self, to: str, name: str, params: list[str], language: str = "pt_BR") -> None:
+        """Modelo aprovado na Meta: o único jeito de falar com alguém fora da janela de 24 h."""
+        body = [{"type": "body", "parameters": [{"type": "text", "text": p} for p in params]}] if params else []
+        await self._post({
+            "messaging_product": "whatsapp", "to": "+" + to, "type": "template",
+            "template": {"name": name, "language": {"code": language}, "components": body},
+        })
+
     async def mark_read(self, message_id: str) -> None:
         await self._post({"messaging_product": "whatsapp", "status": "read", "message_id": message_id})
 
@@ -149,6 +158,7 @@ class Contact:
     help_id: str | None = None  # pedido de ajuda esperando a próxima mensagem deste contato
     help_targets: list = field(default_factory=list)  # pontes que podem estar esperando essa resposta
     last_inbound: datetime | None = None
+    customer: bool = False  # cliente da empresa (atendente), não alguém da equipe (operador)
 
 
 class WhatsAppChannel:
@@ -159,12 +169,14 @@ class WhatsAppChannel:
         history: History,
         agent_factory: Callable[..., Any],
         on_pause: Callable[[bool], None] = lambda paused: None,
+        customer_factory: Callable[[str], Any] | None = None,
     ):
         self.cfg = cfg
         self.api = api
         self.history = history
         self.agent_factory = agent_factory
         self.on_pause = on_pause  # avisa a agenda (PARAR/CONTINUAR)
+        self.customer_factory = customer_factory  # telefone → atendente; None = só a equipe é atendida
         self.contacts: dict[str, Contact] = {}
         self.paused = False
         self._seen: deque[str] = deque(maxlen=500)  # a Meta pode reenviar a mesma mensagem
@@ -195,7 +207,10 @@ class WhatsAppChannel:
             return
         self._seen.append(msg.id)
         if not self.allowed(msg.sender):
-            log.warning("mensagem ignorada de número não permitido: %s", msg.sender)
+            if self.customer_factory is None:
+                log.warning("mensagem ignorada de número não permitido: %s", msg.sender)
+                return
+            await self.handle_customer(msg)
             return
         contact = self.contacts.setdefault(msg.sender, Contact(msg.sender))
         contact.last_inbound = datetime.now()
@@ -233,6 +248,20 @@ class WhatsAppChannel:
         await contact.queue.put(text)
         self._ensure_worker(contact)
 
+    async def handle_customer(self, msg: Incoming) -> None:
+        """Cliente da empresa: vai para o atendente. PARAR de cliente é opt-out (o atendente trata), não pausa nada."""
+        contact = self.contacts.setdefault(msg.sender, Contact(msg.sender, customer=True))
+        contact.last_inbound = datetime.now()
+        try:
+            await self.api.mark_read(msg.id)
+        except Exception:
+            pass
+        if msg.kind != "text" and not msg.text:
+            await self.send(msg.sender, "Por enquanto consigo ler só mensagens de texto. Pode escrever, por favor?")
+            return
+        await contact.queue.put(msg.text.strip())
+        self._ensure_worker(contact)
+
     def _ensure_worker(self, contact: Contact) -> None:
         if contact.worker is None or contact.worker.done():
             contact.worker = asyncio.create_task(self._work(contact))
@@ -240,6 +269,13 @@ class WhatsAppChannel:
     # --- trabalho por contato -------------------------------------------------------
 
     async def _agent(self, contact: Contact) -> Any:
+        if contact.agent is None and contact.customer:
+            key = f"cliente:{contact.number}"
+            agent = self.customer_factory(contact.number)
+            previous = self.history.channel_session(key)
+            if not (previous and await agent.resume(previous)):
+                await agent.start()
+            contact.agent = agent
         if contact.agent is None:
             key = f"whatsapp:{contact.number}"
             agent = self.agent_factory(self.cfg)
@@ -269,6 +305,9 @@ class WhatsAppChannel:
                 await self.send(contact.number, f"Deu um erro aqui: {type(e).__name__}: {e}")
 
     async def _answer(self, contact: Contact, agent: Any, text: str) -> None:
+        if contact.customer:
+            await self._answer_customer(contact, agent, text)
+            return
         notice = asyncio.get_running_loop().call_later(
             WORKING_NOTICE_SECONDS,
             lambda: asyncio.ensure_future(self.send(contact.number, "⏳ Estou trabalhando nisso, já te respondo.")),
@@ -292,6 +331,14 @@ class WhatsAppChannel:
         if status and not status.startswith("ok"):
             reply += f"\n\n⚠ {status}"
         await self.send(contact.number, reply)
+
+    async def _answer_customer(self, contact: Contact, agent: Any, text: str) -> None:
+        """Para o cliente vai só a resposta final (já filtrada pelo atendente): sem custos, bloqueios ou avisos internos."""
+        texts = [e.text async for e in agent.ask(text) if e.kind == "text"]
+        if agent.session_id:
+            self.history.set_channel_session(f"cliente:{contact.number}", agent.session_id)
+        if texts:
+            await self.send(contact.number, texts[-1])
 
     # --- PARAR / CONTINUAR -------------------------------------------------------------
 

@@ -39,6 +39,7 @@ class Config:
     company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
     crm_db: Path = ROOT / "crm.db"
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
+    attendant_whatsapp: bool = False  # números fora de WHATSAPP_ALLOWED_NUMBERS falam com o atendente
 
     @property
     def has_credentials(self) -> bool:
@@ -83,6 +84,7 @@ def load() -> Config:
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
+        attendant_whatsapp=os.getenv("AGENT_ATENDENTE_WHATSAPP", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)

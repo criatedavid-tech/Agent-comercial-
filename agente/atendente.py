@@ -23,6 +23,7 @@ from .crm import ATTENDANT_STAGES, Crm, ContactView
 from .empresa import Company, brl, load_company, normalize
 from .history import History
 from .human import HumanBridge
+from .retomada import parse_when, wants_opt_out
 
 SERVER = "negocio"
 TOOL_NAMES = ("consultar_catalogo", "calcular_orcamento", "consultar_informacoes",
@@ -121,7 +122,8 @@ LEAD_ALIASES = {
 }
 
 
-def business_tools(company: Company, contact: ContactView, allowed: regras.Allowed) -> list[SdkMcpTool]:
+def business_tools(company: Company, contact: ContactView, allowed: regras.Allowed,
+                   timezone: str = "") -> list[SdkMcpTool]:
     """As ferramentas do atendente. Nenhuma recebe telefone: o contato é o desta conversa."""
     catalog = company.catalog
     label = company.subject_label or "objeto"
@@ -223,8 +225,12 @@ def business_tools(company: Company, contact: ContactView, allowed: regras.Allow
         when = _pick(args, "quando", "data", "hora", "dia", "when")
         if not when:
             return _reply("falta 'quando'. Exemplo: {\"quando\": \"segunda de manhã\", \"motivo\": \"orçamento da grama\"}", error=True)
-        item = contact.add_followup(when, _pick(args, "motivo", "assunto", "reason", "observacao") or "retorno combinado")
+        due_at = to_server_time(parse_when(when, company_now(timezone)), timezone)
+        item = contact.add_followup(when, _pick(args, "motivo", "assunto", "reason", "observacao") or "retorno combinado", due_at)
         contact.log("evento", f"retorno combinado: {item.due} ({item.reason})")
+        if due_at:
+            return _reply(f"retorno registrado para {due_at:%d/%m %H:%M} ({item.due}): {item.reason}. "
+                          "O sistema chama o cliente nessa hora.")
         return _reply(f"retorno registrado para {item.due}: {item.reason}. A equipe entra em contato.")
 
     @tool("ver_cadastro", "Mostra o cadastro deste cliente e os retornos combinados com ele.", _schema({}))
@@ -269,7 +275,7 @@ class Attendant(Agent):
         self.human = HumanBridge(cfg.help_timeout_min)  # interface igual à do operador; o atendente não usa
         prices = {i.price for i in self.company.catalog.items}
         self.allowed = regras.Allowed.from_text(self.company.public_text(), prices)
-        self.tools = business_tools(self.company, self.contact, self.allowed)
+        self.tools = business_tools(self.company, self.contact, self.allowed, cfg.timezone)
         self.client: ClaudeSDKClient | None = None
         self._identity_asked = False
         self._first_text = True
@@ -278,6 +284,11 @@ class Attendant(Agent):
     def fallback(self) -> str:
         return (f"Essa parte quem confirma é a equipe {self.company.of_name}: deixei anotado e "
                 "um vendedor fala com você no horário de atendimento.")
+
+    @property
+    def opt_out_reply(self) -> str:
+        return (f"Combinado, não vou mais te mandar mensagens. Se precisar {self.company.of_name}, "
+                "é só chamar aqui.")
 
     def _options(self) -> ClaudeAgentOptions:
         company, contact = self.company, self.contact.get()
@@ -319,6 +330,14 @@ class Attendant(Agent):
     async def ask(self, text: str) -> AsyncIterator[Event]:
         """Mensagem do cliente → eventos. Grava a entrada e a resposta (já filtrada) nas interações do CRM."""
         self.contact.log("entrada", text)
+        if wants_opt_out(text):  # regra da Meta e LGPD: decidida no código, sem passar pelo modelo
+            self.crm.set_opt_out(self.contact.phone)
+            reply = self.opt_out_reply
+            self.contact.log("evento", "pediu para não receber mensagens (opt-out)")
+            self.contact.log("saida", reply)
+            yield Event("text", reply)
+            yield Event("result", "ok · 0 passos · opt-out registrado pelo código")
+            return
         self._identity_asked = regras.asks_identity(text)
         self._first_text = True
         if regras.BUDGET_WORDS.search(normalize(text)):
@@ -352,6 +371,18 @@ class Attendant(Agent):
         entry["agent"] = "atendente"
         entry["contact"] = self.contact.phone
         super()._log(entry)
+
+
+def company_now(timezone: str) -> datetime:
+    """Agora no fuso da empresa, sem fuso (para entender "amanhã às 9h" como o cliente fala)."""
+    return datetime.now(ZoneInfo(timezone)).replace(tzinfo=None) if timezone else datetime.now()
+
+
+def to_server_time(when: datetime | None, timezone: str) -> datetime | None:
+    """Hora da empresa → relógio do servidor (o CRM grava no relógio do servidor, que na VPS costuma ser UTC)."""
+    if when is None or not timezone:
+        return when
+    return when.replace(tzinfo=ZoneInfo(timezone)).astimezone().replace(tzinfo=None)
 
 
 def _now(cfg: Config) -> str:

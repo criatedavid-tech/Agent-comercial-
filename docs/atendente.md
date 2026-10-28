@@ -77,18 +77,46 @@ LGPD: `Crm.delete(telefone)` apaga contato, interações e retornos; na interfac
 
 Frase tirada vira um aviso para o cliente ("Essa parte quem confirma é a equipe..."), um evento `blocked` na interface e uma linha `blocked` no log. O filtro é por padrões de texto: segura o que um modelo enganado costuma escrever, mas não substitui a falta de ferramenta, que é a defesa principal.
 
+## Retomada automática
+
+Cliente que parou de responder (achou caro, foi pesquisar, esqueceu) recebe uma mensagem de retomada escrita a partir da conversa. Código: `agente/retomada.py`, rodando dentro do `agente-web` a cada minuto.
+
+**Quando** (decidido no código, `FollowupEngine.due()`):
+
+- só contatos com opt-in, que **não** pediram para parar, em etapas de `[retomada] etapas` (padrão: qualificando, qualificado, orçamento);
+- só quando a empresa falou por último (o cliente é quem deve resposta);
+- tentativas em `[retomada] tentativas_horas` depois da última mensagem do cliente (padrão 4 h e 22 h; no máximo 3, cada uma abaixo de 24 h);
+- só no horário de atendimento (`[horario]`) e dentro da **janela de 24 h da Meta**; se a janela fecha antes (cliente sumiu no sábado à tarde), nada é enviado;
+- cliente respondeu: a contagem zera;
+- sem resposta `perdido_apos_horas` depois da última tentativa: o lead vira **perdido** (evento no CRM).
+
+**O que dizer** (o modelo, sem ferramentas): recebe a conversa (como dado, não ordem), o cadastro e o **motivo provável** de o cliente ter parado, que o código tira das mensagens dele (`reason_hint`: achou caro, comparando preços, vai pensar, sem tempo agora). Primeira tentativa: retoma o ponto principal e pergunta se ficou dúvida (se achou caro, explica o que está incluso, sem baixar preço). Última: pergunta se resolveu ou desistiu, sem pressão, e ensina a responder PARAR. A mensagem passa pelo mesmo filtro do atendente (desconto, valor novo, agendamento confirmado, "sou humano"); se quebrar alguma regra, se o modelo falhar ou demorar demais, vai uma mensagem pronta.
+
+**Retornos combinados**: `agendar_retorno` entende datas simples (`parse_when`: "amanhã às 15h", "segunda de manhã", "05/11 10:00"). Na hora, se ainda estiver na janela de 24 h, o atendente retoma o assunto combinado; fora dela, vai o modelo aprovado de `[retomada] modelo_whatsapp` (se houver) ou o retorno fica para a equipe (estado `equipe` no CRM). Data que o código não entende fica para a equipe.
+
+**PARAR**: "parar", "sair", "não quero mais mensagens", "me tira da lista"... são tratados no código (`wants_opt_out`), sem passar pelo modelo: o contato fica com `opt_out` e nunca mais recebe retomada. PARAR de **cliente** não pausa nada; PARAR da **equipe** (operador) pausa a agenda e as retomadas.
+
+```toml
+[retomada]
+ativo = true
+tentativas_horas = [4, 22]
+etapas = ["qualificando", "qualificado", "orcamento"]
+perdido_apos_horas = 48
+modelo_whatsapp = ""   # modelo aprovado na Meta para retornos fora das 24 h
+```
+
 ## Simulador de cliente
 
 ```bash
 agente-web          # depois abra http://127.0.0.1:8000/simulador
 ```
 
-A página faz o papel de um cliente no WhatsApp e conversa com o atendente (não com o operador). Do lado, a **ficha no CRM** atualiza a cada resposta. Cada aba é um contato `sim-xxxxxx` (o prefixo garante que nunca se confunde com um número real); **Outro cliente** começa um contato novo, **Conversa nova** zera o contexto e mantém o cadastro. Há atalhos com testes de prompt injection.
+A página faz o papel de um cliente no WhatsApp e conversa com o atendente (não com o operador). Do lado, a **ficha no CRM** atualiza a cada resposta. Cada aba é um contato `sim-xxxxxx` (o prefixo garante que nunca se confunde com um número real); **Outro cliente** começa um contato novo, **Conversa nova** zera o contexto e mantém o cadastro. Há atalhos com testes de prompt injection, "achei caro", "me chama amanhã às 10h" e PARAR. **Cliente sumiu (retomar agora)** manda a próxima retomada sem esperar as horas, para ver a mensagem que o cliente receberia (aparece com a etiqueta "retomada automática").
 
 Conversas do atendente ficam em `logs/atendimento.db` (separadas das do operador em `logs/conversas.db`); o log diário `logs/AAAA-MM-DD.jsonl` marca as linhas com `"agent": "atendente"` e o telefone.
 
 ## Limites
 
 - `AGENT_ATENDENTE_MAX_TURNS` (padrão 12) limita os passos por mensagem; o teto de gasto é `AGENT_MAX_BUDGET_USD`.
-- O WhatsApp ainda leva tudo ao operador (só números permitidos). Rotear "equipe → operador, resto → atendente" entra junto com a passagem para humano (fase 2).
+- **WhatsApp**: com `AGENT_ATENDENTE_WHATSAPP=true`, números fora de `WHATSAPP_ALLOWED_NUMBERS` (a equipe) falam com o atendente; o cliente recebe só a resposta final, sem custos nem avisos internos. Desligado (padrão), só a equipe é atendida. A passagem para um vendedor humano é a fase 2.
 - Modelo gratuito erra mais e tem cota diária: serve para testar, não para cliente pagante.

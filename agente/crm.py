@@ -1,4 +1,4 @@
-"""CRM básico em SQLite (crm.db): contatos, interações e retornos combinados.
+"""CRM básico em SQLite (crm.db): contatos, interações, retornos combinados e pedidos de não contato.
 
 O atendente recebe uma `ContactView`, presa a um único telefone: as ferramentas dele não têm
 como ler nem alterar outro contato, porque o telefone não é parâmetro de nada.
@@ -18,6 +18,8 @@ ATTENDANT_STAGES = ("novo", "qualificando", "qualificado", "orcamento", "perdido
 # subject: o que o cliente traz para a empresa (no auto center, o carro; o rótulo vem de empresa.toml).
 LEAD_FIELDS = ("name", "subject", "interest", "need", "deadline", "budget", "location", "notes")
 MAX_FIELD = 500
+# Colunas que não são campos do lead, criadas em bancos antigos por _migrate().
+EXTRA_COLUMNS = {"contacts": {"opt_out": "INTEGER NOT NULL DEFAULT 0"}, "followups": {"due_at": "TEXT"}}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS contacts (
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     location TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     opt_in INTEGER NOT NULL DEFAULT 0,
+    opt_out INTEGER NOT NULL DEFAULT 0,  -- pediu para não receber mensagens da empresa
     created TEXT NOT NULL,
     updated TEXT NOT NULL
 );
@@ -40,7 +43,7 @@ CREATE TABLE IF NOT EXISTS interactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT NOT NULL,
     ts TEXT NOT NULL,
-    direction TEXT NOT NULL,  -- "entrada" (cliente), "saida" (atendente) ou "evento"
+    direction TEXT NOT NULL,  -- "entrada" (cliente), "saida" (atendente), "retomada" (mensagem automática) ou "evento"
     text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS interactions_phone ON interactions(phone, id);
@@ -50,7 +53,8 @@ CREATE TABLE IF NOT EXISTS followups (
     due TEXT NOT NULL,  -- como o cliente combinou ("segunda de manhã") ou AAAA-MM-DD HH:MM
     reason TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pendente',
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    due_at TEXT  -- a data de `due` entendida pelo código (parse_when); vazia = a equipe decide
 );
 """
 
@@ -79,6 +83,7 @@ class Contact:
     opt_in: bool
     created: str
     updated: str
+    opt_out: bool = False
 
     def describe(self, subject_label: str = "objeto") -> str:
         labels = {"name": "nome", "subject": subject_label, "interest": "interesse", "need": "necessidade", "deadline": "prazo",
@@ -103,6 +108,22 @@ class Followup:
     reason: str
     status: str
     created: str
+    due_at: str | None = None
+
+
+@dataclass
+class Silence:
+    """Onde a conversa de um contato parou: a base para decidir uma retomada."""
+
+    last_inbound: datetime | None  # última mensagem do cliente
+    last_outbound: datetime | None  # última mensagem da empresa (resposta ou retomada)
+    attempts: int  # retomadas enviadas desde a última mensagem do cliente
+    last_attempt: datetime | None
+
+    @property
+    def waiting_customer(self) -> bool:
+        """A empresa falou por último: quem está devendo resposta é o cliente."""
+        return bool(self.last_inbound and self.last_outbound and self.last_outbound >= self.last_inbound)
 
 
 class Crm:
@@ -112,10 +133,14 @@ class Crm:
         with closing(self._db()) as db, db:
             db.executescript(SCHEMA)
             # Bancos criados antes de uma coluna existir ganham a coluna (o CREATE TABLE não mexe neles).
-            columns = {r["name"] for r in db.execute("PRAGMA table_info(contacts)")}
-            for name in LEAD_FIELDS:
-                if name not in columns:
-                    db.execute(f"ALTER TABLE contacts ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+            wanted = {"contacts": {f: "TEXT NOT NULL DEFAULT ''" for f in LEAD_FIELDS}}
+            for table, extra in EXTRA_COLUMNS.items():
+                wanted.setdefault(table, {}).update(extra)
+            for table, cols in wanted.items():
+                columns = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
+                for name, ddl in cols.items():
+                    if name not in columns:
+                        db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
     def _db(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path)
@@ -170,10 +195,35 @@ class Crm:
             raise ValueError("contato não existe")
         return contact
 
-    def log(self, phone: str, direction: str, text: str) -> None:
+    def log(self, phone: str, direction: str, text: str, ts: datetime | None = None) -> None:
+        when = ts.isoformat(timespec="seconds") if ts else self._now()
         with closing(self._db()) as db, db:
             db.execute("INSERT INTO interactions (phone, ts, direction, text) VALUES (?, ?, ?, ?)",
-                       (clean_phone(phone), self._now(), direction, text))
+                       (clean_phone(phone), when, direction, text))
+
+    def silence(self, phone: str) -> Silence:
+        """Última mensagem de cada lado e quantas retomadas já foram desde que o cliente falou."""
+        last_in = last_out = last_attempt = None
+        attempts = 0
+        for i in self.interactions(phone, limit=500):
+            ts = datetime.fromisoformat(i.ts)
+            if i.direction == "entrada":
+                last_in, attempts, last_attempt = ts, 0, None
+            elif i.direction in ("saida", "retomada"):
+                last_out = ts
+                if i.direction == "retomada":
+                    attempts, last_attempt = attempts + 1, ts
+        return Silence(last_in, last_out, attempts, last_attempt)
+
+    def set_opt_out(self, phone: str, value: bool = True) -> None:
+        """Pedido do cliente para não receber mensagens (LGPD e regra da Meta): vale até ele pedir de novo."""
+        with closing(self._db()) as db, db:
+            db.execute("UPDATE contacts SET opt_out = ?, updated = ? WHERE phone = ?",
+                       (int(value), self._now(), clean_phone(phone)))
+
+    def close_followup(self, followup_id: int, status: str) -> None:
+        with closing(self._db()) as db, db:
+            db.execute("UPDATE followups SET status = ? WHERE id = ?", (status, followup_id))
 
     def interactions(self, phone: str, limit: int = 200) -> list[Interaction]:
         with closing(self._db()) as db:
@@ -182,13 +232,14 @@ class Crm:
                 " ORDER BY id", (clean_phone(phone), limit)).fetchall()
         return [Interaction(r["ts"], r["direction"], r["text"]) for r in rows]
 
-    def add_followup(self, phone: str, due: str, reason: str) -> Followup:
+    def add_followup(self, phone: str, due: str, reason: str, due_at: datetime | None = None) -> Followup:
         due, reason = str(due).strip()[:100], str(reason).strip()[:MAX_FIELD]
         if not due:
             raise ValueError("falta quando")
+        when = due_at.isoformat(timespec="minutes") if due_at else None
         with closing(self._db()) as db, db:
-            cur = db.execute("INSERT INTO followups (phone, due, reason, created) VALUES (?, ?, ?, ?)",
-                             (clean_phone(phone), due, reason, self._now()))
+            cur = db.execute("INSERT INTO followups (phone, due, reason, created, due_at) VALUES (?, ?, ?, ?, ?)",
+                             (clean_phone(phone), due, reason, self._now(), when))
             row = db.execute("SELECT * FROM followups WHERE id = ?", (cur.lastrowid,)).fetchone()
         return Followup(**dict(row))
 
@@ -239,8 +290,8 @@ class ContactView:
     def log(self, direction: str, text: str) -> None:
         self._crm.log(self._phone, direction, text)
 
-    def add_followup(self, due: str, reason: str) -> Followup:
-        return self._crm.add_followup(self._phone, due, reason)
+    def add_followup(self, due: str, reason: str, due_at: datetime | None = None) -> Followup:
+        return self._crm.add_followup(self._phone, due, reason, due_at)
 
     def followups(self) -> list[Followup]:
         return self._crm.followups(self._phone)
@@ -249,4 +300,5 @@ class ContactView:
 def _contact(row: sqlite3.Row) -> Contact:
     data = dict(row)
     data["opt_in"] = bool(data["opt_in"])
+    data["opt_out"] = bool(data.get("opt_out", 0))
     return Contact(**data)

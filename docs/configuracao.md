@@ -63,6 +63,9 @@ Pasta da empresa que o atendente atende. Vazio: `empresa/` na raiz do projeto ou
 ### `AGENT_ATENDENTE_MAX_TURNS`
 Padrão: 12. Passos (chamadas de ferramenta) do atendente por mensagem de cliente. Cliente não espera: se ele precisar de mais que isso, algo está errado. O teto de gasto é o mesmo `AGENT_MAX_BUDGET_USD`.
 
+### `AGENT_ATENDENTE_WHATSAPP`
+Padrão: `false`. Com `true`, quem não está em `WHATSAPP_ALLOWED_NUMBERS` (a equipe) é tratado como **cliente** e conversa com o atendente, e as retomadas automáticas passam a sair pelo WhatsApp. Ligue só com a pasta `empresa/` revisada: a partir daí, clientes de verdade recebem respostas.
+
 ### `WHATSAPP_*`
 `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` e `WHATSAPP_ALLOWED_NUMBERS` ligam o canal WhatsApp (todas obrigatórias); `WHATSAPP_API_VERSION` (padrão `v26.0`) é a versão da Graph API. Passo a passo em [whatsapp.md](whatsapp.md).
 

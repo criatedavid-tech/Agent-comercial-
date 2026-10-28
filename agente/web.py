@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import asyncio
 import hmac
+import logging
 import os
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -20,10 +21,11 @@ from . import config
 from .atendente import Attendant
 from .core import Agent
 from .crm import Crm, clean_phone
-from .empresa import CompanyError
+from .empresa import CompanyError, load_company
 from .history import History
 from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
+from .retomada import FollowupEngine, model_composer
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
 from .browser import close_browsers
 from .whatsapp import CloudApi, WhatsAppChannel, parse_messages, spawn, verify_signature
@@ -41,7 +43,10 @@ WEBHOOK = "/whatsapp/webhook"
 
 whatsapp: WhatsAppChannel | None = None  # ligado quando as variáveis WHATSAPP_* estão preenchidas
 scheduler: Scheduler | None = None
+followups: FollowupEngine | None = None  # retomada automática (ligada quando a empresa carrega)
 background: set[asyncio.Task] = set()
+simulated: dict[str, set[WebSocket]] = {}  # abas do simulador por contato "sim-...": recebem as retomadas
+log = logging.getLogger(__name__)
 
 
 class Hub:
@@ -104,18 +109,62 @@ async def run_scheduled(task: Task) -> str:
 def set_paused(paused: bool) -> None:
     if scheduler:
         scheduler.paused = paused
+    if followups:
+        followups.paused = paused  # PARAR da equipe também segura as retomadas
+
+
+async def send_to_customer(phone: str, text: str) -> bool:
+    """Saída da retomada: contato simulado vai para as abas do simulador; o resto, pelo WhatsApp."""
+    if phone.startswith("sim-"):
+        for ws in list(simulated.get(phone, ())):
+            try:
+                await ws.send_json({"kind": "retomada", "text": text})
+            except Exception:
+                simulated[phone].discard(ws)
+        return True  # fica no CRM e aparece quando a aba do contato abrir de novo
+    if whatsapp is None or whatsapp.customer_factory is None:
+        return False
+    if not whatsapp.in_service_window(phone):
+        return False  # o canal reiniciou e perdeu a hora da última mensagem: não arrisca fora da janela
+    return await whatsapp.send(phone, text)
+
+
+async def send_template_to_customer(phone: str, name: str, params: list[str]) -> bool:
+    if phone.startswith("sim-") or whatsapp is None:
+        return False
+    try:
+        await whatsapp.api.send_template(phone, name, params)
+        return True
+    except Exception as e:
+        log.warning("modelo %s não enviado para %s: %s", name, phone, e)
+        return False
+
+
+def build_followups() -> FollowupEngine | None:
+    try:
+        company = load_company(cfg.company_dir)
+        return FollowupEngine(crm, company, model_composer(cfg), send_to_customer, send_template_to_customer,
+                              cfg.timezone)
+    except (CompanyError, ValueError) as e:
+        log.warning("retomada automática desligada: %s", e)
+        return None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global scheduler, whatsapp
+    global scheduler, whatsapp, followups
     agenda.ensure_summary(cfg.daily_summary)
     scheduler = Scheduler(agenda, run_scheduled, deliver)
     if cfg.whatsapp_enabled:
-        whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused)
-    job = asyncio.create_task(scheduler.run_forever())
+        customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm)) if cfg.attendant_whatsapp else None
+        whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused, customer_factory=customers)
+    followups = build_followups()
+    jobs = [asyncio.create_task(scheduler.run_forever())]
+    if followups:
+        jobs.append(asyncio.create_task(followups.run_forever()))
     yield
-    job.cancel()
+    for job in jobs:
+        job.cancel()
     if whatsapp:
         await whatsapp.close()
     await close_browsers()
@@ -193,6 +242,31 @@ def contact_payload(phone: str) -> dict:
     contact = crm.get(phone)
     return {"kind": "lead", "contact": vars(contact) if contact else None,
             "followups": [vars(f) for f in crm.followups(phone)]}
+
+
+@app.post("/api/simulador/retomar/{phone}")
+async def simulator_follow_up(phone: str, request: Request) -> dict:
+    """Simula o cliente ter sumido: manda agora a próxima retomada para o contato simulado (sem esperar as horas)."""
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+    phone = clean_phone(phone)
+    contact = crm.get(phone)
+    if not phone.startswith("sim-") or contact is None:
+        raise HTTPException(404, "contato simulado não encontrado")
+    if followups is None:
+        raise HTTPException(503, "retomada desligada: confira empresa.toml [retomada]")
+    if contact.opt_out:
+        return {"sent": False, "note": "o cliente pediu para não receber mensagens (PARAR)"}
+    total = len(followups.policy.delays_h)
+    attempt = min(crm.silence(phone).attempts + 1, total)
+    outcome = await followups.run(contact, attempt)
+    lead = contact_payload(phone)
+    for ws in list(simulated.get(phone, ())):
+        try:
+            await ws.send_json(lead)
+        except Exception:
+            pass
+    return {"sent": outcome.sent, "text": outcome.text, "attempt": attempt, "of": total, "note": outcome.note}
 
 
 @app.get("/api/crm")
@@ -384,6 +458,11 @@ async def simulator(ws: WebSocket) -> None:
         return
     try:
         await agent.start()
+        simulated.setdefault(phone, set()).add(ws)
+        shown = {"entrada": "user", "saida": "text", "retomada": "retomada"}
+        items = [{"kind": shown[i.direction], "text": i.text} for i in crm.interactions(phone, limit=60) if i.direction in shown]
+        if items:
+            await ws.send_json({"kind": "history", "items": items})
         await ws.send_json({"kind": "ready", "phone": phone, "company": agent.company.name,
                             "assistant": agent.company.assistant, "subject": agent.company.subject_label})
         await ws.send_json(contact_payload(phone))
@@ -405,6 +484,7 @@ async def simulator(ws: WebSocket) -> None:
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
+        simulated.get(phone, set()).discard(ws)
         await agent.stop()
 
 
