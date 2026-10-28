@@ -243,4 +243,6 @@ def test_example_generator_is_reproducible(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "HERE", tmp_path)
     module.main()
     for name in gestao.FILES:
-        assert (tmp_path / f"{name}.csv").read_bytes() == (EXAMPLE_DATA / f"{name}.csv").read_bytes()
+        # compara linhas, não bytes: o git troca CRLF por LF conforme o sistema
+        generated = (tmp_path / f"{name}.csv").read_text(encoding="utf-8").splitlines()
+        assert generated == (EXAMPLE_DATA / f"{name}.csv").read_text(encoding="utf-8").splitlines()
