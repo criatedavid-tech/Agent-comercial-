@@ -33,6 +33,8 @@ objeto = "veículo (modelo e ano)"
 # Perguntas que ele deve fazer para qualificar o cliente.
 qualificacao = ["modelo e ano do carro", "serviço que precisa ou o problema que o carro apresenta", "quando quer trazer o carro", "bairro ou cidade"]
 # Quando a equipe assume.
+# Minutos que o assistente fica quieto esperando alguém da equipe assumir; depois volta a responder o que puder.
+espera_equipe_min = 15
 chamar_humano = ["confirmar dia e horário na oficina", "diagnóstico de defeito (barulho, luz no painel, vazamento)", "carro fora do catálogo (SUV, picape, importado)", "negociação ou desconto", "reclamação ou garantia", "pedido para falar com uma pessoa"]
 
 [retomada]

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atendimento · Equipe</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
+    --border: #e4e3de; --accent: #2f6f4f; --accent-text: #ffffff;
+    --me: #dcf3e3; --them: #ffffff; --tool: #f1f0eb; --error: #b3261e; --warn: #9a6400;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+      --border: #33332f; --accent: #5fae84; --accent-text: #0f1a14;
+      --me: #22312a; --them: #262623; --tool: #262623; --error: #f2b8b5; --warn: #e0b45c;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; flex: 1; }
+  header a { color: var(--text); font-size: 14px; }
+  button { font: inherit; font-size: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .wrap { flex: 1; display: flex; min-height: 0; }
+  nav { width: 300px; flex: none; border-right: 1px solid var(--border); background: var(--panel); overflow-y: auto; }
+  nav button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 10px 14px; background: transparent; }
+  nav button.on { background: var(--tool); }
+  nav .who { font-weight: 600; }
+  nav .why { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { display: inline-block; font-size: 12px; border-radius: 99px; padding: 0 8px; margin-left: 6px; background: var(--tool); color: var(--muted); }
+  .badge.wait { color: var(--warn); }
+  .badge.human { color: var(--accent); }
+  .empty { color: var(--muted); padding: 16px 14px; font-size: 14px; }
+  section { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .top { display: flex; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  .top .title { flex: 1 1 220px; min-width: 0; }
+  .top .title b { display: block; }
+  .top .title span { color: var(--muted); font-size: 13px; }
+  main { flex: 1; overflow-y: auto; }
+  #log { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { padding: 8px 12px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg small { display: block; font-size: 11px; color: var(--muted); }
+  .msg.entrada { background: var(--them); border: 1px solid var(--border); align-self: flex-start; }
+  .msg.saida, .msg.retomada { background: var(--tool); align-self: flex-end; }
+  .msg.humano { background: var(--me); align-self: flex-end; }
+  .msg.evento { align-self: center; color: var(--muted); font-size: 12px; padding: 0; }
+  form { display: flex; gap: 8px; max-width: 760px; width: 100%; margin: 0 auto; padding: 12px 16px; }
+  textarea { flex: 1; resize: none; font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+  #note { max-width: 760px; margin: 0 auto; padding: 0 16px; font-size: 13px; color: var(--error); min-height: 1em; }
+  @media (max-width: 760px) {
+    .wrap { flex-direction: column; }
+    nav { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Atendimento: clientes com a equipe</h1>
+  <a href="/painel">Painel</a>
+  <a href="/simulador">Simulador</a>
+</header>
+<div class="wrap">
+  <nav id="queue" aria-label="Fila de clientes"><div class="empty">Carregando…</div></nav>
+  <section>
+    <div class="top">
+      <div class="title"><b id="who">Escolha um cliente</b><span id="why"></span></div>
+      <button id="take" class="primary" hidden>Assumir</button>
+      <button id="release" hidden>Devolver ao assistente</button>
+    </div>
+    <main><div id="log"></div></main>
+    <div id="note" role="status"></div>
+    <form id="form" hidden>
+      <textarea id="input" rows="2" placeholder="Responder ao cliente (vai pelo WhatsApp)…"></textarea>
+      <button class="primary" id="send">Enviar</button>
+    </form>
+  </section>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const WHO = { entrada: "cliente", saida: "assistente", humano: "equipe", retomada: "retomada automática" };
+let current = null, lastCount = -1;
+
+async function api(path, options) {
+  const r = await fetch(path, options);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) });
+
+function badge(c) {
+  const b = document.createElement("span");
+  b.className = "badge " + (c.handoff === "humano" ? "human" : "wait");
+  b.textContent = c.handoff === "humano" ? "com " + c.member : "aguardando";
+  return b;
+}
+
+async function loadQueue() {
+  let items;
+  try { items = await api("/api/atendimento"); } catch (e) { $("queue").innerHTML = ""; const d = document.createElement("div"); d.className = "empty"; d.textContent = e.message; $("queue").appendChild(d); return; }
+  if (lastCount >= 0 && items.filter(c => c.handoff === "aguardando").length > lastCount) document.title = "● Atendimento · Equipe";
+  lastCount = items.filter(c => c.handoff === "aguardando").length;
+  const nav = $("queue"); nav.replaceChildren();
+  if (!items.length) { const d = document.createElement("div"); d.className = "empty"; d.textContent = "Ninguém esperando a equipe agora."; nav.appendChild(d); }
+  for (const c of items) {
+    const b = document.createElement("button");
+    if (current === c.phone) b.className = "on";
+    const who = document.createElement("div"); who.className = "who"; who.textContent = `#${c.ticket} ${c.name || c.phone}`; who.appendChild(badge(c));
+    const why = document.createElement("div"); why.className = "why"; why.textContent = c.handoff_reason;
+    b.append(who, why);
+    b.onclick = () => { current = c.phone; document.title = "Atendimento · Equipe"; loadQueue(); loadConversation(); };
+    nav.appendChild(b);
+  }
+}
+
+async function loadConversation() {
+  if (!current) return;
+  const { contact: c, messages } = await api("/api/atendimento/" + encodeURIComponent(current));
+  $("who").textContent = `#${c.ticket} ${c.name || c.phone}` + (c.subject ? ` · ${c.subject}` : "");
+  $("why").textContent = c.handoff ? `${c.handoff === "humano" ? "com " + c.member : "aguardando a equipe"} · ${c.handoff_reason}` : "com o assistente";
+  $("take").hidden = c.handoff === "humano" && c.member === "painel";
+  $("release").hidden = !c.handoff;
+  $("form").hidden = false;
+  const log = $("log"), atBottom = log.parentElement.scrollTop + log.parentElement.clientHeight >= log.parentElement.scrollHeight - 40;
+  log.replaceChildren();
+  for (const m of messages) {
+    const el = document.createElement("div"); el.className = "msg " + m.direction;
+    if (WHO[m.direction]) { const s = document.createElement("small"); s.textContent = `${WHO[m.direction]} · ${m.ts.slice(11, 16)}`; el.appendChild(s); }
+    el.appendChild(document.createTextNode(m.text));
+    log.appendChild(el);
+  }
+  if (atBottom) log.lastElementChild && log.lastElementChild.scrollIntoView({ block: "end" });
+}
+
+async function act(fn) {
+  $("note").textContent = "";
+  try { await fn(); } catch (e) { $("note").textContent = e.message; }
+  await loadQueue(); await loadConversation();
+}
+
+$("take").onclick = () => act(() => post(`/api/atendimento/${encodeURIComponent(current)}/assumir`));
+$("release").onclick = () => act(() => post(`/api/atendimento/${encodeURIComponent(current)}/devolver`));
+$("form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("input").value.trim();
+  if (!text) return;
+  act(async () => { await post(`/api/atendimento/${encodeURIComponent(current)}/responder`, { text }); $("input").value = ""; });
+};
+$("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } };
+
+loadQueue();
+setInterval(() => { loadQueue(); loadConversation(); }, 4000);
+</script>
+</body>
+</html>

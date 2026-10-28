@@ -26,6 +26,11 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 | `PARAR` | interrompe o que estiver rodando, esvazia a fila e **pausa a agenda** |
 | `CONTINUAR` | volta ao normal |
 | `NOVA` | começa uma conversa do zero |
+| `FILA` | clientes que chamaram a equipe ou estão com alguém |
+| `ASSUMIR 12` | assume o cliente #12 (sem número, o único aguardando): daí em diante o que você manda vai para ele |
+| `DEVOLVER` | devolve o cliente ao assistente e você volta a falar com o agente |
+
+Os quatro últimos são da passagem para a equipe ([atendente.md](atendente.md#passagem-para-a-equipe)). Enquanto você atende um cliente, suas mensagens vão para ele, não para o agente.
 
 ## Ponte humana e agenda pelo WhatsApp
 

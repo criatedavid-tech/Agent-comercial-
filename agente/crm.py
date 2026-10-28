@@ -1,4 +1,5 @@
-"""CRM básico em SQLite (crm.db): contatos, interações, retornos combinados e pedidos de não contato.
+"""CRM básico em SQLite (crm.db): contatos, interações, retornos combinados, pedidos de não contato
+e passagem para a equipe (`handoff`: o cliente chamou uma pessoa e o assistente fica quieto).
 
 O atendente recebe uma `ContactView`, presa a um único telefone: as ferramentas dele não têm
 como ler nem alterar outro contato, porque o telefone não é parâmetro de nada.
@@ -18,8 +19,15 @@ ATTENDANT_STAGES = ("novo", "qualificando", "qualificado", "orcamento", "perdido
 # subject: o que o cliente traz para a empresa (no auto center, o carro; o rótulo vem de empresa.toml).
 LEAD_FIELDS = ("name", "subject", "interest", "need", "deadline", "budget", "location", "notes")
 MAX_FIELD = 500
+# Passagem para a equipe: "" (com o assistente), "aguardando" (chamou a equipe) ou "humano" (alguém assumiu).
+HANDOFF_STATES = ("", "aguardando", "humano")
 # Colunas que não são campos do lead, criadas em bancos antigos por _migrate().
-EXTRA_COLUMNS = {"contacts": {"opt_out": "INTEGER NOT NULL DEFAULT 0"}, "followups": {"due_at": "TEXT"}}
+EXTRA_COLUMNS = {
+    "contacts": {"opt_out": "INTEGER NOT NULL DEFAULT 0", "handoff": "TEXT NOT NULL DEFAULT ''",
+                 "handoff_reason": "TEXT NOT NULL DEFAULT ''", "handoff_at": "TEXT NOT NULL DEFAULT ''",
+                 "assignee": "TEXT NOT NULL DEFAULT ''"},
+    "followups": {"due_at": "TEXT"},
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS contacts (
@@ -36,6 +44,10 @@ CREATE TABLE IF NOT EXISTS contacts (
     notes TEXT NOT NULL DEFAULT '',
     opt_in INTEGER NOT NULL DEFAULT 0,
     opt_out INTEGER NOT NULL DEFAULT 0,  -- pediu para não receber mensagens da empresa
+    handoff TEXT NOT NULL DEFAULT '',  -- '', 'aguardando' ou 'humano' (HANDOFF_STATES)
+    handoff_reason TEXT NOT NULL DEFAULT '',
+    handoff_at TEXT NOT NULL DEFAULT '',  -- quando chamou a equipe ou quando alguém assumiu
+    assignee TEXT NOT NULL DEFAULT '',  -- quem assumiu: número da equipe ou "painel"
     created TEXT NOT NULL,
     updated TEXT NOT NULL
 );
@@ -43,7 +55,7 @@ CREATE TABLE IF NOT EXISTS interactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT NOT NULL,
     ts TEXT NOT NULL,
-    direction TEXT NOT NULL,  -- "entrada" (cliente), "saida" (atendente), "retomada" (mensagem automática) ou "evento"
+    direction TEXT NOT NULL,  -- "entrada" (cliente), "saida" (atendente), "humano" (equipe), "retomada" ou "evento"
     text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS interactions_phone ON interactions(phone, id);
@@ -84,6 +96,11 @@ class Contact:
     created: str
     updated: str
     opt_out: bool = False
+    handoff: str = ""
+    handoff_reason: str = ""
+    handoff_at: str = ""
+    assignee: str = ""
+    ticket: int = 0  # número curto do contato, para a equipe dizer "ASSUMIR 12"
 
     def describe(self, subject_label: str = "objeto") -> str:
         labels = {"name": "nome", "subject": subject_label, "interest": "interesse", "need": "necessidade", "deadline": "prazo",
@@ -168,8 +185,32 @@ class Crm:
 
     def get(self, phone: str) -> Contact | None:
         with closing(self._db()) as db:
-            row = db.execute("SELECT * FROM contacts WHERE phone = ?", (clean_phone(phone),)).fetchone()
+            row = db.execute(f"{SELECT} WHERE phone = ?", (clean_phone(phone),)).fetchone()
         return _contact(row) if row else None
+
+    def by_ticket(self, ticket: int) -> Contact | None:
+        with closing(self._db()) as db:
+            row = db.execute(f"{SELECT} WHERE rowid = ?", (ticket,)).fetchone()
+        return _contact(row) if row else None
+
+    def set_handoff(self, phone: str, state: str, reason: str = "", assignee: str = "") -> None:
+        """Muda a passagem para a equipe. Voltar para o assistente ("") limpa motivo e responsável."""
+        if state not in HANDOFF_STATES:
+            raise ValueError(f"estado desconhecido: {state}")
+        with closing(self._db()) as db, db:
+            if state:
+                db.execute("UPDATE contacts SET handoff = ?, handoff_reason = CASE WHEN ? = '' THEN handoff_reason "
+                           "ELSE ? END, handoff_at = ?, assignee = ?, updated = ? WHERE phone = ?",
+                           (state, reason, str(reason)[:MAX_FIELD], self._now(), assignee, self._now(), clean_phone(phone)))
+            else:
+                db.execute("UPDATE contacts SET handoff = '', handoff_reason = '', handoff_at = '', assignee = '', "
+                           "updated = ? WHERE phone = ?", (self._now(), clean_phone(phone)))
+
+    def handoffs(self) -> list[Contact]:
+        """Clientes com a equipe (chamaram ou já atendidos por alguém), os mais antigos primeiro."""
+        with closing(self._db()) as db:
+            rows = db.execute(f"{SELECT} WHERE handoff != '' ORDER BY handoff_at").fetchall()
+        return [_contact(r) for r in rows]
 
     def update(self, phone: str, stage: str = "", allowed_stages: tuple[str, ...] = STAGES,
                **fields: str) -> Contact:
@@ -209,7 +250,7 @@ class Crm:
             ts = datetime.fromisoformat(i.ts)
             if i.direction == "entrada":
                 last_in, attempts, last_attempt = ts, 0, None
-            elif i.direction in ("saida", "retomada"):
+            elif i.direction in ("saida", "humano", "retomada"):
                 last_out = ts
                 if i.direction == "retomada":
                     attempts, last_attempt = attempts + 1, ts
@@ -254,7 +295,7 @@ class Crm:
 
     def contacts(self, limit: int = 100) -> list[Contact]:
         with closing(self._db()) as db:
-            rows = db.execute("SELECT * FROM contacts ORDER BY updated DESC LIMIT ?", (limit,)).fetchall()
+            rows = db.execute(f"{SELECT} ORDER BY updated DESC LIMIT ?", (limit,)).fetchall()
         return [_contact(r) for r in rows]
 
     def delete(self, phone: str) -> bool:
@@ -268,6 +309,9 @@ class Crm:
 
     def view(self, phone: str) -> "ContactView":
         return ContactView(self, clean_phone(phone))
+
+
+SELECT = "SELECT rowid AS ticket, * FROM contacts"
 
 
 class ContactView:
@@ -295,6 +339,12 @@ class ContactView:
 
     def followups(self) -> list[Followup]:
         return self._crm.followups(self._phone)
+
+    def set_handoff(self, state: str, reason: str = "") -> None:
+        """O atendente só chama a equipe ("aguardando"); assumir e devolver é da equipe."""
+        if state != "aguardando":
+            raise ValueError("o assistente só pode chamar a equipe")
+        self._crm.set_handoff(self._phone, state, reason)
 
 
 def _contact(row: sqlite3.Row) -> Contact:

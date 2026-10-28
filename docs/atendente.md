@@ -35,7 +35,8 @@ cp -r exemplos/empresa empresa
 | `informar_preco` | `true` | `false`: o catálogo aparece sem preço e `calcular_orcamento` recusa |
 | `agendar_retorno` | `true` | `false`: `agendar_retorno` recusa |
 | `qualificacao` | o que precisa, para quando | perguntas que ele faz para qualificar |
-| `chamar_humano` | negociação, reclamação, pedido de pessoa | quando ele diz que a equipe continua |
+| `chamar_humano` | negociação, reclamação, pedido de pessoa | quando ele chama a equipe (`chamar_vendedor`) |
+| `espera_equipe_min` | `15` | minutos que o assistente fica quieto esperando alguém assumir |
 
 O WhatsApp da equipe **não** vai para o modelo (só nomes e funções). Erro na pasta (arquivo faltando, preço inválido, TOML quebrado) aparece com o arquivo e a linha.
 
@@ -49,6 +50,7 @@ O WhatsApp da equipe **não** vai para o modelo (só nomes e funções). Erro na
 | `registrar_lead` | nome, objeto (no auto center, o carro: aceita `carro`, `veiculo`, `modelo`), interesse, necessidade, prazo, orçamento, local, observação, etapa |
 | `agendar_retorno` | quando e motivo; fica pendente no CRM para a equipe (execução automática: fase 3) |
 | `ver_cadastro` | o cadastro **desta** conversa e os retornos combinados |
+| `chamar_vendedor` | chama a equipe com o motivo; a equipe recebe o resumo da conversa e a ferramenta devolve a frase para o cliente |
 
 Nenhuma ferramenta recebe telefone: todas ficam presas ao contato da conversa (`ContactView`). Os nomes de parâmetro aceitam formas naturais (`produto`, `busca`, `orçamento`, `bairro`...) porque os modelos inventam nomes; erros voltam com exemplo.
 
@@ -105,18 +107,30 @@ perdido_apos_horas = 48
 modelo_whatsapp = ""   # modelo aprovado na Meta para retornos fora das 24 h
 ```
 
+## Passagem para a equipe
+
+Quando o cliente precisa de uma pessoa, o assistente sai da frente (`agente/passagem.py`):
+
+1. **Chamar.** O cliente pede uma pessoa ("quero falar com um atendente", "tem alguém de verdade?"): o código percebe e chama a equipe sem passar pelo modelo. Ou o atendente chama `chamar_vendedor` nos casos de `chamar_humano` (negociação, horário, diagnóstico, reclamação). O cliente ouve que a equipe continua por ali; fora do horário, quando ela volta.
+2. **Aviso.** A equipe recebe "Cliente chamando a equipe (#12)" com o motivo, a ficha e as últimas mensagens, no WhatsApp de cada número de `WHATSAPP_ALLOWED_NUMBERS` (na janela de 24 h), nas abas abertas e na página **Atendimento** (`/atendimento`).
+3. **Esperando.** Por `espera_equipe_min` minutos o assistente fica quieto e repassa à equipe o que o cliente mandar. Se ninguém assumir, ele volta a responder o que puder; o pedido continua na fila.
+4. **Assumir.** `ASSUMIR 12` no WhatsApp da equipe, ou o botão no painel. A partir daí o assistente não responde esse cliente: o que ele manda vai para quem assumiu, e o que essa pessoa escreve (no WhatsApp ou no painel) vai para o cliente e fica no CRM como mensagem da equipe.
+5. **Devolver.** `DEVOLVER` no WhatsApp ou o botão: o assistente volta a atender.
+
+Enquanto o cliente está com a equipe, a retomada automática não manda nada. PARAR do cliente continua sendo opt-out, mesmo com a equipe. O atendente só consegue **chamar** a equipe; assumir e devolver é da equipe (`ContactView.set_handoff`).
+
 ## Simulador de cliente
 
 ```bash
 agente-web          # depois abra http://127.0.0.1:8000/simulador
 ```
 
-A página faz o papel de um cliente no WhatsApp e conversa com o atendente (não com o operador). Do lado, a **ficha no CRM** atualiza a cada resposta. Cada aba é um contato `sim-xxxxxx` (o prefixo garante que nunca se confunde com um número real); **Outro cliente** começa um contato novo, **Conversa nova** zera o contexto e mantém o cadastro. Há atalhos com testes de prompt injection, "achei caro", "me chama amanhã às 10h" e PARAR. **Cliente sumiu (retomar agora)** manda a próxima retomada sem esperar as horas, para ver a mensagem que o cliente receberia (aparece com a etiqueta "retomada automática").
+A página faz o papel de um cliente no WhatsApp e conversa com o atendente (não com o operador). Do lado, a **ficha no CRM** atualiza a cada resposta. Cada aba é um contato `sim-xxxxxx` (o prefixo garante que nunca se confunde com um número real); **Outro cliente** começa um contato novo, **Conversa nova** zera o contexto e mantém o cadastro. Há atalhos com testes de prompt injection, "achei caro", "me chama amanhã às 10h" e PARAR. **Cliente sumiu (retomar agora)** manda a próxima retomada sem esperar as horas, para ver a mensagem que o cliente receberia (aparece com a etiqueta "retomada automática"). Para testar a passagem, mande "quero falar com um atendente" e abra **equipe** (`/atendimento`) em outra aba: assuma, responda (aparece no simulador com a etiqueta "equipe") e devolva.
 
 Conversas do atendente ficam em `logs/atendimento.db` (separadas das do operador em `logs/conversas.db`); o log diário `logs/AAAA-MM-DD.jsonl` marca as linhas com `"agent": "atendente"` e o telefone.
 
 ## Limites
 
 - `AGENT_ATENDENTE_MAX_TURNS` (padrão 12) limita os passos por mensagem; o teto de gasto é `AGENT_MAX_BUDGET_USD`.
-- **WhatsApp**: com `AGENT_ATENDENTE_WHATSAPP=true`, números fora de `WHATSAPP_ALLOWED_NUMBERS` (a equipe) falam com o atendente; o cliente recebe só a resposta final, sem custos nem avisos internos. Desligado (padrão), só a equipe é atendida. A passagem para um vendedor humano é a fase 2.
+- **WhatsApp**: com `AGENT_ATENDENTE_WHATSAPP=true`, números fora de `WHATSAPP_ALLOWED_NUMBERS` (a equipe) falam com o atendente; o cliente recebe só a resposta final, sem custos nem avisos internos. Desligado (padrão), só a equipe é atendida. A passagem para a equipe está acima.
 - Modelo gratuito erra mais e tem cota diária: serve para testar, não para cliente pagante.

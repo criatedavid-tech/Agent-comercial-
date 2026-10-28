@@ -6,6 +6,8 @@ os demais, se AGENT_ATENDENTE_WHATSAPP estiver ligado, com o atendente (clientes
 → cada contato tem sua conversa, uma mensagem por vez → a resposta final volta pelo WhatsApp.
 
 Comandos: PARAR (interrompe tudo e pausa a agenda), CONTINUAR, NOVA (conversa do zero).
+Passagem para a equipe (agente/passagem.py): FILA, ASSUMIR 12 (daí em diante o que a pessoa manda vai
+para o cliente), DEVOLVER (o assistente volta a atender).
 Ponte humana: quando o agente pede ajuda, a pergunta vai pelo WhatsApp e a próxima
 mensagem do usuário é a resposta.
 
@@ -159,6 +161,7 @@ class Contact:
     help_targets: list = field(default_factory=list)  # pontes que podem estar esperando essa resposta
     last_inbound: datetime | None = None
     customer: bool = False  # cliente da empresa (atendente), não alguém da equipe (operador)
+    talking_to: str | None = None  # equipe: telefone do cliente que esta pessoa assumiu (ASSUMIR)
 
 
 class WhatsAppChannel:
@@ -180,6 +183,7 @@ class WhatsAppChannel:
         self.contacts: dict[str, Contact] = {}
         self.paused = False
         self._seen: deque[str] = deque(maxlen=500)  # a Meta pode reenviar a mesma mensagem
+        self.desk: Any = None  # passagem para a equipe (web.py liga quando a empresa carrega)
 
     @property
     def owner(self) -> str:
@@ -238,6 +242,8 @@ class WhatsAppChannel:
             for bridge in targets:
                 bridge.answer(request_id, text)
             return
+        if self.desk and await self._team_command(contact, text, word):
+            return
         if self.paused:
             await self.send(msg.sender, "Estou pausado. Mande CONTINUAR para eu voltar a trabalhar.")
             return
@@ -261,6 +267,46 @@ class WhatsAppChannel:
             return
         await contact.queue.put(msg.text.strip())
         self._ensure_worker(contact)
+
+    async def _team_command(self, member: Contact, text: str, word: str) -> bool:
+        """Passagem para a equipe: FILA, ASSUMIR n, DEVOLVER e o repasse para o cliente assumido.
+        Devolve True quando a mensagem era da passagem (não vai para o operador)."""
+        desk = self.desk
+        taking = re.match(r"^(assumir|atender)\s*#?\s*(\d+)?$", word)
+        if taking:
+            contact = desk.find(int(taking[2]) if taking[2] else None, member.number)
+            if contact is None:
+                await self.send(member.number, "Não achei esse cliente na fila.\n\n" + desk.describe_queue())
+                return True
+            briefing = await desk.take(contact, member.number)
+            member.talking_to = contact.phone
+            await self.send(member.number, f"✅ Você assumiu #{contact.ticket}.\n\n{briefing}\n\n"
+                                           "Agora o que você mandar aqui vai para o cliente. "
+                                           "Mande DEVOLVER quando terminar: o assistente volta a atender.")
+            return True
+        if word in ("fila", "clientes"):
+            await self.send(member.number, desk.describe_queue())
+            return True
+        if member.talking_to is None:
+            if word == "devolver":
+                await self.send(member.number, "Você não está atendendo nenhum cliente agora. Mande FILA para ver quem espera.")
+                return True
+            return False
+        contact = desk.crm.get(member.talking_to)
+        if contact is None or contact.handoff != "humano" or contact.assignee != member.number:
+            member.talking_to = None
+            await self.send(member.number, "Esse atendimento não está mais com você (foi devolvido ou outra pessoa "
+                                           "assumiu). Esta mensagem não foi enviada ao cliente.")
+            return True
+        if word in ("devolver", "encerrar"):
+            desk.release(contact, member.number)
+            member.talking_to = None
+            await self.send(member.number, f"↩ #{contact.ticket} devolvido ao assistente. Você voltou a falar com o agente.")
+            return True
+        if not await desk.reply(contact, text, member.number):
+            await self.send(member.number, "⚠ Não consegui entregar ao cliente. Se ele não escreve há mais de 24 h, "
+                                           "a Meta só deixa falar com ele por modelo aprovado.")
+        return True
 
     def _ensure_worker(self, contact: Contact) -> None:
         if contact.worker is None or contact.worker.done():

@@ -19,12 +19,13 @@ from urllib.parse import urlparse
 import uvicorn
 
 from . import config, sessoes
-from .atendente import Attendant
+from .atendente import Attendant, company_now
 from .core import Agent
 from .crm import Crm, clean_phone
 from .empresa import CompanyError, load_company
 from .history import History
 from .knowledge import KnowledgeBase
+from .passagem import PANEL, Desk, member_name
 from .human import HelpRequest, HumanBridge
 from .retomada import FollowupEngine, model_composer
 from .scheduler import AgendaStore, InboxItem, Scheduler, Task, scheduled_prompt
@@ -48,6 +49,7 @@ followups: FollowupEngine | None = None  # retomada automática (ligada quando a
 background: set[asyncio.Task] = set()
 simulated: dict[str, set[WebSocket]] = {}  # abas do simulador por contato "sim-...": recebem as retomadas
 watch: sessoes.SessionWatch | None = None  # checagem dos logins dos sistemas da loja
+desk: Desk | None = None  # passagem do atendente para a equipe (ligada quando a empresa carrega)
 remote_access = sessoes.RemoteAccess()  # links temporários da tela remota do navegador
 REMOTE = sessoes.REMOTE_PATH
 FRAME_S = 0.7  # intervalo entre imagens da tela remota
@@ -118,12 +120,12 @@ def set_paused(paused: bool) -> None:
         followups.paused = paused  # PARAR da equipe também segura as retomadas
 
 
-async def send_to_customer(phone: str, text: str) -> bool:
-    """Saída da retomada: contato simulado vai para as abas do simulador; o resto, pelo WhatsApp."""
+async def send_to_customer(phone: str, text: str, kind: str = "retomada") -> bool:
+    """Saída da retomada e da equipe: contato simulado vai para as abas do simulador; o resto, pelo WhatsApp."""
     if phone.startswith("sim-"):
         for ws in list(simulated.get(phone, ())):
             try:
-                await ws.send_json({"kind": "retomada", "text": text})
+                await ws.send_json({"kind": kind, "text": text})
             except Exception:
                 simulated[phone].discard(ws)
         return True  # fica no CRM e aparece quando a aba do contato abrir de novo
@@ -143,6 +145,35 @@ async def send_template_to_customer(phone: str, name: str, params: list[str]) ->
     except Exception as e:
         log.warning("modelo %s não enviado para %s: %s", name, phone, e)
         return False
+
+
+async def to_team(title: str, text: str) -> None:
+    """Cliente chamando a equipe: abas abertas (chat e /atendimento) e WhatsApp de cada pessoa da equipe na janela de 24 h."""
+    item = agenda.add_inbox(Task("atendimento", title, ""), text)
+    delivered = await hub.broadcast(inbox_payload(item)) > 0
+    if whatsapp and not whatsapp.paused:
+        for number in cfg.whatsapp_allowed:
+            if whatsapp.in_service_window(number):
+                delivered = await whatsapp.send(number, f"🙋 *{title}*\n\n{text}") or delivered
+    if delivered:
+        agenda.mark_read([item.id])
+
+
+async def to_member(member: str, text: str) -> None:
+    """Mensagem do cliente para quem assumiu. Quem assumiu pelo painel vê lá; pelo WhatsApp, recebe lá."""
+    if member != PANEL and whatsapp and whatsapp.in_service_window(member) and await whatsapp.send(member, text):
+        return
+    await hub.broadcast({"kind": "atendimento", "text": text})
+
+
+def build_desk() -> Desk | None:
+    try:
+        company = load_company(cfg.company_dir)
+    except (CompanyError, ValueError) as e:
+        log.warning("passagem para a equipe desligada: %s", e)
+        return None
+    return Desk(crm, company, to_team, to_member, lambda phone, text: send_to_customer(phone, text, kind="humano"),
+                local_now=lambda: company_now(cfg.timezone))
 
 
 def build_followups() -> FollowupEngine | None:
@@ -186,12 +217,14 @@ def build_watch() -> sessoes.SessionWatch | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global scheduler, whatsapp, followups, watch
+    global scheduler, whatsapp, followups, watch, desk
     agenda.ensure_summary(cfg.daily_summary)
     scheduler = Scheduler(agenda, run_scheduled, deliver)
+    desk = build_desk()
     if cfg.whatsapp_enabled:
-        customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm)) if cfg.attendant_whatsapp else None
+        customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm, desk=desk)) if cfg.attendant_whatsapp else None
         whatsapp = WhatsAppChannel(cfg, CloudApi(cfg), history, Agent, on_pause=set_paused, customer_factory=customers)
+        whatsapp.desk = desk
     followups = build_followups()
     watch = build_watch()
     jobs = [asyncio.create_task(scheduler.run_forever())]
@@ -283,6 +316,80 @@ async def panel_page() -> FileResponse:
 @app.get("/simulador")
 async def simulator_page() -> FileResponse:
     return FileResponse(STATIC / "simulador.html")
+
+
+@app.get("/atendimento")
+async def desk_page() -> FileResponse:
+    return FileResponse(STATIC / "atendimento.html")
+
+
+def same_origin(request: Request) -> None:
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+
+
+def need_desk() -> Desk:
+    if desk is None:
+        raise HTTPException(503, "passagem para a equipe desligada: confira a pasta da empresa")
+    return desk
+
+
+def ticket_payload(d: Desk, contact) -> dict:
+    return {**vars(contact), "member": member_name(d.company, contact.assignee) if contact.assignee else ""}
+
+
+@app.get("/api/atendimento")
+async def desk_queue() -> list[dict]:
+    """Clientes com a equipe: aguardando alguém ou já atendidos por alguém."""
+    d = need_desk()
+    return [ticket_payload(d, c) for c in d.queue()]
+
+
+@app.get("/api/atendimento/{phone}")
+async def desk_conversation(phone: str) -> dict:
+    d = need_desk()
+    contact = crm.get(phone)
+    if contact is None:
+        raise HTTPException(404, "contato não encontrado")
+    messages = [{"direction": i.direction, "text": i.text, "ts": i.ts} for i in crm.interactions(phone, limit=80)]
+    return {"contact": ticket_payload(d, contact), "messages": messages}
+
+
+@app.post("/api/atendimento/{phone}/assumir")
+async def desk_take(phone: str, request: Request) -> dict:
+    same_origin(request)
+    d = need_desk()
+    contact = crm.get(phone)
+    if contact is None:
+        raise HTTPException(404, "contato não encontrado")
+    await d.take(contact, PANEL)
+    return {"ok": True}
+
+
+@app.post("/api/atendimento/{phone}/responder")
+async def desk_reply(phone: str, request: Request) -> dict:
+    same_origin(request)
+    d = need_desk()
+    contact = crm.get(phone)
+    text = str((await request.json()).get("text", "")).strip()
+    if contact is None:
+        raise HTTPException(404, "contato não encontrado")
+    if not text:
+        raise HTTPException(400, "mensagem vazia")
+    if not await d.reply(contact, text[:4000], PANEL):
+        raise HTTPException(409, "não consegui entregar: o cliente não escreve há mais de 24 h ou o WhatsApp está desligado")
+    return {"ok": True}
+
+
+@app.post("/api/atendimento/{phone}/devolver")
+async def desk_release(phone: str, request: Request) -> dict:
+    same_origin(request)
+    d = need_desk()
+    contact = crm.get(phone)
+    if contact is None:
+        raise HTTPException(404, "contato não encontrado")
+    d.release(contact, PANEL)
+    return {"ok": True}
 
 
 def contact_payload(phone: str) -> dict:
@@ -573,7 +680,7 @@ async def simulator(ws: WebSocket) -> None:
         phone = ""
     phone = phone or f"sim-{os.urandom(3).hex()}"
     try:
-        agent = Attendant(cfg, phone, origin="simulador", crm=crm)
+        agent = Attendant(cfg, phone, origin="simulador", crm=crm, desk=desk)
     except CompanyError as e:
         await ws.send_json({"kind": "error", "text": f"configuração da empresa: {e}"})
         await ws.close()
@@ -581,7 +688,7 @@ async def simulator(ws: WebSocket) -> None:
     try:
         await agent.start()
         simulated.setdefault(phone, set()).add(ws)
-        shown = {"entrada": "user", "saida": "text", "retomada": "retomada"}
+        shown = {"entrada": "user", "saida": "text", "retomada": "retomada", "humano": "humano"}
         items = [{"kind": shown[i.direction], "text": i.text} for i in crm.interactions(phone, limit=60) if i.direction in shown]
         if items:
             await ws.send_json({"kind": "history", "items": items})

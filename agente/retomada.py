@@ -194,8 +194,8 @@ class FollowupEngine:
         p = self.policy
         out: list[Due] = []
         for contact in self.crm.contacts(limit=5000):
-            if contact.opt_out or not contact.opt_in:
-                continue
+            if contact.opt_out or not contact.opt_in or contact.handoff:
+                continue  # sem permissão, ou com a equipe (quem cuida do cliente agora é uma pessoa)
             for f in self.crm.followups(contact.phone):
                 if f.due_at and datetime.fromisoformat(f.due_at) <= now:
                     out.append(Due(contact, "retorno", followup=f))

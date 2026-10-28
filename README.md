@@ -136,6 +136,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Qualificar e registrar o lead | `registrar_lead`, `ver_cadastro` | nome, interesse, necessidade, prazo, orçamento e etapa no CRM |
 | Combinar retorno | `agendar_retorno` | "me chama segunda de manhã" (o código entende a data e chama na hora) |
 | Retomar quem sumiu | retomada automática (`agente/retomada.py`) | cliente achou caro e parou de responder: 4 h e 22 h depois recebe uma mensagem baseada na conversa; PARAR encerra |
+| Passar para a equipe | `chamar_vendedor` e pedido de pessoa no código | "quero falar com um atendente": a equipe recebe o resumo, assume (`ASSUMIR 12` no WhatsApp ou em `/atendimento`), conversa e devolve |
 | Regras no código | `regras.screen`, hook e `tools=[]` | sem desconto, sem fechar venda, sem fingir ser humano, sem dados de outros clientes |
 
 ---
@@ -154,6 +155,7 @@ agent/
 │   ├── empresa.py         ← empresa/: catálogo, FAQ, políticas; preço calculado no código
 │   ├── crm.py             ← CRM em SQLite: contatos, interações, retornos
 │   ├── regras.py          ← filtro da resposta do atendente (desconto, preço, venda, "sou humano")
+│   ├── passagem.py        ← passagem para a equipe: chamar, assumir, responder, devolver
 │   ├── retomada.py        ← retomada automática de quem parou de responder, retornos combinados, PARAR
 │   ├── gestao.py          ← gestão: planilhas da loja, números, alertas (estoque, desconto, caixa, gastos)
 │   ├── gestao_cli.py      ← agente-gestao: o relatório no terminal, sem modelo
