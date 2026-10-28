@@ -1,6 +1,18 @@
 # Roadmap
 
-Objetivo: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, Muse e Instinct, rodando numa VPS própria.
+## Produto comercial (este repositório)
+
+Fases detalhadas em [produto.md](produto.md#fases):
+
+- [ ] **Fase 1 — Atendente:** agente com ferramentas restritas, configuração `empresa/`, CRM básico, simulador de cliente
+- [ ] **Fase 2 — Passagem para humano:** chamar vendedor, modo humano por contato, caixa de entrada no painel
+- [ ] **Fase 3 — Follow-up e funil:** retornos automáticos, etapas do funil, painel comercial
+- [ ] **Fase 4 — Onboarding e custo:** instalar uma empresa nova em minutos, custo por conversa
+- [ ] **Fase 5 — Extras:** propostas, prospecção, integrações
+
+## Herdado do protótipo (agente pessoal)
+
+Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, Grok Bot, Muse e Instinct, rodando numa VPS própria. Tudo abaixo já está no código e vira a base do **operador**.
 
 ## ✅ Etapa 1: Núcleo
 - [x] Loop do agente com Claude Agent SDK

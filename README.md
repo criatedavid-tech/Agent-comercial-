@@ -1,13 +1,10 @@
-# Agente pessoal
+# Agent comercial
 
-Um assistente pessoal **autônomo** que roda na sua própria VPS. Ele recebe um pedido, decide sozinho os passos, usa ferramentas (terminal, arquivos, web e, nas próximas etapas, WhatsApp, e-mail, agenda, navegador, redes sociais e compras) e entrega o resultado.
+**Vendedor digital no WhatsApp para pequenas e médias empresas de qualquer segmento.** Atende na hora, tira dúvidas com base no catálogo da empresa, qualifica, faz follow-up sozinho e passa o cliente pronto para o vendedor humano fechar. O dono acompanha tudo num painel.
 
-A ideia é a mesma dos agentes das big techs (Claude Duet, OpenAI Dots, Grok Bot, Meta Muse, Instinct), mas com três diferenças:
-- **Seus dados ficam com você:** tudo roda na sua VPS.
-- **Você escolhe as regras:** autonomia, limites de gasto e integrações são decididos por você.
-- **Funciona no Brasil hoje,** sem lista de espera.
+> **Status:** em construção a partir do protótipo de agente pessoal ([criatedavid-tech/agent](https://github.com/criatedavid-tech/agent), congelado). O motor, a segurança, a agenda, o WhatsApp e o deploy vêm de lá. O desenho do produto, a arquitetura (atendente × operador) e as fases estão em **[docs/produto.md](docs/produto.md)**.
 
-> **Status:** etapa 1 de 7 concluída: núcleo do agente com chat no terminal. Veja o [roadmap](docs/roadmap.md).
+O restante deste README descreve o agente herdado do protótipo, que vira o **operador** (o agente do dono e da equipe).
 
 ---
 

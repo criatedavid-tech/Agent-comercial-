@@ -4,7 +4,12 @@ Instruções para quem for programar neste repositório (pessoas ou agentes de I
 
 ## O projeto
 
-Agente pessoal autônomo em Python, construído sobre o **Claude Agent SDK** (`claude-agent-sdk`). Roda localmente pelo terminal e, nas próximas etapas, numa VPS com WhatsApp como canal. Documentação completa em `docs/`; o roadmap está em `docs/roadmap.md`.
+**Agent comercial**: vendedor digital no WhatsApp para PMEs de qualquer segmento, em Python sobre o **Claude Agent SDK** (`claude-agent-sdk`). Nasceu do protótipo de agente pessoal ([criatedavid-tech/agent](https://github.com/criatedavid-tech/agent), congelado: não alterar; aqui ele é o remoto `prototipo`, com push desativado). **Leia `docs/produto.md` antes de mudar algo**: público, MVP, arquitetura atendente × operador, isolamento por empresa e fases. O código atual é o agente herdado, que vira o operador. Documentação em `docs/`; roadmap em `docs/roadmap.md`.
+
+Regras do produto que valem para todo código novo:
+- O **atendente** (fala com clientes desconhecidos) só tem ferramentas do negócio; nunca terminal, arquivos, navegador ou dados de outros clientes.
+- Dinheiro no código: o atendente não dá desconto nem fecha venda; preço vem do catálogo.
+- Meta e LGPD: só conversa com quem iniciou ou deu opt-in; sem disparo em massa; dados isolados por empresa; dá para apagar um contato.
 
 ## Comandos
 
@@ -16,7 +21,7 @@ python -c "import agente.core"           # checagem rápida de import
 pip install -e ".[dev]" && pytest        # testes (sem chave, sem custo)
 ```
 
-Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent` (caminhos longos impedem `.venv` dentro da pasta do projeto).
+Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent-comercial` (caminhos longos impedem `.venv` dentro da pasta do projeto; o do protótipo é `.venvs\agent`).
 
 ## Mapa do código
 
