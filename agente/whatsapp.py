@@ -50,6 +50,11 @@ STOP_WORDS = {"parar", "pare", "stop"}
 CONTINUE_WORDS = {"continuar", "continue", "voltar"}
 NEW_WORDS = {"nova", "/nova", "nova conversa"}
 BROWSER_WORDS = {"navegador", "login", "logar", "link do navegador"}
+# Fala de login (na resposta do agente ou no pedido da pessoa). O link do site, tocado no celular, abre o
+# APLICATIVO da loja e o login fica fora do navegador do agente: o código troca pelo link da tela remota.
+LOGIN_TALK = re.compile(r"\b(login|logar|logue|loga|logado|entre com sua conta|entrar na (sua )?conta|fazer o acesso)\b", re.I)
+ASKS_LINK = re.compile(r"\b(link|endere[cç]o)\b", re.I)
+URL = re.compile(r"https?://[^\s)\]>*]+")
 AUDIO_KINDS = {"audio", "ptt", "voice"}  # áudio comum e mensagem de voz
 
 
@@ -270,6 +275,19 @@ async def transcribe_openrouter(client: httpx.AsyncClient, key: str, model: str,
     raise WhatsAppError("transcrição recusada: " + " | ".join(str(e)[:200] for e in errors))
 
 
+def asks_login_link(text: str) -> bool:
+    """ "me manda o link pra logar", "cadê o link do login?" """
+    return bool(ASKS_LINK.search(text) and LOGIN_TALK.search(text))
+
+
+def without_site_links(text: str) -> str:
+    """Troca links de site por "domínio (no navegador do agente)", sem virar link no WhatsApp."""
+    def plain(m: re.Match) -> str:
+        host = (urlparse(m.group(0)).hostname or "site").removeprefix("www.")
+        return f"{host.replace('.', '·')} (aberto no navegador do agente)"
+    return URL.sub(plain, text)
+
+
 def jid_number(jid: str) -> str:
     """Número de um JID de pessoa (5511...@s.whatsapp.net). LID e grupo não são número de telefone: vazio."""
     jid = str(jid or "")
@@ -423,8 +441,8 @@ class WhatsAppChannel:
             self.set_paused(False)
             await self.send(msg.sender, "▶️ Voltei. Pode mandar.")
             return
-        if word in BROWSER_WORDS:  # link da tela remota na hora, sem passar pelo modelo
-            await self.send(msg.sender, self.browser_link_text())
+        if word in BROWSER_WORDS or (self.remote_link and asks_login_link(text)):
+            await self.send(msg.sender, self.browser_link_text())  # na hora, sem passar pelo modelo
             return
         if contact.help_id:  # a mensagem é a resposta ao pedido de ajuda
             request_id, targets = contact.help_id, contact.help_targets
@@ -575,6 +593,8 @@ class WhatsAppChannel:
         if agent.session_id:
             self.history.set_channel_session(f"whatsapp:{contact.number}", agent.session_id)
         reply = texts[-1] if texts else "(terminei sem resposta)"
+        if self.remote_link and LOGIN_TALK.search(reply):
+            reply = without_site_links(reply) + "\n\n" + self.browser_link_text()
         if blocked:
             reply += "\n\n🛡 Bloqueado pela segurança: " + "; ".join(blocked)
         if status and not status.startswith("ok"):

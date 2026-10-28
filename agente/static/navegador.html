@@ -20,14 +20,20 @@
   header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
   header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-  main { max-width: 1320px; margin: 0 auto; padding: 12px 16px 32px; display: grid; gap: 10px; }
+  main { max-width: 1320px; margin: 0 auto; padding: 12px 16px 32px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  input, button { font: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+  /* 16px: com menos, o iPhone dá zoom sozinho ao tocar num campo */
+  input, button { font: inherit; font-size: 16px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+  .typebar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: nowrap; gap: 6px; }
+  .typebar button { padding: 7px 9px; flex: none; }
+  .typebar #typed { min-width: 0; }
+  .typebar.focus #typed { border-color: var(--accent); }
   button { cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   #url { flex: 1; min-width: 0; }
   #typed { flex: 1; min-width: 140px; }
-  .screen { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--tool); outline: none; }
+  .screen { position: relative; border: 1px solid var(--border); border-radius: 10px; overflow: auto; background: var(--tool); outline: none; }
+  .screen.zoom img { width: 250%; max-width: none; }
   .screen:focus { border-color: var(--accent); }
   .screen img { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; -webkit-user-drag: none; }
   .screen .wait { padding: 60px 16px; text-align: center; color: var(--muted); }
@@ -42,26 +48,30 @@
   <p>Faça o login como faria no seu navegador. Você digita a senha; o agente não vê nem guarda. Este link vale poucos minutos.</p>
 </header>
 <main>
-  <div class="bar">
-    <button id="back" title="Voltar">←</button>
-    <input id="url" placeholder="endereço do sistema" autocomplete="off" spellcheck="false">
-    <button id="go">Abrir</button>
+  <div class="bar typebar" id="typebar">
+    <input id="typed" type="text" placeholder="1) toque no campo na tela  2) digite aqui" autocomplete="off"
+           autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
+    <button id="hide" type="button" title="Esconder o que você digita (senha)">🙈</button>
+    <button id="send">Digitar</button>
+    <button data-key="Backspace" title="Apagar">⌫</button>
+    <button data-key="Enter">Enter</button>
   </div>
-  <div class="screen" id="screen" tabindex="0" aria-label="Tela do navegador do agente; clique para interagir">
+  <div class="screen" id="screen" tabindex="0" aria-label="Tela do navegador do agente; toque para interagir">
     <div class="wait" id="wait">Conectando…</div>
     <img id="img" alt="" hidden>
   </div>
   <div class="bar">
-    <input id="typed" type="password" placeholder="toque no campo da página e digite aqui" autocomplete="off">
-    <button id="send">Digitar</button>
+    <button class="primary" id="done">Já entrei</button>
+    <button id="zoom" type="button" title="Ampliar a tela (arraste para os lados)">🔍 Ampliar</button>
     <button data-key="Tab">Tab</button>
-    <button data-key="Backspace">Apagar</button>
-    <button data-key="Enter">Enter</button>
+    <button id="back" title="Voltar">← Voltar</button>
   </div>
   <div class="bar">
-    <button class="primary" id="done">Já entrei</button>
-    <span class="hint">No computador, clique na tela e digite direto. No celular, toque no campo da página e use a caixa acima.</span>
+    <input id="url" placeholder="endereço do site (opcional)" autocomplete="off" spellcheck="false" inputmode="url">
+    <button id="go">Abrir</button>
   </div>
+  <p class="hint">Toque no campo (e-mail, senha) na tela: o teclado abre e o que você digitar vai para ele. Enter digita e confirma.
+    No computador, clique na tela e digite direto.</p>
   <div id="msg" role="status"></div>
 </main>
 <script>
@@ -71,6 +81,7 @@ const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") +
 ws.binaryType = "blob";
 const VIEW = { width: 1280, height: 860 };  // tamanho da aba do agente (browser.py VIEWPORT)
 let lastUrl = null;
+let zoomedOnce = false;
 
 function say(text, error) { $("msg").textContent = text; $("msg").className = error ? "error" : ""; }
 function send(action) { if (ws.readyState === 1) ws.send(JSON.stringify(action)); }
@@ -81,6 +92,7 @@ ws.onmessage = (e) => {
     $("img").src = URL.createObjectURL(e.data);
     if (old) URL.revokeObjectURL(old);
     $("img").hidden = false; $("wait").hidden = true;
+    if (!zoomedOnce && touch) { zoomedOnce = true; $("zoom").click(); }  // celular: começa ampliado
     return;
   }
   const m = JSON.parse(e.data);
@@ -91,11 +103,24 @@ ws.onmessage = (e) => {
 };
 ws.onclose = () => { $("wait").hidden = false; $("wait").textContent = "Desconectado. Para entrar de novo, use um link novo."; $("img").hidden = true; };
 
+const touch = matchMedia("(pointer: coarse)").matches;  // celular: o teclado só abre num campo de verdade
 $("img").addEventListener("click", (e) => {
   const box = $("img").getBoundingClientRect();
   send({ type: "click", x: (e.clientX - box.left) * VIEW.width / box.width, y: (e.clientY - box.top) * VIEW.height / box.height });
-  $("screen").focus();
+  if (touch) { $("typed").focus(); $("typebar").classList.add("focus"); }  // dentro do toque: o iPhone abre o teclado
+  else $("screen").focus();
 });
+$("typed").addEventListener("blur", () => $("typebar").classList.remove("focus"));
+$("zoom").onclick = () => {
+  const on = $("screen").classList.toggle("zoom");
+  $("zoom").textContent = on ? "🔍 Reduzir" : "🔍 Ampliar";
+  if (on) requestAnimationFrame(() => { const s = $("screen"); s.scrollLeft = (s.scrollWidth - s.clientWidth) / 2; });  // os sites centralizam o login
+};
+$("hide").onclick = () => {
+  const hidden = $("typed").type === "password";
+  $("typed").type = hidden ? "text" : "password";
+  $("hide").textContent = hidden ? "🙈" : "👁";
+};
 $("screen").addEventListener("wheel", (e) => { e.preventDefault(); send({ type: "scroll", dy: e.deltaY }); }, { passive: false });
 
 const KEYS = new Set(["Enter", "Tab", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
@@ -107,7 +132,12 @@ $("screen").addEventListener("keydown", (e) => {
 $("screen").addEventListener("paste", (e) => { send({ type: "type", text: e.clipboardData.getData("text") }); e.preventDefault(); });
 
 $("send").onclick = () => { if ($("typed").value) { send({ type: "type", text: $("typed").value }); $("typed").value = ""; } };
-$("typed").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("send").click(); } });
+$("typed").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  $("send").click();
+  send({ type: "key", key: "Enter" });  // Enter do teclado: digita e confirma (ex. "Continuar" no login)
+});
 document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => send({ type: "key", key: b.dataset.key }));
 $("go").onclick = () => send({ type: "goto", url: $("url").value.trim() });
 $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });

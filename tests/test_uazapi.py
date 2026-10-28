@@ -357,3 +357,44 @@ def test_navegador_command_sends_the_remote_link_without_the_model(ucfg, tmp_pat
     channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
     run_channel(channel, Incoming("n1", OWNER, "text", "Navegador"))
     assert "https://vm.exemplo.com/acesso-navegador/abc" in api.sent[0][1] and "o agente não vê" in api.sent[0][1]
+
+
+def test_site_links_in_login_talk_become_the_remote_link():
+    from agente.whatsapp import LOGIN_TALK, asks_login_link, without_site_links
+    reply = ("👉 **https://www.amazon.com.br/PlayStation-DualSense/dp/B0CQKLS4RP**\n"
+             "Abra esse link, clique em \"faça seu login\" e entre com sua conta.")
+    assert LOGIN_TALK.search(reply)
+    clean = without_site_links(reply)
+    assert "https://" not in clean and "amazon·com·br (aberto no navegador do agente)" in clean
+    assert asks_login_link("me manda o link pra logar") and asks_login_link("cadê o link do login?")
+    assert not asks_login_link("me envia o link do produto") and not asks_login_link("já loguei")
+
+
+class Operator:
+    def __init__(self, cfg, resume=None):
+        from agente.human import HumanBridge
+        self.human = HumanBridge(1)
+        self.session_id = None
+
+    async def start(self):
+        pass
+
+    async def stop(self):
+        pass
+
+    async def ask(self, text):
+        from agente.core import Event
+        yield Event("text", "Abra https://www.amazon.com.br/dp/X e faça seu login com sua conta.")
+
+
+def test_operator_reply_about_login_gets_the_remote_link(ucfg, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(ucfg, api, History(tmp_path / "c.db"), Operator)
+    channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
+    run_channel(channel, Incoming("o1", OWNER, "text", "põe no carrinho"), Incoming("o2", OWNER, "text", "me envia o link pra logar"))
+    texts = [t for _, t in api.sent]
+    [model] = [t for t in texts if t.startswith("Abra")]
+    assert "https://www.amazon.com.br" not in model and "acesso-navegador/abc" in model  # resposta do modelo corrigida
+    assert any(t.startswith("🌐 Navegador do agente") for t in texts)  # pedido de link de login: respondido pelo código
