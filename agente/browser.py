@@ -369,7 +369,8 @@ class Browser:
                 text = await page.locator(selector).first.inner_text(timeout=5000)
             except Exception:
                 raise BrowserError(f"não achei o trecho '{selector}' nesta página") from None
-            return f"{UNTRUSTED}\n{text[:20000]}"
+            # o endereço junto: com várias chamadas seguidas, o agente vê de qual página é o trecho
+            return f"Endereço: {page.url}\n{UNTRUSTED}\n{text[:20000]}"
 
     async def elements(self, filter: str = "") -> str:
         async with self._lock:
