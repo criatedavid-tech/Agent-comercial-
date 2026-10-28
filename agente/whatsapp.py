@@ -54,6 +54,10 @@ BROWSER_WORDS = {"navegador", "login", "logar", "link do navegador"}
 # APLICATIVO da loja e o login fica fora do navegador do agente: o código troca pelo link da tela remota.
 LOGIN_TALK = re.compile(r"\b(login|logar|logue|loga|logado|entre com sua conta|entrar na (sua )?conta|fazer o acesso)\b", re.I)
 ASKS_LINK = re.compile(r"\b(link|endere[cç]o)\b", re.I)
+# "link do produto / da amazon / da loja": isso é o agente que responde (link do site, para ver).
+SITE_LINK = re.compile(r"\b(produto|amazon|loja|site|mercado ?livre|kabum|magalu|oferta|an[uú]ncio|compra)", re.I)
+# Resposta que pede para a pessoa agir no navegador do agente: vai junto o link da tela remota (da VM).
+ACT_IN_BROWSER = re.compile(r"janela do navegador|navegador do agente|tela remota|finalizar (o )?pedido|clique final", re.I)
 URL = re.compile(r"https?://[^\s)\]>*]+")
 AUDIO_KINDS = {"audio", "ptt", "voice"}  # áudio comum e mensagem de voz
 
@@ -276,8 +280,12 @@ async def transcribe_openrouter(client: httpx.AsyncClient, key: str, model: str,
 
 
 def asks_login_link(text: str) -> bool:
-    """ "me manda o link pra logar", "cadê o link do login?" """
-    return bool(ASKS_LINK.search(text) and LOGIN_TALK.search(text))
+    """ "me manda o link pra logar", "cadê o link do login?", ou só "mande o link" (curto, sem falar de produto/loja)."""
+    if not ASKS_LINK.search(text):
+        return False
+    if LOGIN_TALK.search(text):
+        return True
+    return len(text.split()) <= 5 and not SITE_LINK.search(text)
 
 
 def without_site_links(text: str) -> str:
@@ -595,6 +603,8 @@ class WhatsAppChannel:
         reply = texts[-1] if texts else "(terminei sem resposta)"
         if self.remote_link and LOGIN_TALK.search(reply):
             reply = without_site_links(reply) + "\n\n" + self.browser_link_text()
+        elif self.remote_link and ACT_IN_BROWSER.search(reply):
+            reply += "\n\n" + self.browser_link_text()  # "clique em Finalizar na janela do navegador": daqui o celular chega lá
         if blocked:
             reply += "\n\n🛡 Bloqueado pela segurança: " + "; ".join(blocked)
         if status and not status.startswith("ok"):
@@ -632,10 +642,10 @@ class WhatsAppChannel:
     def browser_link_text(self) -> str:
         if not self.remote_link:
             return "A tela remota do navegador não está ligada neste servidor."
-        return ("🌐 Navegador do agente (vale 30 min): " + self.remote_link() + "\n"
-                "Abra no celular e faça o login *dentro dessa tela* (não pelo aplicativo da loja): você digita a senha, "
-                "o agente não vê. "
-                "O login fica salvo no navegador do agente. Depois é só me dizer \"pronto\".")
+        return ("🖥️ *Link do navegador do agente* (a máquina dele, não é link da loja; vale 30 min):\n"
+                + self.remote_link() + "\n\n"
+                "Ele mostra a tela do navegador do agente. Faça o login *dentro dessa tela* (não pelo aplicativo da "
+                "loja): você digita a senha, o agente não vê, e o login fica salvo nele. Depois é só me dizer \"pronto\".")
 
     async def ask_help(self, contact: Contact, req: HelpRequest, targets: list) -> None:
         contact.help_id, contact.help_targets = req.id, targets

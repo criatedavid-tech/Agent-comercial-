@@ -368,6 +368,8 @@ def test_site_links_in_login_talk_become_the_remote_link():
     assert "https://" not in clean and "amazon·com·br (aberto no navegador do agente)" in clean
     assert asks_login_link("me manda o link pra logar") and asks_login_link("cadê o link do login?")
     assert not asks_login_link("me envia o link do produto") and not asks_login_link("já loguei")
+    assert asks_login_link("mande o link") and asks_login_link("manda o link de novo")  # curto: é o da VM
+    assert not asks_login_link("me manda o link da amazon")  # da loja: quem responde é o agente
 
 
 class Operator:
@@ -397,4 +399,21 @@ def test_operator_reply_about_login_gets_the_remote_link(ucfg, tmp_path):
     texts = [t for _, t in api.sent]
     [model] = [t for t in texts if t.startswith("Abra")]
     assert "https://www.amazon.com.br" not in model and "acesso-navegador/abc" in model  # resposta do modelo corrigida
-    assert any(t.startswith("🌐 Navegador do agente") for t in texts)  # pedido de link de login: respondido pelo código
+    assert any(t.startswith("🖥️ *Link do navegador do agente*") for t in texts)  # pedido de link de login: respondido pelo código
+
+
+class FinalizeOperator(Operator):
+    async def ask(self, text):
+        from agente.core import Event
+        yield Event("text", "Coloquei no carrinho. Você só precisa clicar em \"Finalizar pedido\" na janela do navegador.")
+
+
+def test_reply_asking_to_act_in_the_browser_brings_the_vm_link(ucfg, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(ucfg, api, History(tmp_path / "c.db"), FinalizeOperator)
+    channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
+    run_channel(channel, Incoming("f1", OWNER, "text", "coloca o branco no carrinho"))
+    text = api.sent[0][1]
+    assert "Finalizar pedido" in text and "Link do navegador do agente" in text and "acesso-navegador/abc" in text
