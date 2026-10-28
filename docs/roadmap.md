@@ -5,6 +5,7 @@
 Fases detalhadas em [produto.md](produto.md#fases):
 
 - [x] **Fase 1 — Atendente:** agente com ferramentas restritas, configuração `empresa/`, CRM básico, simulador de cliente ([atendente.md](atendente.md))
+- [x] **Gestão da empresa:** relatório e alertas a partir das planilhas da loja (estoque sem OS, desconto e caixa por funcionário, gastos fora do padrão, contas em dobro, gargalos) para o operador ([gestao.md](gestao.md)). Próximo: conectar direto ao sistema da loja (ERP) em vez de CSV
 - [ ] **Fase 2 — Passagem para humano:** chamar vendedor, modo humano por contato, caixa de entrada no painel
 - [ ] **Fase 3 — Follow-up e funil:** ~~retornos automáticos~~ (feito: [retomada automática](atendente.md#retomada-automática)), etapas do funil, painel comercial
 - [ ] **Fase 4 — Onboarding e custo:** instalar uma empresa nova em minutos, custo por conversa

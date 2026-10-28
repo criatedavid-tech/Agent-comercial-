@@ -1,0 +1,32 @@
+data,categoria,descricao,fornecedor,valor
+2026-08-03,pecas,Compra de peças e pneus,Distribuidora AutoPeças,5456.19
+2026-08-05,aluguel,Aluguel do galpão,Imobiliária Centro,6500.00
+2026-08-05,folha,Salários,Equipe,14500.00
+2026-08-10,internet,Internet,Vivo,150.00
+2026-08-10,lubrificantes,Óleo e filtros,Distribuidora Lub,1480.00
+2026-08-12,energia,Conta de luz,CPFL,888.25
+2026-08-12,agua,Conta de água,Sanasa,181.00
+2026-08-15,sistema,Sistema de gestão,SoftOficina,189.00
+2026-08-17,pecas,Compra de peças e pneus,Distribuidora AutoPeças,5590.91
+2026-08-20,manutencao_equipamentos,Manutenção do elevador e compressor,TecEquip,451.25
+2026-09-03,pecas,Compra de peças e pneus,Distribuidora AutoPeças,5975.23
+2026-09-05,aluguel,Aluguel do galpão,Imobiliária Centro,6500.00
+2026-09-05,folha,Salários,Equipe,14500.00
+2026-09-10,internet,Internet,Vivo,150.00
+2026-09-10,lubrificantes,Óleo e filtros,Distribuidora Lub,1480.00
+2026-09-12,energia,Conta de luz,CPFL,929.91
+2026-09-12,agua,Conta de água,Sanasa,182.06
+2026-09-15,sistema,Sistema de gestão,SoftOficina,189.00
+2026-09-17,pecas,Compra de peças e pneus,Distribuidora AutoPeças,5238.05
+2026-09-20,manutencao_equipamentos,Manutenção do elevador e compressor,TecEquip,635.20
+2026-10-03,pecas,Compra de peças e pneus,Distribuidora AutoPeças,5912.24
+2026-10-05,aluguel,Aluguel do galpão,Imobiliária Centro,6500.00
+2026-10-05,folha,Salários,Equipe,14500.00
+2026-10-10,internet,Internet,Vivo,150.00
+2026-10-10,lubrificantes,Óleo e filtros,Distribuidora Lub,1480.00
+2026-10-12,energia,Conta de luz,CPFL,855.28
+2026-10-12,agua,Conta de água,Sanasa,175.67
+2026-10-13,lubrificantes,Óleo e filtros,Distribuidora Lub,1480.00
+2026-10-15,sistema,Sistema de gestão,SoftOficina,189.00
+2026-10-17,pecas,Compra de peças e pneus,Distribuidora AutoPeças,6020.28
+2026-10-20,manutencao_equipamentos,Manutenção do elevador e compressor,TecEquip,3200.00

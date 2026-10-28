@@ -24,6 +24,7 @@ agente = "agente.cli:main"
 agente-web = "agente.web:main"
 agente-backup = "agente.backup:main"
 agente-vigia = "agente.vigia:main"
+agente-gestao = "agente.gestao_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

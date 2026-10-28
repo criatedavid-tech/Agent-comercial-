@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 EXAMPLE_COMPANY = ROOT / "exemplos" / "empresa"  # empresa fictícia usada quando empresa/ ainda não existe
+EXAMPLE_DATA = ROOT / "exemplos" / "dados"  # planilhas fictícias usadas quando dados/ ainda não existe
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class Config:
     crm_db: Path = ROOT / "crm.db"
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
     attendant_whatsapp: bool = False  # números fora de WHATSAPP_ALLOWED_NUMBERS falam com o atendente
+    data_dir: Path = EXAMPLE_DATA  # planilhas da loja para a gestão: vendas, despesas, estoque, caixa
 
     @property
     def has_credentials(self) -> bool:
@@ -84,6 +86,7 @@ def load() -> Config:
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
+        data_dir=data_dir(os.getenv("AGENT_DADOS_DIR", "").strip()),
         attendant_whatsapp=os.getenv("AGENT_ATENDENTE_WHATSAPP", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
@@ -98,3 +101,12 @@ def company_dir(value: str) -> Path:
         return path if path.is_absolute() else ROOT / path
     own = ROOT / "empresa"
     return own if (own / "empresa.toml").exists() else EXAMPLE_COMPANY
+
+
+def data_dir(value: str) -> Path:
+    """Pasta das planilhas: AGENT_DADOS_DIR, senão dados/ do projeto (se tiver algum .csv), senão o exemplo."""
+    if value:
+        path = Path(value)
+        return path if path.is_absolute() else ROOT / path
+    own = ROOT / "dados"
+    return own if any(own.glob("*.csv")) else EXAMPLE_DATA

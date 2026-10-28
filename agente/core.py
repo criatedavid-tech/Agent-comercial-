@@ -23,9 +23,10 @@ from claude_agent_sdk import (
     tool,
 )
 
-from . import guard, memory
+from . import gestao, guard, memory
 from .browser import Browser, BrowserError, shared_browser
-from .config import ROOT, Config
+from .config import EXAMPLE_DATA, ROOT, Config
+from .crm import Crm
 from .history import History
 from .human import HumanBridge
 from .knowledge import AREAS, KnowledgeBase
@@ -37,10 +38,11 @@ HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
 BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
     "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
+GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
 # Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
 # tools=BUILTIN_TOOLS (no primeiro teste real o modelo achou e usou o CronCreate interno, que some com a sessão).
 BUILTIN_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", "Skill"]
-TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS]
+TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS, *GESTAO_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -70,6 +72,13 @@ Como trabalhar em tarefas maiores:
 - Skills: para finanças, saúde, estudos e compras online existem instruções especializadas. Carregue a skill do assunto (ferramenta Skill) antes de agir.
 - Subagentes (ferramenta Agent): delegue pesquisas na web ao "pesquisador", arrumação da base ao "organizador" e, ao terminar algo importante, peça ao "verificador" para conferir. Tarefas independentes podem ir em paralelo. Passe ao subagente tudo o que ele precisa saber: ele não vê esta conversa.
 - Ações bloqueadas pela segurança: não tente contornar; explique ao usuário o que seria preciso.
+
+Gestão da empresa (vendas, despesas, estoque, caixa, atendimento):
+- Para números, problemas, gargalos, gastos, desvios ou "como está a loja", use relatorio_gestao ou alertas_gestao. As contas e os alertas são feitos pelo código a partir das planilhas da loja: não refaça contas de cabeça nem invente número.
+- Para conferir um alerta, use consultar_lancamentos (ex. as saídas de estoque de um funcionário). Para o atendimento no WhatsApp (leads, funil, retomadas, motivos de perda), funil_comercial.
+- Alerta sobre pessoa é indício para conferir, nunca acusação: diga o que conferir e como (ex. comparar a saída com a OS física, perguntar ao funcionário, conferir o caixa junto).
+- Ao explicar, priorize: o que custa mais dinheiro, o que é mais fácil de resolver, e uma ação concreta para cada alerta.
+- Os dados vêm de {data_dir}{data_note}.
 
 Agenda e proatividade:
 - Para lembretes e tarefas recorrentes ("todo dia às 8h", "toda segunda", "daqui a 2 horas", "dia 5 de cada mês"), use agendar_tarefa. O horário é o do fuso {timezone}.
@@ -165,6 +174,79 @@ def agenda_server(store: AgendaStore):
 def browser_server(browser: Browser):
     """Servidor MCP do navegador próprio."""
     return create_sdk_mcp_server("navegador", tools=browser_tools(browser))
+
+
+def gestao_server(cfg: Config):
+    """Servidor MCP da gestão da empresa (planilhas da loja e CRM do atendente)."""
+    return create_sdk_mcp_server("gestao", tools=gestao_tools(cfg))
+
+
+def gestao_tools(cfg: Config) -> list[SdkMcpTool]:
+    """Relatório, alertas, funil e lançamentos. As planilhas são relidas a cada chamada (sempre o dado atual)."""
+    period_fields = {
+        "periodo": (str, "ex. 'este mês', 'mês passado', 'outubro', 'últimos 30 dias', 'semana'; sem ele, últimos 30 dias"),
+        "inicio": (str, "data inicial AAAA-MM-DD ou DD/MM/AAAA"),
+        "fim": (str, "data final AAAA-MM-DD ou DD/MM/AAAA"),
+    }
+
+    def load() -> gestao.Data:
+        return gestao.load_data(cfg.data_dir)
+
+    def period(args: dict, data: gestao.Data) -> gestao.Period:
+        text = str(args.get("periodo") or args.get("mes") or args.get("período") or "")
+        return gestao.period_from(text, str(args.get("inicio") or ""), str(args.get("fim") or ""),
+                                  today=data.last_day())
+
+    def run(action) -> dict[str, Any]:
+        try:
+            return _reply(action())
+        except gestao.DataError as e:
+            return _reply(f"planilha com problema: {e}", error=True)
+        except ValueError as e:
+            return _reply(str(e), error=True)
+
+    @tool("relatorio_gestao",
+          "Relatório da empresa no período: receita, despesas, resultado, descontos, alertas (gastos fora do padrão, "
+          "estoque sem venda, desconto e caixa por funcionário, gargalos), funcionamento e funil do atendimento.",
+          _schema({}, period_fields))
+    async def full_report(args: dict) -> dict[str, Any]:
+        def build() -> str:
+            data = load()
+            return gestao.report(data, period(args, data), Crm(cfg.crm_db))
+        return run(build)
+
+    @tool("alertas_gestao", "Só os alertas do período, os mais graves primeiro. Opcional: filtrar por área.",
+          _schema({}, {**period_fields, "area": (str, f"uma de: {', '.join(gestao.ANALYSES)}")}))
+    async def alerts(args: dict) -> dict[str, Any]:
+        def build() -> str:
+            data = load()
+            p = period(args, data)
+            area = str(args.get("area") or "").strip()
+            findings = gestao.audit(data, p, [area] if area else ())
+            if not findings:
+                return f"nenhum alerta em {p.label()}" + (f" na área {area}" if area else "")
+            return f"Alertas de {p.label()}:\n" + "\n".join(f.describe(max_evidence=15) for f in findings)
+        return run(build)
+
+    @tool("funil_comercial", "Funil do atendimento no WhatsApp: leads por etapa, conversão, retomadas e motivos de perda.",
+          _schema({}, {"dias": (int, "quantos dias para trás; padrão 30")}))
+    async def funnel(args: dict) -> dict[str, Any]:
+        return run(lambda: gestao.describe_funnel(gestao.crm_funnel(Crm(cfg.crm_db), int(args.get("dias") or 30))))
+
+    @tool("consultar_lancamentos", "Lista lançamentos de uma planilha para conferir um alerta (até 50).",
+          _schema({"planilha": (str, f"uma de: {', '.join(gestao.FILES)}")},
+                  {**period_fields, "busca": (str, "texto para filtrar, ex. 'pastilha' ou 'OS-1288'"),
+                   "funcionario": (str, "nome do funcionário")}))
+    async def rows(args: dict) -> dict[str, Any]:
+        def build() -> str:
+            data = load()
+            table = gestao.normalize(str(args.get("planilha") or args.get("tabela") or ""))
+            found = gestao.find_rows(data, table, str(args.get("busca") or ""), str(args.get("funcionario") or ""),
+                                     period(args, data))
+            return "\n".join(found) if found else "nenhum lançamento encontrado com esses filtros"
+        return run(build)
+
+    return [full_report, alerts, funnel, rows]
 
 
 def knowledge_tools(kb: KnowledgeBase) -> list[SdkMcpTool]:
@@ -387,6 +469,8 @@ class Agent:
             memory=memory.load(self.cfg.memory_dir),
             knowledge=self.kb.summary(),
             search_hint=FREE_SEARCH_HINT if self.cfg.base_url else "",
+            data_dir=self.cfg.data_dir,
+            data_note=" (dados fictícios de exemplo: avise o usuário)" if self.cfg.data_dir == EXAMPLE_DATA else "",
         )
         wait_ms = int((self.cfg.help_timeout_min + 2) * 60_000)
         return ClaudeAgentOptions(
@@ -399,6 +483,7 @@ class Agent:
                 "humano": human_server(self.human),
                 "agenda": agenda_server(self.agenda),
                 "navegador": browser_server(self.browser),
+                "gestao": gestao_server(self.cfg),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             # ENABLE_TOOL_SEARCH=false: as ferramentas próprias ficam visíveis desde o início (sem passo de busca).

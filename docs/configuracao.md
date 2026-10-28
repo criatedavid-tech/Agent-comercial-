@@ -60,6 +60,9 @@ Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade n
 ### `AGENT_EMPRESA_DIR`
 Pasta da empresa que o atendente atende. Vazio: `empresa/` na raiz do projeto ou, se não existir, a empresa fictícia de `exemplos/empresa/`. Caminho relativo é a partir da raiz do projeto. Formato dos arquivos: [atendente.md](atendente.md#configuração-da-empresa).
 
+### `AGENT_DADOS_DIR`
+Pasta das planilhas da loja usadas pela gestão (`vendas.csv`, `despesas.csv`, `estoque.csv`, `caixa.csv`). Vazio: `dados/` na raiz do projeto (se tiver algum `.csv`) ou, senão, as planilhas fictícias de `exemplos/dados/`. Formato: [gestao.md](gestao.md#as-planilhas).
+
 ### `AGENT_ATENDENTE_MAX_TURNS`
 Padrão: 12. Passos (chamadas de ferramenta) do atendente por mensagem de cliente. Cliente não espera: se ele precisar de mais que isso, algo está errado. O teto de gasto é o mesmo `AGENT_MAX_BUDGET_USD`.
 

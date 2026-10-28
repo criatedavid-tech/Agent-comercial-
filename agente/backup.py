@@ -16,7 +16,7 @@ import tarfile
 import tempfile
 
 from . import config
-from .config import EXAMPLE_COMPANY, ROOT, Config
+from .config import EXAMPLE_COMPANY, EXAMPLE_DATA, ROOT, Config
 
 PREFIX = "agente-backup-"
 
@@ -33,6 +33,8 @@ def sources(cfg: Config, with_browser: bool = False) -> list[Path]:
              cfg.crm_db, cfg.logs_dir / "atendimento.db"]
     if cfg.company_dir != EXAMPLE_COMPANY:
         paths.append(cfg.company_dir)  # catálogo e regras da empresa (a de exemplo já está no git)
+    if cfg.data_dir != EXAMPLE_DATA:
+        paths.append(cfg.data_dir)  # planilhas da loja
     if with_browser:
         paths.append(cfg.browser_profile)  # logins dos sites: só se o destino for seguro
     return [p for p in paths if p.exists()]

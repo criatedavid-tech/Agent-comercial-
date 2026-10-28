@@ -116,6 +116,16 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
 
+**Gestão** (para o dono, pelo operador; contas e alertas feitos pelo código a partir das planilhas da loja, detalhes em [docs/gestao.md](docs/gestao.md)):
+
+| Capacidade | Ferramenta | Exemplo de pedido |
+|---|---|---|
+| Números do período | `relatorio_gestao` | "como foi outubro?": receita, despesas, resultado, descontos, ticket médio, comparação |
+| Achar onde vaza dinheiro | `alertas_gestao` | gasto fora do padrão, conta paga duas vezes, peça que saiu do estoque sem OS, desconto e cancelamento por funcionário, caixa faltando, gargalos da semana |
+| Conferir um alerta | `consultar_lancamentos` | "mostra as saídas de estoque do Diego em outubro" |
+| Funil do WhatsApp | `funil_comercial` | leads por etapa, conversão, retomadas, motivos de perda |
+| Sem modelo, no terminal | `agente-gestao outubro --alertas` | o mesmo relatório, sem custo |
+
 **Atendente** (fala com os clientes da empresa; só ferramentas do negócio, detalhes em [docs/atendente.md](docs/atendente.md)):
 
 | Capacidade | Ferramenta | Exemplo de mensagem do cliente |
@@ -145,6 +155,8 @@ agent/
 │   ├── crm.py             ← CRM em SQLite: contatos, interações, retornos
 │   ├── regras.py          ← filtro da resposta do atendente (desconto, preço, venda, "sou humano")
 │   ├── retomada.py        ← retomada automática de quem parou de responder, retornos combinados, PARAR
+│   ├── gestao.py          ← gestão: planilhas da loja, números, alertas (estoque, desconto, caixa, gastos)
+│   ├── gestao_cli.py      ← agente-gestao: o relatório no terminal, sem modelo
 │   ├── core.py            ← o loop do agente (coração do projeto)
 │   ├── memory.py          ← carrega a memória de longo prazo
 │   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
@@ -161,6 +173,8 @@ agent/
 │   ├── web.py             ← chat no navegador (localhost, para testes)
 │   └── static/            ← index.html (chat), painel.html (painel), simulador.html (cliente)
 ├── exemplos/empresa/      ← empresa fictícia de exemplo (Auto Center Rota Certa)
+├── exemplos/dados/        ← planilhas fictícias da loja (vendas, despesas, estoque, caixa) + gerador
+├── dados/                 ← (você cria) planilhas da sua loja; fora do git
 ├── empresa/               ← (você cria) configuração da sua empresa; fora do git
 ├── deploy/                ← VPS: provisionar.sh, atualizar.sh, serviços systemd, Caddyfile
 ├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)
@@ -194,6 +208,7 @@ Tudo fica no `.env`:
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
 | `AGENT_EMPRESA_DIR` | `empresa/` ou o exemplo | pasta da empresa que o atendente atende |
 | `AGENT_ATENDENTE_MAX_TURNS` | `12` | máximo de passos do atendente por mensagem de cliente |
+| `AGENT_DADOS_DIR` | `dados/` ou o exemplo | pasta das planilhas da loja para a gestão |
 | `AGENT_ATENDENTE_WHATSAPP` | `false` | clientes (números fora da equipe) falam com o atendente pelo WhatsApp |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
@@ -208,6 +223,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Conceitos](docs/conceitos.md) | o que é um agente, loop, ferramentas, memória, MCP, proatividade |
 | [Comparativo das big techs](docs/comparativo.md) | Grok Bot, Dots, Claude Duet, Instinct, Muse: o que fazem e seus limites |
 | [Produto](docs/produto.md) | público, MVP, atendente × operador, fases |
+| [Gestão](docs/gestao.md) | planilhas da loja, números, alertas, como o operador usa |
 | [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |
 | [Arquitetura](docs/arquitetura.md) | como o código está organizado e o fluxo de um pedido |
 | [Instalação](docs/instalacao.md) | passo a passo local (Linux, macOS, Windows) e na VPS |

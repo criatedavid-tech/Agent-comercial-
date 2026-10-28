@@ -1,0 +1,731 @@
+data,os,cliente,veiculo,item,tipo,quantidade,valor_unitario,desconto,total,pagamento,funcionario,status
+2026-08-01,OS-1001,Cliente 1001,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Juliana,fechada
+2026-08-01,OS-1001,Cliente 1001,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,credito,Juliana,fechada
+2026-08-01,OS-1002,Cliente 1002,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Rafael,fechada
+2026-08-01,OS-1003,Cliente 1003,Ka 2017,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,dinheiro,Juliana,fechada
+2026-08-01,OS-1003,Cliente 1003,Ka 2017,Bateria 60 Ah,peca,1,499.00,0.00,499.00,dinheiro,Juliana,fechada
+2026-08-01,OS-1004,Cliente 1004,Gol 2015,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,debito,Juliana,fechada
+2026-08-01,OS-1005,Cliente 1005,Argo 2021,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Rafael,fechada
+2026-08-01,OS-1006,Cliente 1006,Argo 2021,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Juliana,fechada
+2026-08-01,OS-1006,Cliente 1006,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Juliana,fechada
+2026-08-01,OS-1006,Cliente 1006,Argo 2021,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,dinheiro,Juliana,fechada
+2026-08-01,OS-1007,Cliente 1007,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Rafael,fechada
+2026-08-01,OS-1007,Cliente 1007,HB20 2018,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,pix,Rafael,fechada
+2026-08-01,OS-1007,Cliente 1007,Ka 2017,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,pix,Rafael,fechada
+2026-08-01,OS-1008,Cliente 1008,Civic 2016,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Paulo,fechada
+2026-08-01,OS-1008,Cliente 1008,Ka 2017,Alinhamento 3D,servico,1,89.90,4.50,85.40,dinheiro,Paulo,fechada
+2026-08-01,OS-1008,Cliente 1008,Civic 2016,Bateria 60 Ah,peca,1,499.00,14.97,484.03,dinheiro,Paulo,fechada
+2026-08-03,OS-1009,Cliente 1009,Corolla 2020,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,debito,Rafael,cancelada
+2026-08-03,OS-1010,Cliente 1010,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Paulo,fechada
+2026-08-03,OS-1010,Cliente 1010,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,debito,Paulo,fechada
+2026-08-03,OS-1011,Cliente 1011,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Paulo,fechada
+2026-08-03,OS-1012,Cliente 1012,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,dinheiro,Juliana,fechada
+2026-08-03,OS-1012,Cliente 1012,HB20 2018,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,dinheiro,Juliana,fechada
+2026-08-03,OS-1013,Cliente 1013,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,cancelada
+2026-08-03,OS-1013,Cliente 1013,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Juliana,cancelada
+2026-08-03,OS-1013,Cliente 1013,Gol 2015,Pneu 175/70 R14,peca,4,389.00,77.80,1478.20,pix,Juliana,cancelada
+2026-08-03,OS-1014,Cliente 1014,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Paulo,cancelada
+2026-08-03,OS-1014,Cliente 1014,HB20 2018,Pneu 175/70 R14,peca,4,389.00,77.80,1478.20,credito,Paulo,cancelada
+2026-08-03,OS-1014,Cliente 1014,Gol 2015,Pneu 185/65 R15,peca,2,429.00,42.90,815.10,credito,Paulo,cancelada
+2026-08-04,OS-1015,Cliente 1015,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-08-04,OS-1016,Cliente 1016,Onix 2019,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,dinheiro,Rafael,fechada
+2026-08-05,OS-1017,Cliente 1017,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Paulo,fechada
+2026-08-05,OS-1018,Cliente 1018,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-08-05,OS-1019,Cliente 1019,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-08-05,OS-1020,Cliente 1020,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-08-05,OS-1021,Cliente 1021,Argo 2021,Alinhamento 3D,servico,1,89.90,2.70,87.20,credito,Paulo,fechada
+2026-08-06,OS-1022,Cliente 1022,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Juliana,fechada
+2026-08-06,OS-1022,Cliente 1022,HB20 2018,Bateria 60 Ah,peca,1,499.00,14.97,484.03,credito,Juliana,fechada
+2026-08-06,OS-1023,Cliente 1023,Onix 2019,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Juliana,fechada
+2026-08-06,OS-1023,Cliente 1023,Ka 2017,Pneu 175/70 R14,peca,2,389.00,23.34,754.66,dinheiro,Juliana,fechada
+2026-08-06,OS-1024,Cliente 1024,Civic 2016,Alinhamento 3D,servico,1,89.90,4.50,85.40,credito,Juliana,fechada
+2026-08-06,OS-1024,Cliente 1024,Argo 2021,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,credito,Juliana,fechada
+2026-08-06,OS-1025,Cliente 1025,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Paulo,fechada
+2026-08-06,OS-1025,Cliente 1025,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Paulo,fechada
+2026-08-07,OS-1026,Cliente 1026,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-08-07,OS-1026,Cliente 1026,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-08-07,OS-1027,Cliente 1027,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-08-07,OS-1027,Cliente 1027,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-08-07,OS-1028,Cliente 1028,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Rafael,fechada
+2026-08-07,OS-1028,Cliente 1028,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,debito,Rafael,fechada
+2026-08-07,OS-1029,Cliente 1029,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,dinheiro,Paulo,fechada
+2026-08-07,OS-1030,Cliente 1030,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-08-07,OS-1030,Cliente 1030,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-08-07,OS-1031,Cliente 1031,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-07,OS-1031,Cliente 1031,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Paulo,fechada
+2026-08-08,OS-1032,Cliente 1032,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Rafael,fechada
+2026-08-08,OS-1032,Cliente 1032,HB20 2018,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,pix,Rafael,fechada
+2026-08-08,OS-1033,Cliente 1033,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Juliana,fechada
+2026-08-08,OS-1033,Cliente 1033,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Juliana,fechada
+2026-08-08,OS-1034,Cliente 1034,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-08,OS-1035,Cliente 1035,Argo 2021,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,debito,Juliana,fechada
+2026-08-08,OS-1036,Cliente 1036,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-08-08,OS-1036,Cliente 1036,Ka 2017,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Rafael,fechada
+2026-08-08,OS-1037,Cliente 1037,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-08-08,OS-1037,Cliente 1037,Gol 2015,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,dinheiro,Paulo,fechada
+2026-08-08,OS-1038,Cliente 1038,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-08-08,OS-1038,Cliente 1038,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-08-08,OS-1039,Cliente 1039,Ka 2017,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Paulo,fechada
+2026-08-10,OS-1040,Cliente 1040,Argo 2021,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Paulo,fechada
+2026-08-10,OS-1040,Cliente 1040,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Paulo,fechada
+2026-08-10,OS-1041,Cliente 1041,Ka 2017,Alinhamento 3D,servico,1,89.90,4.50,85.40,credito,Rafael,fechada
+2026-08-10,OS-1041,Cliente 1041,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-08-10,OS-1042,Cliente 1042,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-08-10,OS-1042,Cliente 1042,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,debito,Juliana,fechada
+2026-08-10,OS-1043,Cliente 1043,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-08-10,OS-1043,Cliente 1043,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-08-10,OS-1044,Cliente 1044,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Rafael,fechada
+2026-08-10,OS-1045,Cliente 1045,Gol 2015,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Rafael,fechada
+2026-08-10,OS-1046,Cliente 1046,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-10,OS-1046,Cliente 1046,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Paulo,fechada
+2026-08-11,OS-1047,Cliente 1047,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-08-11,OS-1047,Cliente 1047,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,pix,Rafael,fechada
+2026-08-11,OS-1048,Cliente 1048,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Paulo,fechada
+2026-08-11,OS-1048,Cliente 1048,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Paulo,fechada
+2026-08-11,OS-1049,Cliente 1049,Corolla 2020,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Juliana,fechada
+2026-08-11,OS-1049,Cliente 1049,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-08-12,OS-1050,Cliente 1050,Civic 2016,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-08-12,OS-1050,Cliente 1050,Gol 2015,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Juliana,fechada
+2026-08-12,OS-1051,Cliente 1051,Ka 2017,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Juliana,fechada
+2026-08-12,OS-1051,Cliente 1051,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,dinheiro,Juliana,fechada
+2026-08-12,OS-1051,Cliente 1051,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-08-12,OS-1052,Cliente 1052,Ka 2017,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-08-12,OS-1053,Cliente 1053,Gol 2015,Alinhamento 3D,servico,1,89.90,2.70,87.20,debito,Juliana,fechada
+2026-08-12,OS-1053,Cliente 1053,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-08-12,OS-1053,Cliente 1053,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,debito,Juliana,fechada
+2026-08-12,OS-1054,Cliente 1054,Gol 2015,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,debito,Rafael,cancelada
+2026-08-13,OS-1055,Cliente 1055,Ka 2017,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Paulo,fechada
+2026-08-13,OS-1056,Cliente 1056,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-08-13,OS-1056,Cliente 1056,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-08-13,OS-1057,Cliente 1057,Gol 2015,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Paulo,fechada
+2026-08-13,OS-1058,Cliente 1058,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-08-13,OS-1058,Cliente 1058,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Juliana,fechada
+2026-08-14,OS-1059,Cliente 1059,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,debito,Paulo,fechada
+2026-08-14,OS-1060,Cliente 1060,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-08-14,OS-1060,Cliente 1060,Onix 2019,Bateria 60 Ah,peca,1,499.00,0.00,499.00,dinheiro,Paulo,fechada
+2026-08-14,OS-1061,Cliente 1061,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Paulo,fechada
+2026-08-14,OS-1061,Cliente 1061,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Paulo,fechada
+2026-08-14,OS-1061,Cliente 1061,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-14,OS-1062,Cliente 1062,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-08-14,OS-1062,Cliente 1062,Gol 2015,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Juliana,fechada
+2026-08-14,OS-1063,Cliente 1063,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,credito,Paulo,fechada
+2026-08-14,OS-1063,Cliente 1063,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,credito,Paulo,fechada
+2026-08-14,OS-1064,Cliente 1064,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-08-14,OS-1064,Cliente 1064,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,credito,Juliana,fechada
+2026-08-14,OS-1065,Cliente 1065,Gol 2015,Alinhamento 3D,servico,1,89.90,4.50,85.40,dinheiro,Rafael,fechada
+2026-08-14,OS-1066,Cliente 1066,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Paulo,fechada
+2026-08-14,OS-1066,Cliente 1066,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Paulo,fechada
+2026-08-15,OS-1067,Cliente 1067,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-15,OS-1068,Cliente 1068,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Paulo,fechada
+2026-08-15,OS-1069,Cliente 1069,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Juliana,fechada
+2026-08-15,OS-1069,Cliente 1069,Argo 2021,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,dinheiro,Juliana,fechada
+2026-08-15,OS-1070,Cliente 1070,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-08-15,OS-1071,Cliente 1071,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Paulo,fechada
+2026-08-15,OS-1071,Cliente 1071,Ka 2017,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Paulo,fechada
+2026-08-15,OS-1072,Cliente 1072,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-15,OS-1072,Cliente 1072,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-15,OS-1073,Cliente 1073,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,credito,Rafael,fechada
+2026-08-15,OS-1073,Cliente 1073,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,credito,Rafael,fechada
+2026-08-15,OS-1074,Cliente 1074,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-08-15,OS-1074,Cliente 1074,Onix 2019,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,dinheiro,Juliana,fechada
+2026-08-15,OS-1075,Cliente 1075,Corolla 2020,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Paulo,fechada
+2026-08-15,OS-1075,Cliente 1075,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,pix,Paulo,fechada
+2026-08-15,OS-1076,Cliente 1076,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Paulo,fechada
+2026-08-17,OS-1077,Cliente 1077,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-08-17,OS-1077,Cliente 1077,Gol 2015,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Rafael,fechada
+2026-08-17,OS-1077,Cliente 1077,Ka 2017,Bateria 60 Ah,peca,1,499.00,14.97,484.03,pix,Rafael,fechada
+2026-08-17,OS-1078,Cliente 1078,HB20 2018,Alinhamento 3D,servico,1,89.90,4.50,85.40,credito,Rafael,fechada
+2026-08-17,OS-1078,Cliente 1078,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Rafael,fechada
+2026-08-17,OS-1079,Cliente 1079,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Rafael,fechada
+2026-08-17,OS-1080,Cliente 1080,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-08-17,OS-1080,Cliente 1080,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Paulo,fechada
+2026-08-17,OS-1081,Cliente 1081,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-17,OS-1081,Cliente 1081,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-17,OS-1082,Cliente 1082,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,3.60,116.40,dinheiro,Rafael,fechada
+2026-08-18,OS-1083,Cliente 1083,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-08-18,OS-1084,Cliente 1084,Civic 2016,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Paulo,fechada
+2026-08-19,OS-1085,Cliente 1085,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-08-19,OS-1086,Cliente 1086,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-08-19,OS-1087,Cliente 1087,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-08-19,OS-1088,Cliente 1088,Onix 2019,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Juliana,fechada
+2026-08-19,OS-1089,Cliente 1089,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-08-19,OS-1089,Cliente 1089,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Juliana,fechada
+2026-08-19,OS-1089,Cliente 1089,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-08-19,OS-1090,Cliente 1090,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Paulo,fechada
+2026-08-19,OS-1090,Cliente 1090,HB20 2018,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,credito,Paulo,fechada
+2026-08-20,OS-1091,Cliente 1091,Onix 2019,Alinhamento 3D,servico,1,89.90,4.50,85.40,dinheiro,Paulo,fechada
+2026-08-20,OS-1091,Cliente 1091,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-08-20,OS-1092,Cliente 1092,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-08-20,OS-1092,Cliente 1092,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,credito,Rafael,fechada
+2026-08-20,OS-1093,Cliente 1093,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-08-20,OS-1093,Cliente 1093,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,credito,Rafael,fechada
+2026-08-20,OS-1093,Cliente 1093,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,credito,Rafael,fechada
+2026-08-20,OS-1094,Cliente 1094,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-08-20,OS-1094,Cliente 1094,Corolla 2020,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Rafael,fechada
+2026-08-21,OS-1095,Cliente 1095,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Rafael,fechada
+2026-08-21,OS-1095,Cliente 1095,Gol 2015,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,credito,Rafael,fechada
+2026-08-21,OS-1096,Cliente 1096,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-08-21,OS-1096,Cliente 1096,HB20 2018,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Juliana,fechada
+2026-08-21,OS-1097,Cliente 1097,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Paulo,fechada
+2026-08-21,OS-1098,Cliente 1098,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Paulo,fechada
+2026-08-21,OS-1098,Cliente 1098,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Paulo,fechada
+2026-08-21,OS-1098,Cliente 1098,Argo 2021,Bateria 60 Ah,peca,1,499.00,0.00,499.00,dinheiro,Paulo,fechada
+2026-08-21,OS-1099,Cliente 1099,Ka 2017,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Juliana,fechada
+2026-08-21,OS-1099,Cliente 1099,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,credito,Juliana,fechada
+2026-08-21,OS-1100,Cliente 1100,Civic 2016,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Rafael,fechada
+2026-08-21,OS-1101,Cliente 1101,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-21,OS-1101,Cliente 1101,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,debito,Paulo,fechada
+2026-08-21,OS-1102,Cliente 1102,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Juliana,fechada
+2026-08-21,OS-1102,Cliente 1102,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-08-22,OS-1103,Cliente 1103,Onix 2019,Alinhamento 3D,servico,1,89.90,4.50,85.40,credito,Juliana,fechada
+2026-08-22,OS-1104,Cliente 1104,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-08-22,OS-1104,Cliente 1104,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,credito,Rafael,fechada
+2026-08-22,OS-1105,Cliente 1105,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-08-22,OS-1105,Cliente 1105,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Juliana,fechada
+2026-08-22,OS-1106,Cliente 1106,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-08-22,OS-1107,Cliente 1107,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Juliana,fechada
+2026-08-22,OS-1107,Cliente 1107,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,3.60,116.40,pix,Juliana,fechada
+2026-08-22,OS-1107,Cliente 1107,Corolla 2020,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Juliana,fechada
+2026-08-22,OS-1108,Cliente 1108,HB20 2018,Bateria 60 Ah,peca,1,499.00,14.97,484.03,dinheiro,Juliana,fechada
+2026-08-22,OS-1109,Cliente 1109,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-08-22,OS-1109,Cliente 1109,Civic 2016,Pneu 185/65 R15,peca,4,429.00,85.80,1630.20,debito,Juliana,fechada
+2026-08-22,OS-1110,Cliente 1110,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-08-22,OS-1111,Cliente 1111,Argo 2021,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Paulo,fechada
+2026-08-22,OS-1111,Cliente 1111,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-22,OS-1111,Cliente 1111,Argo 2021,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Paulo,fechada
+2026-08-22,OS-1112,Cliente 1112,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Paulo,fechada
+2026-08-22,OS-1112,Cliente 1112,Gol 2015,Pneu 185/65 R15,peca,4,429.00,85.80,1630.20,dinheiro,Paulo,fechada
+2026-08-24,OS-1113,Cliente 1113,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-08-24,OS-1113,Cliente 1113,Corolla 2020,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-08-24,OS-1113,Cliente 1113,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,pix,Rafael,fechada
+2026-08-24,OS-1114,Cliente 1114,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-08-24,OS-1114,Cliente 1114,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-08-24,OS-1115,Cliente 1115,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Rafael,fechada
+2026-08-24,OS-1115,Cliente 1115,Argo 2021,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Rafael,fechada
+2026-08-24,OS-1116,Cliente 1116,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Rafael,fechada
+2026-08-24,OS-1116,Cliente 1116,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-08-24,OS-1117,Cliente 1117,Ka 2017,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,credito,Rafael,fechada
+2026-08-24,OS-1117,Cliente 1117,Argo 2021,Bateria 60 Ah,peca,1,499.00,24.95,474.05,credito,Rafael,fechada
+2026-08-24,OS-1118,Cliente 1118,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-08-24,OS-1118,Cliente 1118,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,debito,Paulo,fechada
+2026-08-25,OS-1119,Cliente 1119,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,credito,Juliana,fechada
+2026-08-25,OS-1119,Cliente 1119,HB20 2018,Pneu 175/70 R14,peca,2,389.00,23.34,754.66,credito,Juliana,fechada
+2026-08-25,OS-1120,Cliente 1120,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Rafael,fechada
+2026-08-25,OS-1120,Cliente 1120,Civic 2016,Alinhamento 3D,servico,1,89.90,2.70,87.20,debito,Rafael,fechada
+2026-08-25,OS-1121,Cliente 1121,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-08-25,OS-1121,Cliente 1121,Gol 2015,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Juliana,fechada
+2026-08-25,OS-1122,Cliente 1122,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-08-26,OS-1123,Cliente 1123,Ka 2017,Pneu 175/70 R14,peca,4,389.00,77.80,1478.20,dinheiro,Rafael,fechada
+2026-08-26,OS-1123,Cliente 1123,Gol 2015,Bateria 60 Ah,peca,1,499.00,0.00,499.00,dinheiro,Rafael,fechada
+2026-08-26,OS-1124,Cliente 1124,Onix 2019,Alinhamento 3D,servico,1,89.90,4.50,85.40,credito,Paulo,fechada
+2026-08-26,OS-1125,Cliente 1125,HB20 2018,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Paulo,fechada
+2026-08-26,OS-1125,Cliente 1125,Ka 2017,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,credito,Paulo,fechada
+2026-08-26,OS-1126,Cliente 1126,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-08-26,OS-1126,Cliente 1126,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,debito,Rafael,fechada
+2026-08-27,OS-1127,Cliente 1127,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-08-27,OS-1127,Cliente 1127,Gol 2015,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,pix,Rafael,fechada
+2026-08-27,OS-1128,Cliente 1128,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-08-27,OS-1129,Cliente 1129,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Paulo,fechada
+2026-08-27,OS-1129,Cliente 1129,Civic 2016,Bateria 60 Ah,peca,1,499.00,0.00,499.00,pix,Paulo,fechada
+2026-08-27,OS-1130,Cliente 1130,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-08-27,OS-1130,Cliente 1130,Corolla 2020,Bateria 60 Ah,peca,1,499.00,0.00,499.00,credito,Juliana,fechada
+2026-08-27,OS-1131,Cliente 1131,Ka 2017,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Paulo,fechada
+2026-08-27,OS-1131,Cliente 1131,Ka 2017,Alinhamento 3D,servico,1,89.90,2.70,87.20,debito,Paulo,fechada
+2026-08-27,OS-1131,Cliente 1131,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,debito,Paulo,fechada
+2026-08-27,OS-1132,Cliente 1132,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Paulo,fechada
+2026-08-28,OS-1133,Cliente 1133,Corolla 2020,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Paulo,fechada
+2026-08-28,OS-1134,Cliente 1134,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-08-28,OS-1134,Cliente 1134,Gol 2015,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,dinheiro,Rafael,fechada
+2026-08-28,OS-1135,Cliente 1135,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-08-28,OS-1135,Cliente 1135,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-08-28,OS-1135,Cliente 1135,Gol 2015,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Rafael,fechada
+2026-08-28,OS-1136,Cliente 1136,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-08-28,OS-1136,Cliente 1136,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-08-28,OS-1136,Cliente 1136,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,dinheiro,Juliana,fechada
+2026-08-28,OS-1137,Cliente 1137,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-08-28,OS-1138,Cliente 1138,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-08-28,OS-1138,Cliente 1138,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,debito,Rafael,fechada
+2026-08-29,OS-1139,Cliente 1139,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Rafael,fechada
+2026-08-29,OS-1140,Cliente 1140,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-08-29,OS-1140,Cliente 1140,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Paulo,fechada
+2026-08-29,OS-1140,Cliente 1140,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-08-29,OS-1141,Cliente 1141,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-08-29,OS-1142,Cliente 1142,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-08-29,OS-1142,Cliente 1142,Civic 2016,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-08-29,OS-1142,Cliente 1142,Corolla 2020,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Juliana,fechada
+2026-08-29,OS-1143,Cliente 1143,Onix 2019,Alinhamento 3D,servico,1,89.90,4.50,85.40,dinheiro,Rafael,fechada
+2026-08-29,OS-1143,Cliente 1143,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Rafael,fechada
+2026-08-29,OS-1143,Cliente 1143,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Rafael,fechada
+2026-08-29,OS-1144,Cliente 1144,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,cancelada
+2026-08-29,OS-1145,Cliente 1145,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Rafael,fechada
+2026-08-29,OS-1146,Cliente 1146,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-08-29,OS-1146,Cliente 1146,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,debito,Rafael,fechada
+2026-08-29,OS-1147,Cliente 1147,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-08-31,OS-1148,Cliente 1148,HB20 2018,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,pix,Rafael,fechada
+2026-08-31,OS-1149,Cliente 1149,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-08-31,OS-1149,Cliente 1149,HB20 2018,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,dinheiro,Juliana,fechada
+2026-08-31,OS-1150,Cliente 1150,Civic 2016,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,pix,Juliana,fechada
+2026-08-31,OS-1151,Cliente 1151,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-08-31,OS-1151,Cliente 1151,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-08-31,OS-1152,Cliente 1152,Argo 2021,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,credito,Paulo,fechada
+2026-09-01,OS-1153,Cliente 1153,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-09-01,OS-1153,Cliente 1153,Gol 2015,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,credito,Paulo,fechada
+2026-09-01,OS-1153,Cliente 1153,Argo 2021,Bateria 60 Ah,peca,1,499.00,0.00,499.00,credito,Paulo,fechada
+2026-09-01,OS-1154,Cliente 1154,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Juliana,fechada
+2026-09-01,OS-1155,Cliente 1155,Ka 2017,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,credito,Juliana,fechada
+2026-09-01,OS-1155,Cliente 1155,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-09-02,OS-1156,Cliente 1156,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-02,OS-1156,Cliente 1156,Ka 2017,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Paulo,fechada
+2026-09-02,OS-1157,Cliente 1157,HB20 2018,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Paulo,fechada
+2026-09-02,OS-1158,Cliente 1158,HB20 2018,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Paulo,fechada
+2026-09-02,OS-1159,Cliente 1159,Argo 2021,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,debito,Juliana,fechada
+2026-09-02,OS-1160,Cliente 1160,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-02,OS-1160,Cliente 1160,Ka 2017,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Paulo,fechada
+2026-09-03,OS-1161,Cliente 1161,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Rafael,fechada
+2026-09-03,OS-1161,Cliente 1161,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-09-03,OS-1162,Cliente 1162,Gol 2015,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,credito,Juliana,fechada
+2026-09-03,OS-1162,Cliente 1162,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,credito,Juliana,fechada
+2026-09-03,OS-1163,Cliente 1163,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,pix,Juliana,fechada
+2026-09-03,OS-1164,Cliente 1164,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Paulo,fechada
+2026-09-03,OS-1165,Cliente 1165,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-09-03,OS-1165,Cliente 1165,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-09-04,OS-1166,Cliente 1166,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-04,OS-1167,Cliente 1167,Argo 2021,Alinhamento 3D,servico,1,89.90,2.70,87.20,pix,Rafael,fechada
+2026-09-04,OS-1167,Cliente 1167,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-09-04,OS-1168,Cliente 1168,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-09-04,OS-1169,Cliente 1169,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-09-04,OS-1169,Cliente 1169,Argo 2021,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,pix,Rafael,fechada
+2026-09-04,OS-1170,Cliente 1170,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Paulo,fechada
+2026-09-04,OS-1171,Cliente 1171,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Paulo,fechada
+2026-09-04,OS-1171,Cliente 1171,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-09-05,OS-1172,Cliente 1172,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,credito,Paulo,fechada
+2026-09-05,OS-1173,Cliente 1173,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Paulo,fechada
+2026-09-05,OS-1173,Cliente 1173,HB20 2018,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Paulo,fechada
+2026-09-05,OS-1173,Cliente 1173,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Paulo,fechada
+2026-09-05,OS-1174,Cliente 1174,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-09-05,OS-1174,Cliente 1174,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-09-05,OS-1175,Cliente 1175,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Paulo,fechada
+2026-09-05,OS-1175,Cliente 1175,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Paulo,fechada
+2026-09-05,OS-1176,Cliente 1176,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-09-05,OS-1176,Cliente 1176,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-09-05,OS-1177,Cliente 1177,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-09-05,OS-1178,Cliente 1178,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Paulo,fechada
+2026-09-05,OS-1178,Cliente 1178,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-09-05,OS-1179,Cliente 1179,Gol 2015,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Juliana,fechada
+2026-09-07,OS-1180,Cliente 1180,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Rafael,fechada
+2026-09-07,OS-1181,Cliente 1181,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Paulo,fechada
+2026-09-07,OS-1182,Cliente 1182,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Rafael,fechada
+2026-09-07,OS-1183,Cliente 1183,Argo 2021,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,credito,Juliana,fechada
+2026-09-07,OS-1183,Cliente 1183,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,credito,Juliana,fechada
+2026-09-07,OS-1184,Cliente 1184,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Juliana,fechada
+2026-09-07,OS-1184,Cliente 1184,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,pix,Juliana,fechada
+2026-09-08,OS-1185,Cliente 1185,Ka 2017,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Paulo,fechada
+2026-09-08,OS-1185,Cliente 1185,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Paulo,fechada
+2026-09-08,OS-1186,Cliente 1186,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Juliana,fechada
+2026-09-08,OS-1186,Cliente 1186,Onix 2019,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Juliana,fechada
+2026-09-08,OS-1187,Cliente 1187,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-09-09,OS-1188,Cliente 1188,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-09-09,OS-1188,Cliente 1188,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-09-09,OS-1188,Cliente 1188,Argo 2021,Bateria 60 Ah,peca,1,499.00,24.95,474.05,dinheiro,Juliana,fechada
+2026-09-09,OS-1189,Cliente 1189,Ka 2017,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Paulo,fechada
+2026-09-09,OS-1190,Cliente 1190,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-09-09,OS-1191,Cliente 1191,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-09,OS-1191,Cliente 1191,Gol 2015,Pneu 185/65 R15,peca,4,429.00,85.80,1630.20,pix,Paulo,fechada
+2026-09-10,OS-1192,Cliente 1192,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Rafael,fechada
+2026-09-10,OS-1192,Cliente 1192,Ka 2017,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,debito,Rafael,fechada
+2026-09-10,OS-1193,Cliente 1193,Ka 2017,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Juliana,fechada
+2026-09-10,OS-1193,Cliente 1193,Civic 2016,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Juliana,fechada
+2026-09-10,OS-1194,Cliente 1194,Corolla 2020,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Rafael,fechada
+2026-09-10,OS-1194,Cliente 1194,Gol 2015,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,debito,Rafael,fechada
+2026-09-10,OS-1195,Cliente 1195,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Juliana,fechada
+2026-09-10,OS-1195,Cliente 1195,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-09-11,OS-1196,Cliente 1196,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-09-11,OS-1196,Cliente 1196,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Rafael,fechada
+2026-09-11,OS-1197,Cliente 1197,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-09-11,OS-1197,Cliente 1197,Ka 2017,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Paulo,fechada
+2026-09-11,OS-1197,Cliente 1197,Ka 2017,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,debito,Paulo,fechada
+2026-09-11,OS-1198,Cliente 1198,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Juliana,fechada
+2026-09-11,OS-1198,Cliente 1198,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Juliana,fechada
+2026-09-11,OS-1199,Cliente 1199,Civic 2016,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Paulo,fechada
+2026-09-11,OS-1200,Cliente 1200,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,credito,Paulo,fechada
+2026-09-11,OS-1201,Cliente 1201,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-09-12,OS-1202,Cliente 1202,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-09-12,OS-1202,Cliente 1202,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,credito,Juliana,fechada
+2026-09-12,OS-1202,Cliente 1202,HB20 2018,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,credito,Juliana,fechada
+2026-09-12,OS-1203,Cliente 1203,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-09-12,OS-1203,Cliente 1203,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Juliana,fechada
+2026-09-12,OS-1203,Cliente 1203,Argo 2021,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Juliana,fechada
+2026-09-12,OS-1204,Cliente 1204,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-09-12,OS-1205,Cliente 1205,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-09-12,OS-1205,Cliente 1205,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-09-12,OS-1206,Cliente 1206,Argo 2021,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-09-12,OS-1206,Cliente 1206,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Juliana,fechada
+2026-09-12,OS-1207,Cliente 1207,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-09-12,OS-1207,Cliente 1207,Corolla 2020,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,credito,Juliana,fechada
+2026-09-12,OS-1208,Cliente 1208,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-09-12,OS-1209,Cliente 1209,Onix 2019,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Paulo,fechada
+2026-09-14,OS-1210,Cliente 1210,Gol 2015,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,pix,Juliana,fechada
+2026-09-14,OS-1211,Cliente 1211,Argo 2021,Alinhamento 3D,servico,1,89.90,2.70,87.20,pix,Paulo,fechada
+2026-09-14,OS-1211,Cliente 1211,HB20 2018,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,pix,Paulo,fechada
+2026-09-14,OS-1212,Cliente 1212,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-14,OS-1213,Cliente 1213,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-09-14,OS-1213,Cliente 1213,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,debito,Rafael,fechada
+2026-09-14,OS-1214,Cliente 1214,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-09-14,OS-1215,Cliente 1215,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Paulo,fechada
+2026-09-14,OS-1215,Cliente 1215,Corolla 2020,Pneu 175/70 R14,peca,4,389.00,46.68,1509.32,pix,Paulo,fechada
+2026-09-15,OS-1216,Cliente 1216,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-09-15,OS-1216,Cliente 1216,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-09-15,OS-1217,Cliente 1217,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-09-15,OS-1217,Cliente 1217,HB20 2018,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Juliana,fechada
+2026-09-15,OS-1218,Cliente 1218,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-09-16,OS-1219,Cliente 1219,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-09-16,OS-1219,Cliente 1219,Gol 2015,Bateria 60 Ah,peca,1,499.00,0.00,499.00,pix,Rafael,fechada
+2026-09-16,OS-1220,Cliente 1220,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,pix,Juliana,fechada
+2026-09-16,OS-1221,Cliente 1221,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Paulo,fechada
+2026-09-16,OS-1221,Cliente 1221,Civic 2016,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,credito,Paulo,fechada
+2026-09-16,OS-1222,Cliente 1222,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Rafael,fechada
+2026-09-16,OS-1222,Cliente 1222,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,debito,Rafael,fechada
+2026-09-16,OS-1223,Cliente 1223,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-17,OS-1224,Cliente 1224,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-09-17,OS-1225,Cliente 1225,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-09-17,OS-1225,Cliente 1225,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-09-17,OS-1225,Cliente 1225,Gol 2015,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Rafael,fechada
+2026-09-17,OS-1226,Cliente 1226,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-09-17,OS-1226,Cliente 1226,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,debito,Rafael,fechada
+2026-09-17,OS-1226,Cliente 1226,Civic 2016,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,debito,Rafael,fechada
+2026-09-17,OS-1227,Cliente 1227,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,debito,Juliana,fechada
+2026-09-17,OS-1227,Cliente 1227,Ka 2017,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,debito,Juliana,fechada
+2026-09-18,OS-1228,Cliente 1228,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Paulo,fechada
+2026-09-18,OS-1229,Cliente 1229,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-09-18,OS-1229,Cliente 1229,HB20 2018,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Juliana,fechada
+2026-09-18,OS-1229,Cliente 1229,Gol 2015,Pneu 185/65 R15,peca,2,429.00,25.74,832.26,credito,Juliana,fechada
+2026-09-18,OS-1230,Cliente 1230,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Paulo,cancelada
+2026-09-18,OS-1230,Cliente 1230,Onix 2019,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Paulo,cancelada
+2026-09-18,OS-1231,Cliente 1231,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Paulo,fechada
+2026-09-18,OS-1232,Cliente 1232,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-09-18,OS-1232,Cliente 1232,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,credito,Rafael,fechada
+2026-09-18,OS-1232,Cliente 1232,Civic 2016,Pneu 185/65 R15,peca,4,429.00,85.80,1630.20,credito,Rafael,fechada
+2026-09-18,OS-1233,Cliente 1233,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-09-18,OS-1233,Cliente 1233,Ka 2017,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,credito,Rafael,fechada
+2026-09-18,OS-1234,Cliente 1234,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Rafael,fechada
+2026-09-18,OS-1235,Cliente 1235,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,debito,Juliana,fechada
+2026-09-19,OS-1236,Cliente 1236,Civic 2016,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-09-19,OS-1236,Cliente 1236,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,debito,Juliana,fechada
+2026-09-19,OS-1237,Cliente 1237,Ka 2017,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Paulo,fechada
+2026-09-19,OS-1238,Cliente 1238,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,cancelada
+2026-09-19,OS-1239,Cliente 1239,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-09-19,OS-1239,Cliente 1239,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,debito,Juliana,fechada
+2026-09-19,OS-1240,Cliente 1240,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-19,OS-1240,Cliente 1240,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Paulo,fechada
+2026-09-19,OS-1241,Cliente 1241,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-09-19,OS-1241,Cliente 1241,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,dinheiro,Juliana,fechada
+2026-09-19,OS-1242,Cliente 1242,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-09-19,OS-1243,Cliente 1243,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-09-19,OS-1244,Cliente 1244,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-09-19,OS-1245,Cliente 1245,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Juliana,fechada
+2026-09-21,OS-1246,Cliente 1246,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,dinheiro,Paulo,fechada
+2026-09-21,OS-1246,Cliente 1246,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Paulo,fechada
+2026-09-21,OS-1246,Cliente 1246,Civic 2016,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,dinheiro,Paulo,fechada
+2026-09-21,OS-1247,Cliente 1247,Corolla 2020,Bateria 60 Ah,peca,1,499.00,14.97,484.03,credito,Rafael,fechada
+2026-09-21,OS-1248,Cliente 1248,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Rafael,fechada
+2026-09-21,OS-1248,Cliente 1248,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Rafael,fechada
+2026-09-21,OS-1249,Cliente 1249,HB20 2018,Pneu 185/65 R15,peca,2,429.00,42.90,815.10,dinheiro,Paulo,fechada
+2026-09-21,OS-1250,Cliente 1250,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Juliana,fechada
+2026-09-21,OS-1250,Cliente 1250,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-09-21,OS-1251,Cliente 1251,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-09-21,OS-1251,Cliente 1251,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Juliana,fechada
+2026-09-22,OS-1252,Cliente 1252,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-09-22,OS-1252,Cliente 1252,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-09-22,OS-1253,Cliente 1253,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-22,OS-1253,Cliente 1253,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,dinheiro,Paulo,fechada
+2026-09-22,OS-1254,Cliente 1254,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Paulo,fechada
+2026-09-23,OS-1255,Cliente 1255,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Juliana,fechada
+2026-09-23,OS-1255,Cliente 1255,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-09-23,OS-1256,Cliente 1256,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-23,OS-1256,Cliente 1256,Corolla 2020,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,pix,Paulo,fechada
+2026-09-23,OS-1257,Cliente 1257,Gol 2015,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,dinheiro,Rafael,fechada
+2026-09-23,OS-1258,Cliente 1258,Civic 2016,Alinhamento 3D,servico,1,89.90,2.70,87.20,dinheiro,Juliana,fechada
+2026-09-23,OS-1258,Cliente 1258,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-09-24,OS-1259,Cliente 1259,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Rafael,fechada
+2026-09-24,OS-1260,Cliente 1260,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-09-24,OS-1260,Cliente 1260,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,dinheiro,Juliana,fechada
+2026-09-24,OS-1261,Cliente 1261,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Rafael,fechada
+2026-09-24,OS-1261,Cliente 1261,HB20 2018,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,dinheiro,Rafael,fechada
+2026-09-24,OS-1261,Cliente 1261,Argo 2021,Diagnóstico com scanner,servico,1,120.00,3.60,116.40,dinheiro,Rafael,fechada
+2026-09-24,OS-1262,Cliente 1262,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Paulo,fechada
+2026-09-25,OS-1263,Cliente 1263,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-09-25,OS-1263,Cliente 1263,Corolla 2020,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,dinheiro,Rafael,fechada
+2026-09-25,OS-1263,Cliente 1263,Gol 2015,Pneu 185/65 R15,peca,2,429.00,42.90,815.10,dinheiro,Rafael,fechada
+2026-09-25,OS-1264,Cliente 1264,Gol 2015,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Juliana,fechada
+2026-09-25,OS-1264,Cliente 1264,Onix 2019,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Juliana,fechada
+2026-09-25,OS-1265,Cliente 1265,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Paulo,fechada
+2026-09-25,OS-1266,Cliente 1266,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-09-25,OS-1267,Cliente 1267,Ka 2017,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-09-25,OS-1267,Cliente 1267,Corolla 2020,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Juliana,fechada
+2026-09-25,OS-1268,Cliente 1268,Gol 2015,Bateria 60 Ah,peca,1,499.00,0.00,499.00,dinheiro,Paulo,fechada
+2026-09-26,OS-1269,Cliente 1269,Ka 2017,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Paulo,fechada
+2026-09-26,OS-1269,Cliente 1269,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,pix,Paulo,fechada
+2026-09-26,OS-1270,Cliente 1270,Onix 2019,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Paulo,fechada
+2026-09-26,OS-1271,Cliente 1271,Civic 2016,Pneu 185/65 R15,peca,2,429.00,25.74,832.26,credito,Paulo,fechada
+2026-09-26,OS-1272,Cliente 1272,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Rafael,fechada
+2026-09-26,OS-1272,Cliente 1272,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-09-26,OS-1272,Cliente 1272,Civic 2016,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,credito,Rafael,fechada
+2026-09-26,OS-1273,Cliente 1273,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-09-26,OS-1273,Cliente 1273,Onix 2019,Bateria 60 Ah,peca,1,499.00,24.95,474.05,pix,Juliana,fechada
+2026-09-26,OS-1274,Cliente 1274,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-09-26,OS-1275,Cliente 1275,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Rafael,fechada
+2026-09-26,OS-1275,Cliente 1275,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,7.50,242.40,pix,Rafael,fechada
+2026-09-26,OS-1275,Cliente 1275,Argo 2021,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,pix,Rafael,fechada
+2026-09-26,OS-1276,Cliente 1276,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-09-28,OS-1277,Cliente 1277,Civic 2016,Diagnóstico com scanner,servico,1,120.00,3.60,116.40,credito,Rafael,fechada
+2026-09-28,OS-1277,Cliente 1277,Onix 2019,Bateria 60 Ah,peca,1,499.00,14.97,484.03,credito,Rafael,fechada
+2026-09-28,OS-1278,Cliente 1278,Civic 2016,Pneu 175/70 R14,peca,2,389.00,23.34,754.66,dinheiro,Rafael,fechada
+2026-09-28,OS-1279,Cliente 1279,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-28,OS-1279,Cliente 1279,Onix 2019,Pneu 175/70 R14,peca,4,389.00,77.80,1478.20,pix,Paulo,fechada
+2026-09-28,OS-1280,Cliente 1280,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-09-28,OS-1280,Cliente 1280,HB20 2018,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Juliana,fechada
+2026-09-28,OS-1281,Cliente 1281,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Paulo,fechada
+2026-09-28,OS-1281,Cliente 1281,Ka 2017,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,dinheiro,Paulo,fechada
+2026-09-29,OS-1282,Cliente 1282,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-09-29,OS-1283,Cliente 1283,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-09-29,OS-1283,Cliente 1283,Ka 2017,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Juliana,fechada
+2026-09-30,OS-1284,Cliente 1284,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-09-30,OS-1285,Cliente 1285,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-09-30,OS-1285,Cliente 1285,HB20 2018,Bateria 60 Ah,peca,1,499.00,24.95,474.05,credito,Juliana,fechada
+2026-09-30,OS-1286,Cliente 1286,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Paulo,fechada
+2026-09-30,OS-1287,Cliente 1287,Gol 2015,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,debito,Paulo,fechada
+2026-10-01,OS-1288,Cliente 1288,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,cancelada
+2026-10-01,OS-1288,Cliente 1288,Civic 2016,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,pix,Juliana,cancelada
+2026-10-01,OS-1288,Cliente 1288,Onix 2019,Pneu 185/65 R15,peca,2,429.00,25.74,832.26,pix,Juliana,cancelada
+2026-10-01,OS-1289,Cliente 1289,Civic 2016,Alinhamento 3D,servico,1,89.90,8.99,80.91,credito,Paulo,fechada
+2026-10-01,OS-1289,Cliente 1289,Argo 2021,Bateria 60 Ah,peca,1,499.00,74.85,424.15,credito,Paulo,fechada
+2026-10-01,OS-1290,Cliente 1290,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,debito,Juliana,fechada
+2026-10-01,OS-1291,Cliente 1291,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-10-01,OS-1292,Cliente 1292,Ka 2017,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-10-01,OS-1292,Cliente 1292,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Rafael,fechada
+2026-10-01,OS-1293,Cliente 1293,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-02,OS-1294,Cliente 1294,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Rafael,fechada
+2026-10-02,OS-1295,Cliente 1295,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-10-02,OS-1295,Cliente 1295,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Rafael,fechada
+2026-10-02,OS-1295,Cliente 1295,Ka 2017,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,dinheiro,Rafael,fechada
+2026-10-02,OS-1296,Cliente 1296,Argo 2021,Alinhamento 3D,servico,1,89.90,8.99,80.91,pix,Paulo,fechada
+2026-10-02,OS-1297,Cliente 1297,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-10-02,OS-1298,Cliente 1298,Gol 2015,Alinhamento 3D,servico,1,89.90,13.49,76.41,credito,Paulo,cancelada
+2026-10-02,OS-1299,Cliente 1299,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-02,OS-1299,Cliente 1299,HB20 2018,Pneu 175/70 R14,peca,4,389.00,46.68,1509.32,credito,Rafael,fechada
+2026-10-02,OS-1300,Cliente 1300,HB20 2018,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,pix,Paulo,fechada
+2026-10-03,OS-1301,Cliente 1301,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-10-03,OS-1301,Cliente 1301,Corolla 2020,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Rafael,fechada
+2026-10-03,OS-1302,Cliente 1302,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-10-03,OS-1303,Cliente 1303,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,29.98,119.92,pix,Paulo,fechada
+2026-10-03,OS-1304,Cliente 1304,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-03,OS-1305,Cliente 1305,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,pix,Juliana,fechada
+2026-10-03,OS-1306,Cliente 1306,HB20 2018,Diagnóstico com scanner,servico,1,120.00,12.00,108.00,dinheiro,Paulo,fechada
+2026-10-03,OS-1306,Cliente 1306,Civic 2016,Pneu 175/70 R14,peca,2,389.00,155.60,622.40,dinheiro,Paulo,fechada
+2026-10-03,OS-1307,Cliente 1307,Corolla 2020,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-10-03,OS-1307,Cliente 1307,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,dinheiro,Juliana,fechada
+2026-10-03,OS-1308,Cliente 1308,Civic 2016,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,credito,Juliana,fechada
+2026-10-03,OS-1309,Cliente 1309,Argo 2021,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,debito,Juliana,fechada
+2026-10-03,OS-1309,Cliente 1309,Onix 2019,Bateria 60 Ah,peca,1,499.00,0.00,499.00,debito,Juliana,fechada
+2026-10-03,OS-1310,Cliente 1310,Argo 2021,Alinhamento 3D,servico,1,89.90,8.99,80.91,pix,Paulo,fechada
+2026-10-03,OS-1310,Cliente 1310,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,pix,Paulo,fechada
+2026-10-05,OS-1311,Cliente 1311,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-05,OS-1311,Cliente 1311,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-10-05,OS-1312,Cliente 1312,HB20 2018,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,pix,Paulo,fechada
+2026-10-05,OS-1312,Cliente 1312,Ka 2017,Bateria 60 Ah,peca,1,499.00,99.80,399.20,pix,Paulo,fechada
+2026-10-05,OS-1313,Cliente 1313,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-10-05,OS-1313,Cliente 1313,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-10-05,OS-1313,Cliente 1313,Ka 2017,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,dinheiro,Rafael,fechada
+2026-10-05,OS-1314,Cliente 1314,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-10-05,OS-1315,Cliente 1315,Onix 2019,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,dinheiro,Paulo,fechada
+2026-10-05,OS-1315,Cliente 1315,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,14.99,134.91,dinheiro,Paulo,fechada
+2026-10-05,OS-1316,Cliente 1316,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Rafael,fechada
+2026-10-05,OS-1316,Cliente 1316,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-10-05,OS-1316,Cliente 1316,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,dinheiro,Rafael,fechada
+2026-10-05,OS-1317,Cliente 1317,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Rafael,fechada
+2026-10-05,OS-1317,Cliente 1317,Civic 2016,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Rafael,fechada
+2026-10-06,OS-1318,Cliente 1318,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,credito,Rafael,fechada
+2026-10-06,OS-1319,Cliente 1319,Gol 2015,Alinhamento 3D,servico,1,89.90,8.99,80.91,credito,Paulo,fechada
+2026-10-06,OS-1319,Cliente 1319,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,credito,Paulo,fechada
+2026-10-06,OS-1319,Cliente 1319,Gol 2015,Pneu 175/70 R14,peca,2,389.00,155.60,622.40,credito,Paulo,fechada
+2026-10-06,OS-1320,Cliente 1320,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,7.50,142.40,credito,Juliana,fechada
+2026-10-06,OS-1320,Cliente 1320,Ka 2017,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,credito,Juliana,fechada
+2026-10-06,OS-1321,Cliente 1321,Gol 2015,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Rafael,fechada
+2026-10-07,OS-1322,Cliente 1322,HB20 2018,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Juliana,fechada
+2026-10-07,OS-1322,Cliente 1322,Ka 2017,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,credito,Juliana,fechada
+2026-10-07,OS-1323,Cliente 1323,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,12.50,237.40,credito,Juliana,fechada
+2026-10-07,OS-1324,Cliente 1324,Gol 2015,Alinhamento 3D,servico,1,89.90,13.49,76.41,dinheiro,Paulo,fechada
+2026-10-07,OS-1324,Cliente 1324,Argo 2021,Diagnóstico com scanner,servico,1,120.00,24.00,96.00,dinheiro,Paulo,fechada
+2026-10-07,OS-1325,Cliente 1325,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-10-08,OS-1326,Cliente 1326,Gol 2015,Higienização do ar-condicionado,servico,1,149.90,14.99,134.91,dinheiro,Paulo,fechada
+2026-10-08,OS-1326,Cliente 1326,Gol 2015,Diagnóstico com scanner,servico,1,120.00,24.00,96.00,dinheiro,Paulo,fechada
+2026-10-08,OS-1326,Cliente 1326,Civic 2016,Pneu 185/65 R15,peca,2,429.00,128.70,729.30,dinheiro,Paulo,fechada
+2026-10-08,OS-1327,Cliente 1327,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,credito,Paulo,fechada
+2026-10-08,OS-1327,Cliente 1327,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,14.99,134.91,credito,Paulo,fechada
+2026-10-08,OS-1328,Cliente 1328,Onix 2019,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Rafael,fechada
+2026-10-08,OS-1328,Cliente 1328,Ka 2017,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,dinheiro,Rafael,fechada
+2026-10-08,OS-1329,Cliente 1329,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-10-08,OS-1329,Cliente 1329,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-10-08,OS-1330,Cliente 1330,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,debito,Paulo,fechada
+2026-10-09,OS-1331,Cliente 1331,Gol 2015,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,debito,Paulo,fechada
+2026-10-09,OS-1331,Cliente 1331,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,debito,Paulo,fechada
+2026-10-09,OS-1332,Cliente 1332,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-10-09,OS-1332,Cliente 1332,Gol 2015,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,dinheiro,Juliana,fechada
+2026-10-09,OS-1333,Cliente 1333,Gol 2015,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,pix,Juliana,fechada
+2026-10-09,OS-1334,Cliente 1334,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-10-09,OS-1334,Cliente 1334,Gol 2015,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-10-09,OS-1335,Cliente 1335,Argo 2021,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,pix,Paulo,fechada
+2026-10-09,OS-1336,Cliente 1336,Civic 2016,Alinhamento 3D,servico,1,89.90,13.49,76.41,pix,Paulo,fechada
+2026-10-09,OS-1337,Cliente 1337,Argo 2021,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,debito,Paulo,fechada
+2026-10-09,OS-1337,Cliente 1337,Gol 2015,Diagnóstico com scanner,servico,1,120.00,24.00,96.00,debito,Paulo,fechada
+2026-10-09,OS-1338,Cliente 1338,Gol 2015,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,debito,Rafael,fechada
+2026-10-09,OS-1338,Cliente 1338,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,debito,Rafael,fechada
+2026-10-10,OS-1339,Cliente 1339,Civic 2016,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-10-10,OS-1339,Cliente 1339,Gol 2015,Alinhamento 3D,servico,1,89.90,2.70,87.20,pix,Juliana,fechada
+2026-10-10,OS-1340,Cliente 1340,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,dinheiro,Paulo,fechada
+2026-10-10,OS-1340,Cliente 1340,Argo 2021,Diagnóstico com scanner,servico,1,120.00,18.00,102.00,dinheiro,Paulo,fechada
+2026-10-10,OS-1341,Cliente 1341,Argo 2021,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,pix,Juliana,fechada
+2026-10-10,OS-1341,Cliente 1341,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,pix,Juliana,fechada
+2026-10-10,OS-1341,Cliente 1341,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-10,OS-1342,Cliente 1342,Gol 2015,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,debito,Paulo,fechada
+2026-10-10,OS-1342,Cliente 1342,HB20 2018,Alinhamento 3D,servico,1,89.90,13.49,76.41,debito,Paulo,fechada
+2026-10-10,OS-1342,Cliente 1342,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,49.98,199.92,debito,Paulo,fechada
+2026-10-10,OS-1343,Cliente 1343,Civic 2016,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,credito,Paulo,fechada
+2026-10-10,OS-1343,Cliente 1343,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,49.98,199.92,credito,Paulo,fechada
+2026-10-10,OS-1344,Cliente 1344,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
+2026-10-10,OS-1344,Cliente 1344,Civic 2016,Pneu 175/70 R14,peca,2,389.00,38.90,739.10,dinheiro,Rafael,fechada
+2026-10-10,OS-1345,Cliente 1345,HB20 2018,Troca de pastilhas dianteiras,servico,1,249.90,37.48,212.42,dinheiro,Paulo,fechada
+2026-10-10,OS-1346,Cliente 1346,Ka 2017,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,pix,Paulo,fechada
+2026-10-10,OS-1346,Cliente 1346,Corolla 2020,Alinhamento 3D,servico,1,89.90,8.99,80.91,pix,Paulo,fechada
+2026-10-10,OS-1347,Cliente 1347,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-10,OS-1348,Cliente 1348,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-10-10,OS-1348,Cliente 1348,Argo 2021,Pneu 175/70 R14,peca,4,389.00,46.68,1509.32,debito,Rafael,fechada
+2026-10-12,OS-1349,Cliente 1349,Onix 2019,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,pix,Paulo,fechada
+2026-10-12,OS-1350,Cliente 1350,Argo 2021,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Juliana,fechada
+2026-10-12,OS-1350,Cliente 1350,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-10-12,OS-1350,Cliente 1350,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,debito,Juliana,fechada
+2026-10-12,OS-1351,Cliente 1351,Onix 2019,Alinhamento 3D,servico,1,89.90,2.70,87.20,credito,Rafael,fechada
+2026-10-12,OS-1351,Cliente 1351,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,credito,Rafael,fechada
+2026-10-12,OS-1352,Cliente 1352,HB20 2018,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-10-12,OS-1352,Cliente 1352,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,debito,Juliana,fechada
+2026-10-12,OS-1353,Cliente 1353,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-12,OS-1353,Cliente 1353,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-12,OS-1354,Cliente 1354,Ka 2017,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-10-12,OS-1354,Cliente 1354,HB20 2018,Pneu 175/70 R14,peca,4,389.00,0.00,1556.00,dinheiro,Juliana,fechada
+2026-10-12,OS-1354,Cliente 1354,Gol 2015,Pneu 185/65 R15,peca,4,429.00,0.00,1716.00,dinheiro,Juliana,fechada
+2026-10-13,OS-1355,Cliente 1355,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,credito,Juliana,fechada
+2026-10-13,OS-1356,Cliente 1356,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Rafael,fechada
+2026-10-13,OS-1356,Cliente 1356,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-10-13,OS-1357,Cliente 1357,HB20 2018,Pneu 185/65 R15,peca,2,429.00,0.00,858.00,credito,Juliana,fechada
+2026-10-13,OS-1358,Cliente 1358,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,credito,Paulo,fechada
+2026-10-13,OS-1358,Cliente 1358,HB20 2018,Diagnóstico com scanner,servico,1,120.00,24.00,96.00,credito,Paulo,fechada
+2026-10-14,OS-1359,Cliente 1359,Civic 2016,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-10-14,OS-1360,Cliente 1360,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,29.98,119.92,credito,Paulo,fechada
+2026-10-14,OS-1361,Cliente 1361,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,debito,Paulo,fechada
+2026-10-14,OS-1361,Cliente 1361,Argo 2021,Diagnóstico com scanner,servico,1,120.00,12.00,108.00,debito,Paulo,fechada
+2026-10-14,OS-1362,Cliente 1362,Ka 2017,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,pix,Paulo,fechada
+2026-10-14,OS-1362,Cliente 1362,Onix 2019,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,pix,Paulo,fechada
+2026-10-14,OS-1363,Cliente 1363,Argo 2021,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Juliana,fechada
+2026-10-14,OS-1364,Cliente 1364,Gol 2015,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,pix,Paulo,fechada
+2026-10-14,OS-1364,Cliente 1364,Corolla 2020,Diagnóstico com scanner,servico,1,120.00,12.00,108.00,pix,Paulo,fechada
+2026-10-15,OS-1365,Cliente 1365,Civic 2016,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,dinheiro,Paulo,fechada
+2026-10-15,OS-1366,Cliente 1366,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-15,OS-1366,Cliente 1366,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-15,OS-1367,Cliente 1367,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Rafael,fechada
+2026-10-15,OS-1367,Cliente 1367,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-10-15,OS-1368,Cliente 1368,Civic 2016,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,pix,Paulo,fechada
+2026-10-15,OS-1368,Cliente 1368,Argo 2021,Bateria 60 Ah,peca,1,499.00,74.85,424.15,pix,Paulo,fechada
+2026-10-15,OS-1369,Cliente 1369,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-10-15,OS-1369,Cliente 1369,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Juliana,fechada
+2026-10-16,OS-1370,Cliente 1370,Civic 2016,Alinhamento 3D,servico,1,89.90,0.00,89.90,credito,Rafael,fechada
+2026-10-16,OS-1371,Cliente 1371,Argo 2021,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,debito,Rafael,fechada
+2026-10-16,OS-1372,Cliente 1372,Argo 2021,Pneu 185/65 R15,peca,2,429.00,25.74,832.26,dinheiro,Rafael,fechada
+2026-10-16,OS-1373,Cliente 1373,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,debito,Juliana,fechada
+2026-10-16,OS-1374,Cliente 1374,Civic 2016,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,credito,Paulo,fechada
+2026-10-16,OS-1375,Cliente 1375,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,pix,Paulo,fechada
+2026-10-16,OS-1375,Cliente 1375,Corolla 2020,Alinhamento 3D,servico,1,89.90,17.98,71.92,pix,Paulo,fechada
+2026-10-17,OS-1376,Cliente 1376,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-17,OS-1377,Cliente 1377,Civic 2016,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,dinheiro,Paulo,fechada
+2026-10-17,OS-1377,Cliente 1377,Argo 2021,Pneu 175/70 R14,peca,2,389.00,77.80,700.20,dinheiro,Paulo,fechada
+2026-10-17,OS-1378,Cliente 1378,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-17,OS-1378,Cliente 1378,Civic 2016,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,pix,Juliana,fechada
+2026-10-17,OS-1379,Cliente 1379,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,cancelada
+2026-10-17,OS-1380,Cliente 1380,Corolla 2020,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Rafael,fechada
+2026-10-17,OS-1381,Cliente 1381,Ka 2017,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Rafael,fechada
+2026-10-17,OS-1382,Cliente 1382,Civic 2016,Troca de óleo com filtro,servico,1,189.90,18.99,170.91,credito,Paulo,fechada
+2026-10-17,OS-1382,Cliente 1382,Gol 2015,Alinhamento 3D,servico,1,89.90,17.98,71.92,credito,Paulo,fechada
+2026-10-17,OS-1382,Cliente 1382,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,credito,Paulo,fechada
+2026-10-17,OS-1383,Cliente 1383,Onix 2019,Alinhamento 3D,servico,1,89.90,8.99,80.91,credito,Paulo,fechada
+2026-10-17,OS-1383,Cliente 1383,Civic 2016,Diagnóstico com scanner,servico,1,120.00,12.00,108.00,credito,Paulo,fechada
+2026-10-19,OS-1384,Cliente 1384,Civic 2016,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,pix,Paulo,fechada
+2026-10-19,OS-1384,Cliente 1384,HB20 2018,Pneu 185/65 R15,peca,2,429.00,171.60,686.40,pix,Paulo,fechada
+2026-10-19,OS-1385,Cliente 1385,HB20 2018,Alinhamento 3D,servico,1,89.90,17.98,71.92,debito,Paulo,fechada
+2026-10-19,OS-1386,Cliente 1386,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-19,OS-1387,Cliente 1387,Ka 2017,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,dinheiro,Paulo,fechada
+2026-10-19,OS-1388,Cliente 1388,Onix 2019,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Rafael,fechada
+2026-10-19,OS-1388,Cliente 1388,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Rafael,fechada
+2026-10-19,OS-1389,Cliente 1389,Gol 2015,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-19,OS-1389,Cliente 1389,HB20 2018,Pneu 185/65 R15,peca,4,429.00,51.48,1664.52,credito,Rafael,fechada
+2026-10-20,OS-1390,Cliente 1390,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-10-20,OS-1390,Cliente 1390,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,debito,Rafael,fechada
+2026-10-20,OS-1391,Cliente 1391,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,debito,Paulo,fechada
+2026-10-20,OS-1391,Cliente 1391,Civic 2016,Pneu 175/70 R14,peca,4,389.00,233.40,1322.60,debito,Paulo,fechada
+2026-10-21,OS-1392,Cliente 1392,Corolla 2020,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Juliana,fechada
+2026-10-21,OS-1393,Cliente 1393,Onix 2019,Bateria 60 Ah,peca,1,499.00,0.00,499.00,credito,Rafael,fechada
+2026-10-21,OS-1394,Cliente 1394,Gol 2015,Alinhamento 3D,servico,1,89.90,17.98,71.92,dinheiro,Paulo,fechada
+2026-10-21,OS-1395,Cliente 1395,Argo 2021,Pneu 175/70 R14,peca,4,389.00,46.68,1509.32,credito,Rafael,fechada
+2026-10-21,OS-1396,Cliente 1396,Onix 2019,Higienização do ar-condicionado,servico,1,149.90,4.50,145.40,credito,Juliana,fechada
+2026-10-21,OS-1397,Cliente 1397,Gol 2015,Diagnóstico com scanner,servico,1,120.00,6.00,114.00,pix,Rafael,fechada
+2026-10-22,OS-1398,Cliente 1398,Argo 2021,Alinhamento 3D,servico,1,89.90,8.99,80.91,debito,Paulo,fechada
+2026-10-22,OS-1399,Cliente 1399,Corolla 2020,Alinhamento 3D,servico,1,89.90,4.50,85.40,debito,Juliana,fechada
+2026-10-22,OS-1400,Cliente 1400,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Rafael,fechada
+2026-10-22,OS-1401,Cliente 1401,Civic 2016,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,credito,Paulo,fechada
+2026-10-22,OS-1401,Cliente 1401,Civic 2016,Pneu 175/70 R14,peca,2,389.00,155.60,622.40,credito,Paulo,fechada
+2026-10-22,OS-1402,Cliente 1402,Ka 2017,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Rafael,fechada
+2026-10-23,OS-1403,Cliente 1403,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-10-23,OS-1404,Cliente 1404,HB20 2018,Troca de óleo com filtro,servico,1,189.90,37.98,151.92,credito,Paulo,fechada
+2026-10-23,OS-1405,Cliente 1405,Gol 2015,Alinhamento 3D,servico,1,89.90,0.00,89.90,dinheiro,Juliana,fechada
+2026-10-23,OS-1406,Cliente 1406,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,debito,Rafael,fechada
+2026-10-23,OS-1407,Cliente 1407,Onix 2019,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-23,OS-1407,Cliente 1407,Gol 2015,Pneu 175/70 R14,peca,2,389.00,0.00,778.00,pix,Juliana,fechada
+2026-10-23,OS-1408,Cliente 1408,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,debito,Rafael,fechada
+2026-10-24,OS-1409,Cliente 1409,Corolla 2020,Alinhamento 3D,servico,1,89.90,2.70,87.20,pix,Juliana,fechada
+2026-10-24,OS-1410,Cliente 1410,Argo 2021,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,pix,Juliana,fechada
+2026-10-24,OS-1410,Cliente 1410,Onix 2019,Alinhamento 3D,servico,1,89.90,0.00,89.90,pix,Juliana,fechada
+2026-10-24,OS-1411,Cliente 1411,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Juliana,fechada
+2026-10-24,OS-1411,Cliente 1411,HB20 2018,Higienização do ar-condicionado,servico,1,149.90,7.50,142.40,dinheiro,Juliana,fechada
+2026-10-24,OS-1411,Cliente 1411,Gol 2015,Bateria 60 Ah,peca,1,499.00,24.95,474.05,dinheiro,Juliana,fechada
+2026-10-24,OS-1412,Cliente 1412,Onix 2019,Alinhamento 3D,servico,1,89.90,17.98,71.92,credito,Paulo,fechada
+2026-10-24,OS-1412,Cliente 1412,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,credito,Paulo,fechada
+2026-10-24,OS-1412,Cliente 1412,Gol 2015,Pneu 175/70 R14,peca,4,389.00,233.40,1322.60,credito,Paulo,fechada
+2026-10-24,OS-1413,Cliente 1413,Gol 2015,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,debito,Paulo,fechada
+2026-10-24,OS-1413,Cliente 1413,Corolla 2020,Pneu 185/65 R15,peca,2,429.00,171.60,686.40,debito,Paulo,fechada
+2026-10-24,OS-1414,Cliente 1414,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-24,OS-1414,Cliente 1414,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,pix,Juliana,fechada
+2026-10-24,OS-1414,Cliente 1414,Ka 2017,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,pix,Juliana,fechada
+2026-10-24,OS-1415,Cliente 1415,Gol 2015,Alinhamento 3D,servico,1,89.90,8.99,80.91,credito,Paulo,fechada
+2026-10-24,OS-1415,Cliente 1415,Gol 2015,Alinhamento + balanceamento,servico,1,149.90,29.98,119.92,credito,Paulo,fechada
+2026-10-24,OS-1416,Cliente 1416,Civic 2016,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,credito,Juliana,fechada
+2026-10-24,OS-1417,Cliente 1417,Ka 2017,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,debito,Paulo,fechada
+2026-10-24,OS-1418,Cliente 1418,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,22.48,127.42,credito,Paulo,fechada
+2026-10-26,OS-1419,Cliente 1419,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Juliana,fechada
+2026-10-26,OS-1419,Cliente 1419,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,debito,Juliana,fechada
+2026-10-26,OS-1420,Cliente 1420,HB20 2018,Alinhamento + balanceamento,servico,1,149.90,14.99,134.91,credito,Paulo,fechada
+2026-10-26,OS-1420,Cliente 1420,Civic 2016,Pneu 175/70 R14,peca,2,389.00,77.80,700.20,credito,Paulo,fechada
+2026-10-26,OS-1421,Cliente 1421,Gol 2015,Troca de óleo com filtro,servico,1,189.90,28.48,161.42,credito,Paulo,fechada
+2026-10-26,OS-1421,Cliente 1421,Civic 2016,Alinhamento + balanceamento,servico,1,149.90,29.98,119.92,credito,Paulo,fechada
+2026-10-26,OS-1422,Cliente 1422,Argo 2021,Alinhamento 3D,servico,1,89.90,4.50,85.40,pix,Juliana,fechada
+2026-10-26,OS-1422,Cliente 1422,Ka 2017,Alinhamento + balanceamento,servico,1,149.90,0.00,149.90,pix,Juliana,fechada
+2026-10-26,OS-1423,Cliente 1423,Argo 2021,Troca de pastilhas dianteiras,servico,1,249.90,49.98,199.92,pix,Paulo,fechada
+2026-10-26,OS-1424,Cliente 1424,Civic 2016,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,debito,Rafael,fechada
+2026-10-26,OS-1425,Cliente 1425,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,dinheiro,Juliana,fechada
+2026-10-26,OS-1425,Cliente 1425,Corolla 2020,Higienização do ar-condicionado,servico,1,149.90,0.00,149.90,dinheiro,Juliana,fechada
+2026-10-27,OS-1426,Cliente 1426,Onix 2019,Troca de pastilhas dianteiras,servico,1,249.90,0.00,249.90,debito,Juliana,fechada
+2026-10-27,OS-1427,Cliente 1427,Civic 2016,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,credito,Rafael,fechada
+2026-10-27,OS-1427,Cliente 1427,Onix 2019,Diagnóstico com scanner,servico,1,120.00,0.00,120.00,credito,Rafael,fechada
+2026-10-28,OS-1428,Cliente 1428,Civic 2016,Troca de óleo com filtro,servico,1,189.90,9.50,180.40,dinheiro,Juliana,fechada
+2026-10-28,OS-1429,Cliente 1429,Argo 2021,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,credito,Juliana,fechada
+2026-10-28,OS-1430,Cliente 1430,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,pix,Juliana,fechada
+2026-10-28,OS-1431,Cliente 1431,Corolla 2020,Troca de óleo com filtro,servico,1,189.90,5.70,184.20,dinheiro,Juliana,fechada
+2026-10-28,OS-1431,Cliente 1431,Argo 2021,Alinhamento + balanceamento,servico,1,149.90,4.50,145.40,dinheiro,Juliana,fechada
+2026-10-28,OS-1432,Cliente 1432,HB20 2018,Troca de óleo com filtro,servico,1,189.90,0.00,189.90,dinheiro,Rafael,fechada
