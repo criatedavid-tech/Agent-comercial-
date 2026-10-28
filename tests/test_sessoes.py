@@ -191,6 +191,9 @@ class FakeBrowser:
     async def view(self):
         return b"\xff\xd8jpeg"
 
+    async def current_url(self):
+        return "about:blank"
+
     async def remote(self, action):
         self.actions.append(action)
         return {"url": "https://app.oficina.com.br/login", "field": {"name": "Usuário", "length": 6, "secret": False}}
@@ -226,6 +229,7 @@ def test_remote_screen_streams_and_forwards_input(remote):
     client = TestClient(web.app, base_url="https://vm.exemplo.com")
     headers = {"host": "vm.exemplo.com", "origin": "https://vm.exemplo.com"}
     with client.websocket_connect(f"/ws/acesso-navegador/{token}", headers=headers) as ws:
+        assert ws.receive_json() == {"kind": "url", "text": "about:blank"}  # ao conectar: onde o navegador está
         assert ws.receive_bytes().startswith(b"\xff\xd8")
         ws.send_json({"type": "type", "text": "rafael"})
         replies = []

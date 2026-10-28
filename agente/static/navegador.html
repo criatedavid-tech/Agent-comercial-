@@ -83,8 +83,8 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const token = location.pathname.split("/").pop();
-const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/acesso-navegador/" + token);
-ws.binaryType = "blob";
+let ws = null;
+let alive = true;  // false só quando o link deixou de valer (aí não adianta reconectar)
 const VIEW = { width: 1280, height: 860 };  // tamanho da aba do agente (browser.py VIEWPORT)
 let lastUrl = null;
 let zoomedOnce = false;
@@ -100,9 +100,35 @@ function showField(f, after) {
   el.textContent = `✓ ${f.name} · ${count}`;
   el.className = "field ok";
 }
-function send(action) { if (ws.readyState === 1) ws.send(JSON.stringify(action)); }
+function send(action) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(action)); }
 
-ws.onmessage = (e) => {
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/acesso-navegador/" + token);
+  ws.binaryType = "blob";
+  ws.onmessage = onMessage;
+  ws.onopen = () => {
+    $("typed").disabled = false; $("typed").placeholder = "toque no campo na tela e digite";
+    if ($("field").className === "field bad") { $("field").textContent = "Conectado. Toque no campo na tela e digite."; $("field").className = "field"; }
+  };
+  ws.onclose = onClose;
+}
+
+// O celular derruba a conexão quando a pessoa troca de app (ex. para ver o código no WhatsApp):
+// enquanto o link valer, reconecta sozinho; só diz "expirado" quando o servidor confirma.
+async function onClose() {
+  if (!alive) return;
+  $("field").textContent = "Reconectando…"; $("field").className = "field bad";
+  let status = 0;
+  try { status = (await fetch(location.href, { cache: "no-store" })).status; } catch {}
+  if (status === 404) { alive = false; gone("⚠ Este link expirou. Mande NAVEGADOR no WhatsApp para um link novo."); return; }
+  if (status === 200) { if (document.visibilityState === "visible") connect(); return; }
+  setTimeout(onClose, 3000);  // sem internet ou túnel oscilando: tenta de novo
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && alive && (!ws || ws.readyState > 1)) connect();
+});
+
+function onMessage(e) {
   if (e.data instanceof Blob) {
     const old = $("img").src;
     $("img").src = URL.createObjectURL(e.data);
@@ -112,12 +138,18 @@ ws.onmessage = (e) => {
     return;
   }
   const m = JSON.parse(e.data);
-  if (m.kind === "url" && document.activeElement !== $("url")) $("url").value = lastUrl = m.text;
+  if (m.kind === "url" && document.activeElement !== $("url")) {
+    $("url").value = lastUrl = m.text === "about:blank" ? "" : m.text;
+    if (m.text === "about:blank") {  // navegador recém-aberto: ainda não há site nenhum
+      $("field").textContent = "Página em branco: escreva o site em \"endereço do site\" (ex. amazon.com.br) e toque em Abrir.";
+      $("field").className = "field bad";
+    }
+  }
   else if (m.kind === "field") showField(m.field, m.after);
   else if (m.kind === "error") say(m.text, true);
   else if (m.kind === "status") say(m.text);
-  else if (m.kind === "expired") gone("⚠ Este link expirou. Mande NAVEGADOR no WhatsApp para um link novo.");
-};
+  else if (m.kind === "expired") { alive = false; gone("⚠ Este link expirou. Mande NAVEGADOR no WhatsApp para um link novo."); }
+}
 function gone(text) {  // link caiu ou expirou: trava a digitação e avisa onde a pessoa está olhando
   $("typed").disabled = true; $("typed").value = ""; $("typed").placeholder = "link sem efeito";
   $("field").textContent = text; $("field").className = "field bad";
@@ -125,7 +157,6 @@ function gone(text) {  // link caiu ou expirou: trava a digitação e avisa onde
   $("screen").classList.remove("zoom");
   say(text, true);
 }
-ws.onclose = () => gone("⚠ Link expirado ou desconectado: o que você digitar não chega. Mande NAVEGADOR no WhatsApp para um link novo.");
 
 const touch = matchMedia("(pointer: coarse)").matches;  // celular: o teclado só abre num campo de verdade
 $("img").addEventListener("click", (e) => {
@@ -179,6 +210,7 @@ document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => {
 $("go").onclick = () => send({ type: "goto", url: $("url").value.trim() });
 $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });
 $("back").onclick = () => send({ type: "back" });
+connect();
 $("done").onclick = () => { say("Conferindo os acessos…"); send({ type: "done" }); };
 </script>
 </body>

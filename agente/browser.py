@@ -497,6 +497,10 @@ class Browser:
             finally:
                 await page.close()
 
+    async def current_url(self) -> str:
+        async with self._lock:
+            return (await self._get_page()).url
+
     async def view(self) -> bytes:
         """Imagem da aba do agente para a tela remota."""
         async with self._lock:
