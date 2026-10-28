@@ -61,6 +61,8 @@ agente-web                         # abre em http://127.0.0.1:8000
 
 Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. **Conversas** retoma uma conversa antiga com todo o contexto; cada pedido tem **desfazer edições**; **Painel** (http://127.0.0.1:8000/painel) mostra gastos por dia, conversas, agenda, base de conhecimento e bloqueios. Só escuta em `127.0.0.1` e recusa conexões e endereços de outros sites. Não exponha essa porta na VPS.
 
+**Simulador de cliente** (http://127.0.0.1:8000/simulador): você escreve como um cliente no WhatsApp e conversa com o **atendente** da empresa configurada em `empresa/` (sem ela, a empresa fictícia de `exemplos/empresa/`), vendo a ficha do lead no CRM atualizar a cada resposta. Detalhes: [docs/atendente.md](docs/atendente.md).
+
 Navegador próprio: na primeira vez, baixe o Chromium com `playwright install chromium`.
 
 Guia detalhado: [docs/instalacao.md](docs/instalacao.md).
@@ -114,6 +116,17 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
 
+**Atendente** (fala com os clientes da empresa; só ferramentas do negócio, detalhes em [docs/atendente.md](docs/atendente.md)):
+
+| Capacidade | Ferramenta | Exemplo de mensagem do cliente |
+|---|---|---|
+| Tirar dúvidas do catálogo | `consultar_catalogo` | "vocês têm orquídea? quanto custa?" |
+| Orçamento pelo preço de tabela | `calcular_orcamento` | "30 m² de grama e 2 sacos de terra, quanto fica?" (a conta é do código) |
+| FAQ e políticas | `consultar_informacoes` | "entregam em Valinhos?", "parcela no cartão?" |
+| Qualificar e registrar o lead | `registrar_lead`, `ver_cadastro` | nome, interesse, necessidade, prazo, orçamento e etapa no CRM |
+| Combinar retorno | `agendar_retorno` | "me chama segunda de manhã" |
+| Regras no código | `regras.screen`, hook e `tools=[]` | sem desconto, sem fechar venda, sem fingir ser humano, sem dados de outros clientes |
+
 ---
 
 ## Estrutura do projeto
@@ -126,6 +139,10 @@ agent/
 ├── .env.example           ← modelo do arquivo de configuração
 ├── agente/
 │   ├── config.py          ← lê o .env e cria as pastas
+│   ├── atendente.py       ← atendente: agente dos clientes, só com ferramentas do negócio
+│   ├── empresa.py         ← empresa/: catálogo, FAQ, políticas; preço calculado no código
+│   ├── crm.py             ← CRM em SQLite: contatos, interações, retornos
+│   ├── regras.py          ← filtro da resposta do atendente (desconto, preço, venda, "sou humano")
 │   ├── core.py            ← o loop do agente (coração do projeto)
 │   ├── memory.py          ← carrega a memória de longo prazo
 │   ├── knowledge.py       ← base de conhecimento por áreas (notas + busca)
@@ -140,7 +157,9 @@ agent/
 │   ├── subagents.py       ← pesquisador, organizador, verificador
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
-│   └── static/            ← index.html (chat) e painel.html (painel)
+│   └── static/            ← index.html (chat), painel.html (painel), simulador.html (cliente)
+├── exemplos/empresa/      ← empresa fictícia de exemplo (Casa Verde Jardinagem)
+├── empresa/               ← (você cria) configuração da sua empresa; fora do git
 ├── deploy/                ← VPS: provisionar.sh, atualizar.sh, serviços systemd, Caddyfile
 ├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)
 ├── memory/
@@ -171,6 +190,8 @@ Tudo fica no `.env`:
 | `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
+| `AGENT_EMPRESA_DIR` | `empresa/` ou o exemplo | pasta da empresa que o atendente atende |
+| `AGENT_ATENDENTE_MAX_TURNS` | `12` | máximo de passos do atendente por mensagem de cliente |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
@@ -183,6 +204,8 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 |---|---|
 | [Conceitos](docs/conceitos.md) | o que é um agente, loop, ferramentas, memória, MCP, proatividade |
 | [Comparativo das big techs](docs/comparativo.md) | Grok Bot, Dots, Claude Duet, Instinct, Muse: o que fazem e seus limites |
+| [Produto](docs/produto.md) | público, MVP, atendente × operador, fases |
+| [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |
 | [Arquitetura](docs/arquitetura.md) | como o código está organizado e o fluxo de um pedido |
 | [Instalação](docs/instalacao.md) | passo a passo local (Linux, macOS, Windows) e na VPS |
 | [Configuração](docs/configuracao.md) | todas as variáveis, memória, custos |

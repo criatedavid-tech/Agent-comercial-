@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
+EXAMPLE_COMPANY = ROOT / "exemplos" / "empresa"  # empresa fictícia usada quando empresa/ ainda não existe
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,9 @@ class Config:
     whatsapp_app_secret: str = ""
     whatsapp_allowed: tuple[str, ...] = ()  # números com DDI, só dígitos; o primeiro é o dono
     whatsapp_api_version: str = "v26.0"
+    company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
+    crm_db: Path = ROOT / "crm.db"
+    attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
 
     @property
     def has_credentials(self) -> bool:
@@ -76,7 +80,19 @@ def load() -> Config:
             re.sub(r"\D", "", n) for n in os.getenv("WHATSAPP_ALLOWED_NUMBERS", "").split(",") if re.sub(r"\D", "", n)
         ),
         whatsapp_api_version=os.getenv("WHATSAPP_API_VERSION", "v26.0").strip(),
+        company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
+        crm_db=ROOT / "crm.db",
+        attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def company_dir(value: str) -> Path:
+    """Pasta da empresa: AGENT_EMPRESA_DIR, senão empresa/ do projeto, senão a empresa de exemplo."""
+    if value:
+        path = Path(value)
+        return path if path.is_absolute() else ROOT / path
+    own = ROOT / "empresa"
+    return own if (own / "empresa.toml").exists() else EXAMPLE_COMPANY

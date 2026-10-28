@@ -4,7 +4,7 @@
 
 Fases detalhadas em [produto.md](produto.md#fases):
 
-- [ ] **Fase 1 — Atendente:** agente com ferramentas restritas, configuração `empresa/`, CRM básico, simulador de cliente
+- [x] **Fase 1 — Atendente:** agente com ferramentas restritas, configuração `empresa/`, CRM básico, simulador de cliente ([atendente.md](atendente.md))
 - [ ] **Fase 2 — Passagem para humano:** chamar vendedor, modo humano por contato, caixa de entrada no painel
 - [ ] **Fase 3 — Follow-up e funil:** retornos automáticos, etapas do funil, painel comercial
 - [ ] **Fase 4 — Onboarding e custo:** instalar uma empresa nova em minutos, custo por conversa

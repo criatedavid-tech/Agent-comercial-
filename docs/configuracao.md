@@ -57,6 +57,12 @@ Padrão: `07:00`. Hora do resumo diário: o agente lista o que está agendado pa
 ### `AGENT_BROWSER_HEADLESS`
 Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade no seu computador: é nela que você resolve CAPTCHA, login e códigos quando o agente pedir. Use `true` só onde não há tela (VPS); aí o agente avisa que você não consegue resolver verificações por enquanto.
 
+### `AGENT_EMPRESA_DIR`
+Pasta da empresa que o atendente atende. Vazio: `empresa/` na raiz do projeto ou, se não existir, a empresa fictícia de `exemplos/empresa/`. Caminho relativo é a partir da raiz do projeto. Formato dos arquivos: [atendente.md](atendente.md#configuração-da-empresa).
+
+### `AGENT_ATENDENTE_MAX_TURNS`
+Padrão: 12. Passos (chamadas de ferramenta) do atendente por mensagem de cliente. Cliente não espera: se ele precisar de mais que isso, algo está errado. O teto de gasto é o mesmo `AGENT_MAX_BUDGET_USD`.
+
 ### `WHATSAPP_*`
 `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` e `WHATSAPP_ALLOWED_NUMBERS` ligam o canal WhatsApp (todas obrigatórias); `WHATSAPP_API_VERSION` (padrão `v26.0`) é a versão da Graph API. Passo a passo em [whatsapp.md](whatsapp.md).
 

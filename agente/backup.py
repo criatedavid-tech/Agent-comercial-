@@ -1,4 +1,4 @@
-"""Backup dos dados do agente: memória, base de conhecimento, agenda e conversas.
+"""Backup dos dados do agente: memória, base de conhecimento, agenda, conversas, CRM e empresa.
 
 Os bancos SQLite são copiados com a API de backup do SQLite, que gera uma cópia consistente
 mesmo com o agente rodando. Gera um .tar.gz por execução e mantém só os N mais recentes.
@@ -16,7 +16,7 @@ import tarfile
 import tempfile
 
 from . import config
-from .config import ROOT, Config
+from .config import EXAMPLE_COMPANY, ROOT, Config
 
 PREFIX = "agente-backup-"
 
@@ -29,7 +29,10 @@ def _copy_sqlite(src: Path, dst: Path) -> None:
 
 def sources(cfg: Config, with_browser: bool = False) -> list[Path]:
     """O que entra no backup. O .env fica de fora (chaves): guarde-o à parte, num cofre de senhas."""
-    paths = [cfg.memory_dir, cfg.knowledge_dir, cfg.agenda_db, cfg.logs_dir / "conversas.db"]
+    paths = [cfg.memory_dir, cfg.knowledge_dir, cfg.agenda_db, cfg.logs_dir / "conversas.db",
+             cfg.crm_db, cfg.logs_dir / "atendimento.db"]
+    if cfg.company_dir != EXAMPLE_COMPANY:
+        paths.append(cfg.company_dir)  # catálogo e regras da empresa (a de exemplo já está no git)
     if with_browser:
         paths.append(cfg.browser_profile)  # logins dos sites: só se o destino for seguro
     return [p for p in paths if p.exists()]

@@ -1,0 +1,10 @@
+codigo,nome,categoria,preco,unidade,condicoes,descricao
+SAMB-01,Samambaia americana,plantas,39.90,vaso 21 cm,,Planta de meia-sombra; ideal para varandas.
+JIB-01,Jiboia,plantas,29.90,vaso 15 cm,,Resistente; vai bem dentro de casa.
+ORQ-01,Orquídea phalaenopsis,plantas,79.90,vaso 12 cm,,Flores duram de 2 a 3 meses.
+TERRA-20,Terra vegetal adubada,insumos,24.50,saco 20 kg,,Para canteiros e vasos.
+ADUBO-01,Adubo NPK 10-10-10,insumos,18.00,pacote 1 kg,,Adubo de uso geral.
+VASO-30,Vaso de cerâmica,vasos,64.00,30 cm,,Cerâmica esmaltada; cores verde ou terracota.
+GRAMA-M2,Grama esmeralda,gramas,16.90,m²,pedido mínimo de 20 m²,Grama em placas; entrega com agendamento.
+MANUT-01,Manutenção de jardim,servicos,180.00,visita,até 50 m²; acima disso sob avaliação,Poda; limpeza e adubação.
+PROJ-01,Projeto de paisagismo,servicos,850.00,projeto,visita técnica incluída em Campinas,Planta baixa; lista de plantas e orçamento de execução.

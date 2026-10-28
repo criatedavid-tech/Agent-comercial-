@@ -114,3 +114,19 @@ def test_vigia_without_whatsapp_only_records(cfg, tmp_path):
 def test_server_error_counts_as_down(wcfg, tmp_path):
     client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     assert vigia.check(wcfg, tmp_path / "v.json", client, url="http://127.0.0.1:8000/api/status") == "falhou"
+
+
+def test_backup_includes_crm_and_company(data, tmp_path):
+    from dataclasses import replace
+    from agente.crm import Crm
+    company = tmp_path / "empresa"
+    company.mkdir()
+    (company / "catalogo.csv").write_text("codigo,nome,preco\nA,Item,1\n", encoding="utf-8")
+    Crm(data.crm_db).ensure("5511999990000", "whatsapp")
+    archive = backup.create(replace(data, company_dir=company), tmp_path / "b", root=tmp_path)
+    with tarfile.open(archive) as tar:
+        names = set(tar.getnames())
+    assert "crm.db" in names and "empresa/catalogo.csv" in names
+    # a empresa de exemplo já está no git: não entra no backup
+    with tarfile.open(backup.create(data, tmp_path / "c", root=tmp_path)) as tar:
+        assert not any(n.startswith(("exemplos", "empresa")) for n in tar.getnames())

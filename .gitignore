@@ -9,3 +9,7 @@ conhecimento/
 agenda.db
 navegador/
 backups/
+
+# Dados de clientes: configuração da empresa e CRM ficam fora do git
+/empresa/
+crm.db

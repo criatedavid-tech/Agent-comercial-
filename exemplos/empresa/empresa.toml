@@ -1,0 +1,33 @@
+# Configuração da empresa (exemplo fictício para testes e para o simulador).
+# Para uma empresa de verdade: copie esta pasta para empresa/ (fora do git) e edite.
+
+nome = "Casa Verde Jardinagem"
+segmento = "jardinagem e paisagismo"
+cidade = "Campinas - SP"
+# Como o atendente fala: uma ou duas frases.
+tom = "simpático, direto e acolhedor; frases curtas, como numa conversa de WhatsApp; trata o cliente por você"
+assistente = "Flora"  # nome do assistente virtual (ele sempre diz que é virtual se perguntarem)
+
+[horario]
+# Horário em que a equipe atende (o assistente responde a qualquer hora).
+seg_sex = "08:00-18:00"
+sab = "08:00-12:00"
+dom = ""
+
+[[equipe]]
+nome = "Marina Souza"
+funcao = "vendas"
+whatsapp = "5519999990001"
+
+[[equipe]]
+nome = "Carlos Lima"
+funcao = "paisagismo"
+whatsapp = "5519999990002"
+
+[regras]
+informar_preco = true        # o atendente pode passar preço do catálogo
+agendar_retorno = true       # o atendente pode combinar um retorno da equipe
+# Perguntas que ele deve fazer para qualificar o cliente.
+qualificacao = ["o que precisa", "para quando", "faixa de orçamento", "bairro ou cidade"]
+# Quando o cliente quer algo que a base não cobre, quer negociar ou fechar: a equipe assume.
+chamar_humano = ["negociação ou desconto", "fechar pedido ou pagamento", "reclamação", "pedido para falar com uma pessoa", "dúvida que a base não responde"]

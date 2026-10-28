@@ -4,7 +4,7 @@ Instruções para quem for programar neste repositório (pessoas ou agentes de I
 
 ## O projeto
 
-**Agent comercial**: vendedor digital no WhatsApp para PMEs de qualquer segmento, em Python sobre o **Claude Agent SDK** (`claude-agent-sdk`). Nasceu do protótipo de agente pessoal ([criatedavid-tech/agent](https://github.com/criatedavid-tech/agent), congelado: não alterar; aqui ele é o remoto `prototipo`, com push desativado). **Leia `docs/produto.md` antes de mudar algo**: público, MVP, arquitetura atendente × operador, isolamento por empresa e fases. O código atual é o agente herdado, que vira o operador. Documentação em `docs/`; roadmap em `docs/roadmap.md`.
+**Agent comercial**: vendedor digital no WhatsApp para PMEs de qualquer segmento, em Python sobre o **Claude Agent SDK** (`claude-agent-sdk`). Nasceu do protótipo de agente pessoal ([criatedavid-tech/agent](https://github.com/criatedavid-tech/agent), congelado: não alterar; aqui ele é o remoto `prototipo`, com push desativado). **Leia `docs/produto.md` antes de mudar algo**: público, MVP, arquitetura atendente × operador, isolamento por empresa e fases. O agente herdado é o operador; o atendente (fase 1) está em `agente/atendente.py`. Documentação em `docs/`; roadmap em `docs/roadmap.md`.
 
 Regras do produto que valem para todo código novo:
 - O **atendente** (fala com clientes desconhecidos) só tem ferramentas do negócio; nunca terminal, arquivos, navegador ou dados de outros clientes.
@@ -39,8 +39,12 @@ Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent-comercial` (caminhos 
 - `agente/browser.py`: navegador próprio (Playwright, perfil persistente em `navegador/`, fora do git). `check_url()` bloqueia esquemas e rede local; `fill()` recusa senha e cartão; `click()` recusa botões que fecham compra (`is_purchase_button`, testado em `tests/test_compras.py` com a loja falsa de `tests/loja_falsa/`); detecta páginas de verificação. Um navegador por processo (`shared_browser`). Ferramentas `abrir_pagina`, `ler_pagina`, `listar_elementos`, `clicar`, `preencher`, `capturar_tela` em `core.py`.
 - `agente/whatsapp.py`: canal WhatsApp (Cloud API). `verify_signature()`, `parse_messages()`, `CloudApi` (envio), `WhatsAppChannel` (um `Agent` e uma fila por contato, PARAR/CONTINUAR/NOVA, ajuda humana pela próxima mensagem, `deliver()` respeitando a janela de 24 h). O webhook fica em `web.py` (`/whatsapp/webhook`, única rota aceita com Host público). Testes só com mensagens simuladas e API falsa.
 - `agente/backup.py` e `agente/vigia.py`: comandos `agente-backup` (cópia consistente dos SQLite + rotação) e `agente-vigia` (alerta no WhatsApp quando cai/volta). `deploy/`: `provisionar.sh`, `atualizar.sh`, units systemd (prisão do processo em `agente.service`) e `Caddyfile` (só o webhook público). Arquivos de `deploy/` precisam de LF (`.gitattributes`); `tests/test_deploy.py` confere a coerência com o código.
+- `agente/atendente.py`: `Attendant` (subclasse de `Agent`), o agente dos clientes. `tools=[]` + só o servidor MCP `negocio` (`business_tools()`: `consultar_catalogo`, `calcular_orcamento`, `consultar_informacoes`, `registrar_lead`, `agendar_retorno`, `ver_cadastro`), `disallowed_tools` e hook `tool_guard()` que recusa o resto. Ferramentas presas a um `ContactView` (nenhuma recebe telefone). `_convert()` passa cada texto por `regras.screen` e `regras.disclose`; `ask()` grava entrada e saída no CRM. Histórico em `logs/atendimento.db`. Detalhes em `docs/atendente.md`.
+- `agente/empresa.py`: `load_company()` lê `empresa/` (`AGENT_EMPRESA_DIR`; sem ela, `exemplos/empresa/`): `empresa.toml`, `catalogo.csv` (`Catalog`, `quote()` com `Decimal`), `faq.md` e `politicas.md` (`search_info()`). `CompanyError` diz arquivo e linha.
+- `agente/crm.py`: `Crm` (SQLite `crm.db`): `contacts`, `interactions`, `followups`; `delete()` para LGPD. `ContactView` é o CRM visto por um contato; o atendente só pode usar `ATTENDANT_STAGES` (sem `ganho`).
+- `agente/regras.py`: regras do atendente sobre o texto da resposta: tira desconto, percentual fora das políticas, valor fora do catálogo/orçamento, venda dada como fechada e "sou humano"; `asks_identity()` + `disclose()` garantem que ele diga que é assistente virtual. Testes em `tests/test_atendente.py` (inclui prompt injection com modelo falso).
 - `agente/cli.py`: interface de terminal com `rich`; consome os eventos de `Agent.ask()`.
-- `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; páginas em `agente/static/` (`index.html` chat, `painel.html` painel). Recusa Host não local (DNS rebinding).
+- `agente/web.py`: interface web local (FastAPI + WebSocket, só `127.0.0.1`, checa o `Origin`); um `Agent` por conexão; páginas em `agente/static/` (`index.html` chat, `painel.html` painel, `simulador.html` simulador de cliente em `/simulador` + `/ws/simulador`, contatos `sim-...`). `/api/crm` lista e `DELETE /api/crm/{telefone}` apaga contato. Recusa Host não local (DNS rebinding).
 
 ## Convenções
 
@@ -50,7 +54,8 @@ Neste Windows o venv fica em `C:\Users\Criate\.venvs\agent-comercial` (caminhos 
 - Cada nova capacidade entra como ferramenta (MCP ou SDK tool) registrada em `core.py`, com documentação em `docs/`.
 - Toda mudança de comportamento vem com teste em `tests/`; `pytest` precisa passar antes do commit.
 - Nova regra de segurança entra em `guard.py` com caso de teste em `tests/test_guard.py` (bloqueia e libera). Nova skill: pasta em `plugin/skills/` com `SKILL.md` (`name` e `description` dizem quando usar). Novo subagente: entrada em `AGENTS`.
-- Nunca commitar `.env`, `logs/` ou `workspace/` (já estão no `.gitignore`).
+- Nunca commitar `.env`, `logs/`, `workspace/`, `empresa/` ou `crm.db` (já estão no `.gitignore`).
+- Ferramenta nova do atendente: entra em `business_tools()` e em `TOOL_NAMES`, sem parâmetro de telefone, com teste de isolamento.
 - Ao adicionar variável de configuração: atualizar `config.py`, `.env.example`, `README.md` e `docs/configuracao.md`.
 
 ## Segurança

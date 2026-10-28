@@ -17,7 +17,10 @@ from fastapi.responses import FileResponse, PlainTextResponse
 import uvicorn
 
 from . import config
+from .atendente import Attendant
 from .core import Agent
+from .crm import Crm, clean_phone
+from .empresa import CompanyError
 from .history import History
 from .knowledge import KnowledgeBase
 from .human import HelpRequest, HumanBridge
@@ -31,6 +34,7 @@ cfg = config.load()
 agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
 history = History(cfg.logs_dir / "conversas.db")
 knowledge = KnowledgeBase(cfg.knowledge_dir)
+crm = Crm(cfg.crm_db)
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
 SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos que a página redesenha
 WEBHOOK = "/whatsapp/webhook"
@@ -177,6 +181,33 @@ async def index() -> FileResponse:
 @app.get("/painel")
 async def panel_page() -> FileResponse:
     return FileResponse(STATIC / "painel.html")
+
+
+@app.get("/simulador")
+async def simulator_page() -> FileResponse:
+    return FileResponse(STATIC / "simulador.html")
+
+
+def contact_payload(phone: str) -> dict:
+    """Ficha do contato no CRM, para o painel lateral do simulador."""
+    contact = crm.get(phone)
+    return {"kind": "lead", "contact": vars(contact) if contact else None,
+            "followups": [vars(f) for f in crm.followups(phone)]}
+
+
+@app.get("/api/crm")
+async def crm_contacts() -> list[dict]:
+    return [vars(c) for c in crm.contacts()]
+
+
+@app.delete("/api/crm/{phone}")
+async def crm_delete(phone: str, request: Request) -> dict:
+    """LGPD: apaga o contato e todo o histórico dele no CRM."""
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+    if not crm.delete(phone):
+        raise HTTPException(404, "contato não encontrado")
+    return {"deleted": clean_phone(phone)}
 
 
 @app.get("/api/painel")
@@ -328,6 +359,52 @@ async def chat(ws: WebSocket) -> None:
         hub.sockets.discard(ws)
         reading.cancel()
         agent.human.cancel_all()
+        await agent.stop()
+
+
+@app.websocket("/ws/simulador")
+async def simulator(ws: WebSocket) -> None:
+    """Simulador de cliente: a aba faz o papel de um cliente e conversa com o atendente (não com o operador)."""
+    origin, host = ws.headers.get("origin", ""), ws.headers.get("host", "")
+    if origin != f"http://{host}" or not is_local(host):
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+    # Contato simulado sempre tem o prefixo "sim-": nunca se confunde com um número de verdade.
+    raw = (ws.query_params.get("telefone") or "").strip()
+    phone = clean_phone(raw if raw.startswith("sim-") else f"sim-{raw}") if raw else ""
+    if phone == "sim-":
+        phone = ""
+    phone = phone or f"sim-{os.urandom(3).hex()}"
+    try:
+        agent = Attendant(cfg, phone, origin="simulador", crm=crm)
+    except CompanyError as e:
+        await ws.send_json({"kind": "error", "text": f"configuração da empresa: {e}"})
+        await ws.close()
+        return
+    try:
+        await agent.start()
+        await ws.send_json({"kind": "ready", "phone": phone, "company": agent.company.name,
+                            "assistant": agent.company.assistant})
+        await ws.send_json(contact_payload(phone))
+        while True:
+            msg = await ws.receive_json()
+            if msg.get("type") == "reset":
+                await agent.reset()
+                await ws.send_json({"kind": "ready", "phone": phone, "text": "conversa nova (o cadastro continua)"})
+                continue
+            text = str(msg.get("text", "")).strip()
+            if not text:
+                continue
+            try:
+                async for event in agent.ask(text):
+                    await ws.send_json({"kind": event.kind, "text": event.text})
+            except Exception as e:  # erro do SDK não derruba a conexão
+                await ws.send_json({"kind": "error", "text": f"{type(e).__name__}: {e}"})
+            await ws.send_json(contact_payload(phone))
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
         await agent.stop()
 
 
