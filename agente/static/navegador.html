@@ -16,6 +16,7 @@
     --border: #e4e3de; --accent: #2f6f4f; --error: #b3261e; --tool: #f1f0eb;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }  /* sem isso, a última imagem fica na tela depois de cair */
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
@@ -24,10 +25,14 @@
   .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   /* 16px: com menos, o iPhone dá zoom sozinho ao tocar num campo */
   input, button { font: inherit; font-size: 16px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
-  .typebar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--border); flex-wrap: nowrap; gap: 6px; }
+  .typebar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--border); }
   .typebar button { padding: 7px 9px; flex: none; }
   .typebar #typed { min-width: 0; }
   .typebar.focus #typed { border-color: var(--accent); }
+  .typebar .bar { flex-wrap: nowrap; }
+  .field { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 1.3em; }
+  .field.ok { color: var(--accent); }
+  .field.bad { color: var(--error); }
   button { cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   #url { flex: 1; min-width: 0; }
@@ -48,13 +53,14 @@
   <p>Faça o login como faria no seu navegador. Você digita a senha; o agente não vê nem guarda. Este link vale poucos minutos.</p>
 </header>
 <main>
-  <div class="bar typebar" id="typebar">
-    <input id="typed" type="text" placeholder="1) toque no campo na tela  2) digite aqui" autocomplete="off"
-           autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send">
-    <button id="hide" type="button" title="Esconder o que você digita (senha)">🙈</button>
-    <button id="send">Digitar</button>
-    <button data-key="Backspace" title="Apagar">⌫</button>
-    <button data-key="Enter">Enter</button>
+  <div class="typebar" id="typebar">
+    <div class="bar">
+      <input id="typed" type="text" placeholder="toque no campo na tela e digite" autocomplete="off"
+             autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <button id="hide" type="button" title="Esconder o que você digita (senha)">🙈</button>
+      <button data-key="Enter" title="Confirmar (Continuar, Entrar, Verificar)">Enter ↵</button>
+    </div>
+    <div id="field" class="field">1) toque no campo na tela · 2) digite aqui: cada letra vai direto para ele</div>
   </div>
   <div class="screen" id="screen" tabindex="0" aria-label="Tela do navegador do agente; toque para interagir">
     <div class="wait" id="wait">Conectando…</div>
@@ -70,8 +76,8 @@
     <input id="url" placeholder="endereço do site (opcional)" autocomplete="off" spellcheck="false" inputmode="url">
     <button id="go">Abrir</button>
   </div>
-  <p class="hint">Toque no campo (e-mail, senha) na tela: o teclado abre e o que você digitar vai para ele. Enter digita e confirma.
-    No computador, clique na tela e digite direto.</p>
+  <p class="hint">Toque no campo (e-mail, senha, código) na tela: o teclado abre e cada letra que você digitar vai direto para ele.
+    A seta azul do teclado confirma (Continuar, Entrar, Verificar). No computador, clique na tela e digite direto.</p>
   <div id="msg" role="status"></div>
 </main>
 <script>
@@ -85,12 +91,14 @@ let zoomedOnce = false;
 
 function say(text, error) { $("msg").textContent = text; $("msg").className = error ? "error" : ""; }
 function showField(f, after) {
+  const el = $("field");  // logo abaixo da caixa: fica visível acima do teclado do celular
   if (!f) {
-    if (after === "click" || after === "type") say("Nenhum campo selecionado: toque bem em cima do campo na tela.", true);
+    if (after === "click" || after === "type") { el.textContent = "Nenhum campo selecionado: toque bem em cima do campo na tela."; el.className = "field bad"; }
     return;
   }
-  const count = f.length ? ` · ${f.length} caractere${f.length > 1 ? "s" : ""}` : " · vazio";
-  say(`✓ Campo selecionado: ${f.name}${count}`);
+  const count = f.length ? `${f.length} caractere${f.length > 1 ? "s" : ""}` : "vazio";
+  el.textContent = `✓ ${f.name} · ${count}`;
+  el.className = "field ok";
 }
 function send(action) { if (ws.readyState === 1) ws.send(JSON.stringify(action)); }
 
@@ -108,14 +116,22 @@ ws.onmessage = (e) => {
   else if (m.kind === "field") showField(m.field, m.after);
   else if (m.kind === "error") say(m.text, true);
   else if (m.kind === "status") say(m.text);
-  else if (m.kind === "expired") say("Este link expirou. Peça um novo no painel ou espere o próximo aviso.", true);
+  else if (m.kind === "expired") gone("⚠ Este link expirou. Mande NAVEGADOR no WhatsApp para um link novo.");
 };
-ws.onclose = () => { $("wait").hidden = false; $("wait").textContent = "Desconectado. Para entrar de novo, use um link novo."; $("img").hidden = true; };
+function gone(text) {  // link caiu ou expirou: trava a digitação e avisa onde a pessoa está olhando
+  $("typed").disabled = true; $("typed").value = ""; $("typed").placeholder = "link sem efeito";
+  $("field").textContent = text; $("field").className = "field bad";
+  $("wait").hidden = false; $("wait").textContent = text; $("img").hidden = true;
+  $("screen").classList.remove("zoom");
+  say(text, true);
+}
+ws.onclose = () => gone("⚠ Link expirado ou desconectado: o que você digitar não chega. Mande NAVEGADOR no WhatsApp para um link novo.");
 
 const touch = matchMedia("(pointer: coarse)").matches;  // celular: o teclado só abre num campo de verdade
 $("img").addEventListener("click", (e) => {
   const box = $("img").getBoundingClientRect();
   send({ type: "click", x: (e.clientX - box.left) * VIEW.width / box.width, y: (e.clientY - box.top) * VIEW.height / box.height });
+  $("typed").value = ""; sent = "";  // campo novo: a caixa recomeça vazia
   if (touch) { $("typed").focus(); $("typebar").classList.add("focus"); }  // dentro do toque: o iPhone abre o teclado
   else $("screen").focus();
 });
@@ -140,14 +156,26 @@ $("screen").addEventListener("keydown", (e) => {
 });
 $("screen").addEventListener("paste", (e) => { send({ type: "type", text: e.clipboardData.getData("text") }); e.preventDefault(); });
 
-$("send").onclick = () => { if ($("typed").value) { send({ type: "type", text: $("typed").value }); $("typed").value = ""; } };
+// A caixa espelha o campo da página: cada letra digitada (ou apagada) vai na hora.
+let sent = "";
+$("typed").addEventListener("input", () => {
+  const now = $("typed").value;
+  let same = 0;
+  while (same < sent.length && same < now.length && sent[same] === now[same]) same++;
+  for (let i = 0; i < sent.length - same; i++) send({ type: "key", key: "Backspace" });
+  if (now.length > same) send({ type: "type", text: now.slice(same) });
+  sent = now;
+});
 $("typed").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
-  $("send").click();
-  send({ type: "key", key: "Enter" });  // Enter do teclado: digita e confirma (ex. "Continuar" no login)
+  send({ type: "key", key: "Enter" });  // seta azul do teclado: Continuar / Entrar / Verificar
+  $("typed").value = ""; sent = "";
 });
-document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => send({ type: "key", key: b.dataset.key }));
+document.querySelectorAll("[data-key]").forEach(b => b.onclick = () => {
+  send({ type: "key", key: b.dataset.key });
+  if (b.dataset.key === "Enter") { $("typed").value = ""; sent = ""; }
+});
 $("go").onclick = () => send({ type: "goto", url: $("url").value.trim() });
 $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("go").click(); });
 $("back").onclick = () => send({ type: "back" });

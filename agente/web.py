@@ -14,7 +14,7 @@ import logging
 import os
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from urllib.parse import urlparse
 import uvicorn
 
@@ -54,6 +54,12 @@ desk: Desk | None = None  # passagem do atendente para a equipe (ligada quando a
 remote_access = sessoes.RemoteAccess()  # links temporários da tela remota do navegador
 REMOTE = sessoes.REMOTE_PATH
 FRAME_S = 0.7  # intervalo entre imagens da tela remota
+EXPIRED_PAGE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Link expirado</title></head>
+<body style="margin:0;background:#161615;color:#ecebe6;font:17px/1.5 system-ui,sans-serif;padding:32px 20px">
+<h1 style="font-size:20px">⚠ Este link expirou</h1>
+<p>O link do navegador do agente vale 30 minutos e cai quando o agente reinicia.</p>
+<p>Mande <b>NAVEGADOR</b> no WhatsApp do agente para receber um link novo.</p></body></html>"""
 log = logging.getLogger(__name__)
 
 
@@ -425,7 +431,7 @@ def contact_payload(phone: str) -> dict:
 @app.get(REMOTE + "/{token}")
 async def remote_page(token: str) -> FileResponse:
     if not remote_access.valid(token):
-        raise HTTPException(404, "link expirado: peça um novo no painel ou espere o próximo aviso")
+        return HTMLResponse(EXPIRED_PAGE, status_code=404)
     return FileResponse(STATIC / "navegador.html",
                         headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
 
