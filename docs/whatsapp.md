@@ -21,7 +21,7 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 
 - **Só a resposta final** volta pelo WhatsApp (sem os passos intermediários). Se a tarefa demorar mais de 20 s, ele avisa "⏳ Estou trabalhando nisso".
 - Markdown vira formatação do WhatsApp (`**negrito**` → `*negrito*`, listas → `•`, tabelas viram lista). Respostas longas são divididas em partes.
-- **Áudio** (UAZAPI): vira texto antes de ir para o agente, que recebe "🎤 (áudio) ..." e responde em texto. Com `OPENAI_API_KEY`, quem transcreve é o Whisper, pela própria UAZAPI (cerca de US$ 0,006 por minuto). Sem ela, com `OPENROUTER_API_KEY` (ou o token do OpenRouter que o agente já usa), o áudio é baixado e transcrito por um modelo que ouve áudio, `AGENT_TRANSCRICAO_MODELO` (padrão `google/gemini-2.5-flash-lite`, cerca de US$ 0,001 por minuto). Sem transcrição, o agente pede para escrever.
+- **Áudio** (UAZAPI): vira texto antes de ir para o agente, que recebe "🎤 (áudio) ..." e responde em texto. Com `OPENAI_API_KEY`, quem transcreve é o Whisper, pela própria UAZAPI (cerca de US$ 0,006 por minuto). Sem ela, com `OPENROUTER_API_KEY` (ou o token do OpenRouter que o agente já usa), o áudio é baixado e transcrito por um modelo que ouve áudio, `AGENT_TRANSCRICAO_MODELO` (padrão `google/gemini-2.5-flash-lite`, cerca de US$ 0,001 por minuto). Se ele estiver limitado (acontece com o Gemini nas horas de pico), tenta as reservas: Gemini 3.1 Flash Lite, Qwen Omni Flash e Voxtral. Sem transcrição, o agente pede para escrever.
 - Cada contato tem sua conversa, que continua mesmo se o `agente-web` reiniciar.
 - Bloqueios de segurança aparecem no fim da resposta (🛡).
 
@@ -32,6 +32,7 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 | `PARAR` | interrompe o que estiver rodando, esvazia a fila e **pausa a agenda** |
 | `CONTINUAR` | volta ao normal |
 | `NOVA` | começa uma conversa do zero |
+| `NAVEGADOR` (ou `LOGIN`) | manda na hora o link da tela remota do navegador do agente, para você fazer login num site (vale 30 min) |
 | `FILA` | clientes que chamaram a equipe ou estão com alguém |
 | `ASSUMIR 12` | assume o cliente #12 (sem número, o único aguardando): daí em diante o que você manda vai para ele |
 | `DEVOLVER` | devolve o cliente ao assistente e você volta a falar com o agente |

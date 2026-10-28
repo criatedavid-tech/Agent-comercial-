@@ -315,3 +315,43 @@ def test_openrouter_refusal_becomes_an_error(ucfg):
     api = UazApi(dataclasses.replace(ucfg, openrouter_api_key="k"), httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     with pytest.raises(WhatsAppError, match="Insufficient credits"):
         asyncio.run(api.transcribe("x"))
+
+
+def test_transcription_falls_back_when_a_model_is_rate_limited():
+    from agente.whatsapp import transcribe_openrouter
+    tried = []
+
+    def handler(request):
+        model = json.loads(request.content)["model"]
+        tried.append(model)
+        if model == "google/gemini-2.5-flash-lite":
+            return httpx.Response(429, json={"error": {"message": "Provider returned error",
+                                                       "metadata": {"raw": "temporarily rate-limited upstream"}}})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "oi"}}]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    assert asyncio.run(transcribe_openrouter(client, "k", "google/gemini-2.5-flash-lite", "AAAA", "mp3")) == "oi"
+    assert tried == ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite"]
+
+
+def test_transcription_stops_on_bad_key():
+    from agente.whatsapp import transcribe_openrouter
+    tried = []
+
+    def handler(request):
+        tried.append(1)
+        return httpx.Response(401, json={"error": {"message": "User not found"}})
+
+    with pytest.raises(WhatsAppError, match="User not found"):
+        asyncio.run(transcribe_openrouter(httpx.AsyncClient(transport=httpx.MockTransport(handler)), "k", "a", "AAAA", "mp3"))
+    assert tried == [1]  # chave errada: não adianta tentar outro modelo
+
+
+def test_navegador_command_sends_the_remote_link_without_the_model(ucfg, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(ucfg, api, History(tmp_path / "c.db"), Recorder)
+    channel.remote_link = lambda: "https://vm.exemplo.com/acesso-navegador/abc"
+    run_channel(channel, Incoming("n1", OWNER, "text", "Navegador"))
+    assert "https://vm.exemplo.com/acesso-navegador/abc" in api.sent[0][1] and "o agente não vê" in api.sent[0][1]

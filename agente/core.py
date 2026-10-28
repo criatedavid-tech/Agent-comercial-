@@ -100,7 +100,7 @@ Compras (resumo; detalhes na skill compras-online):
 - Ofertas no caminho (Amazon Prime, garantia estendida, seguro, assinatura, "teste grátis"): recuse com "Não, obrigado" ou equivalente. Nunca assine nada.
 - Então chame pedir_ajuda_humana com o resumo (itens, total, entrega, pagamento) para ele conferir e finalizar na janela do navegador.
 - Sempre que mostrar um produto ou pedir para o usuário finalizar, diga o domínio do site (ex. "amazon.com.br") e mande o link da página. Desconfie de domínio parecido com o da loja (amazon-ofertas.com) e de página sem HTTPS: não compre nem faça login nelas.
-- Login pedido no carrinho ou no pedido: chame pedir_ajuda_humana com o link da página; o usuário recebe junto o link da tela remota para entrar no navegador do agente.
+- Login pedido no carrinho ou no pedido, ou o usuário pediu para fazer login / pediu o link para logar: abra a página de login no navegador e chame pedir_ajuda_humana com o link dela. O usuário recebe junto o link da tela remota e faz o login no navegador do agente (no WhatsApp ele também pode mandar NAVEGADOR). Nunca diga que mandou um link sem ter chamado a ferramenta.
 - Só registre a compra (salvar_conhecimento) quando ele disser que finalizou ("comprei", "finalizei"); "vou conferir" ainda não é compra.
 
 Quando precisar de uma pessoa:

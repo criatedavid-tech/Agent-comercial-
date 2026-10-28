@@ -6,6 +6,7 @@ os demais, se AGENT_ATENDENTE_WHATSAPP estiver ligado, com o atendente (clientes
 → cada contato tem sua conversa, uma mensagem por vez → a resposta final volta pelo WhatsApp.
 
 Comandos: PARAR (interrompe tudo e pausa a agenda), CONTINUAR, NOVA (conversa do zero).
+NAVEGADOR: link da tela remota do navegador do agente (para fazer login).
 Passagem para a equipe (agente/passagem.py): FILA, ASSUMIR 12 (daí em diante o que a pessoa manda vai
 para o cliente), DEVOLVER (o assistente volta a atender).
 Ponte humana: quando o agente pede ajuda, a pergunta vai pelo WhatsApp e a próxima
@@ -47,6 +48,7 @@ WORKING_NOTICE_SECONDS = 20  # tarefa demorada: avisa uma vez que está trabalha
 STOP_WORDS = {"parar", "pare", "stop"}
 CONTINUE_WORDS = {"continuar", "continue", "voltar"}
 NEW_WORDS = {"nova", "/nova", "nova conversa"}
+BROWSER_WORDS = {"navegador", "login", "logar", "link do navegador"}
 AUDIO_KINDS = {"audio", "ptt", "voice"}  # áudio comum e mensagem de voz
 
 
@@ -239,17 +241,32 @@ TRANSCRIBE_PROMPT = ("Transcreva este áudio de WhatsApp em português do Brasil
                      "Responda só com a transcrição, sem comentários. Se não houver fala, responda vazio.")
 
 
+# Reservas testadas com áudio real do WhatsApp (out/2026): o modelo principal às vezes fica limitado no
+# Google (erro 429 "rate-limited upstream"); aí tenta o próximo.
+TRANSCRIPTION_FALLBACKS = ("google/gemini-3.1-flash-lite", "qwen/qwen3.8-omni-flash", "mistralai/voxtral-small-24b-2507")
+
+
 async def transcribe_openrouter(client: httpx.AsyncClient, key: str, model: str, audio_b64: str, fmt: str) -> str:
-    """Áudio (base64) → texto por um modelo do OpenRouter que aceita áudio (ex. Gemini Flash Lite)."""
-    resp = await client.post(
-        "https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {key}"},
-        json={"model": model, "temperature": 0, "messages": [{"role": "user", "content": [
-            {"type": "text", "text": TRANSCRIBE_PROMPT},
-            {"type": "input_audio", "input_audio": {"data": audio_b64, "format": fmt}}]}]})
-    data = resp.json() if resp.content else {}
-    if resp.status_code >= 400 or "choices" not in data:
-        raise WhatsAppError(f"transcrição recusada: {(data.get('error') or {}).get('message') or resp.status_code}")
-    return str(data["choices"][0]["message"].get("content") or "").strip().strip('"')
+    """Áudio (base64) → texto por um modelo do OpenRouter que aceita áudio. `model` pode ser uma lista separada
+    por vírgula; depois dela vêm as reservas. Devolve a primeira transcrição que der certo."""
+    models = [m.strip() for m in model.split(",") if m.strip()]
+    models += [m for m in TRANSCRIPTION_FALLBACKS if m not in models]
+    errors = []
+    for name in models:
+        resp = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {key}"},
+            json={"model": name, "temperature": 0, "messages": [{"role": "user", "content": [
+                {"type": "text", "text": TRANSCRIBE_PROMPT},
+                {"type": "input_audio", "input_audio": {"data": audio_b64, "format": fmt}}]}]})
+        data = resp.json() if resp.content else {}
+        if resp.status_code < 400 and "choices" in data:
+            return str(data["choices"][0]["message"].get("content") or "").strip().strip('"')
+        error = data.get("error") or {}
+        detail = (error.get("metadata") or {}).get("raw") or error.get("message") or resp.status_code
+        errors.append(f"{name}: {detail}")
+        if resp.status_code in (401, 402):  # chave inválida ou sem crédito: outro modelo não resolve
+            break
+    raise WhatsAppError("transcrição recusada: " + " | ".join(str(e)[:200] for e in errors))
 
 
 def jid_number(jid: str) -> str:
@@ -404,6 +421,9 @@ class WhatsAppChannel:
         if word in CONTINUE_WORDS:
             self.set_paused(False)
             await self.send(msg.sender, "▶️ Voltei. Pode mandar.")
+            return
+        if word in BROWSER_WORDS:  # link da tela remota na hora, sem passar pelo modelo
+            await self.send(msg.sender, self.browser_link_text())
             return
         if contact.help_id:  # a mensagem é a resposta ao pedido de ajuda
             request_id, targets = contact.help_id, contact.help_targets
@@ -587,6 +607,13 @@ class WhatsAppChannel:
                 contact.agent.human.cancel_all("o usuário mandou PARAR")
 
     # --- saída: ajuda humana e avisos da agenda -------------------------------------------
+
+    def browser_link_text(self) -> str:
+        if not self.remote_link:
+            return "A tela remota do navegador não está ligada neste servidor."
+        return ("🌐 Navegador do agente (vale 30 min): " + self.remote_link() + "\n"
+                "Abra no celular, entre no site e faça o login: você digita a senha, o agente não vê. "
+                "O login fica salvo no navegador do agente. Depois é só me dizer \"pronto\".")
 
     async def ask_help(self, contact: Contact, req: HelpRequest, targets: list) -> None:
         contact.help_id, contact.help_targets = req.id, targets
