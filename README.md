@@ -120,9 +120,9 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 
 | Capacidade | Ferramenta | Exemplo de mensagem do cliente |
 |---|---|---|
-| Tirar dúvidas do catálogo | `consultar_catalogo` | "vocês têm orquídea? quanto custa?" |
-| Orçamento pelo preço de tabela | `calcular_orcamento` | "30 m² de grama e 2 sacos de terra, quanto fica?" (a conta é do código) |
-| FAQ e políticas | `consultar_informacoes` | "entregam em Valinhos?", "parcela no cartão?" |
+| Tirar dúvidas do catálogo | `consultar_catalogo` | "quanto custa a troca de óleo?" |
+| Orçamento pelo preço de tabela | `calcular_orcamento` | "4 pneus 175/70 R14 com alinhamento e balanceamento, quanto fica?" (a conta é do código) |
+| FAQ e políticas | `consultar_informacoes` | "tem leva e traz?", "parcela no cartão?" |
 | Qualificar e registrar o lead | `registrar_lead`, `ver_cadastro` | nome, interesse, necessidade, prazo, orçamento e etapa no CRM |
 | Combinar retorno | `agendar_retorno` | "me chama segunda de manhã" |
 | Regras no código | `regras.screen`, hook e `tools=[]` | sem desconto, sem fechar venda, sem fingir ser humano, sem dados de outros clientes |
@@ -158,7 +158,7 @@ agent/
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
 │   └── static/            ← index.html (chat), painel.html (painel), simulador.html (cliente)
-├── exemplos/empresa/      ← empresa fictícia de exemplo (Casa Verde Jardinagem)
+├── exemplos/empresa/      ← empresa fictícia de exemplo (Auto Center Rota Certa)
 ├── empresa/               ← (você cria) configuração da sua empresa; fora do git
 ├── deploy/                ← VPS: provisionar.sh, atualizar.sh, serviços systemd, Caddyfile
 ├── plugin/skills/         ← skills: financas, saude, estudos, compras-online (SKILL.md)

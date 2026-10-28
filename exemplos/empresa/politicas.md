@@ -1,13 +1,16 @@
 # Políticas
 
 ## Pagamento
-PIX, cartão de crédito em até 3 vezes sem juros (pedidos a partir de R$ 150,00), cartão de débito e dinheiro na loja. Serviços: 50% no agendamento e 50% na conclusão.
+PIX, cartão de débito e cartão de crédito em até 6 vezes sem juros em serviços a partir de R$ 300,00.
 
-## Trocas e garantia
-Planta que chegar danificada ou não se adaptar em até 7 dias: trocamos por outra igual ou de mesmo valor, com foto do problema. Vasos quebrados na entrega: troca imediata.
+## Garantia
+Serviços: 90 dias. Peças: conforme o fabricante. Pneus: 5 anos contra defeito de fabricação. Bateria: 18 meses.
 
-## Cancelamento de serviços
-Cancelamento grátis até 24 horas antes da visita. Depois disso, a visita é cobrada.
+## Orçamento e peças extras
+Os preços do catálogo valem para carros de passeio. Se durante o serviço aparecer outra peça a trocar, a oficina liga antes e só faz com a autorização do cliente.
+
+## Cancelamento e atraso
+Pode remarcar ou cancelar sem custo até 2 horas antes do horário combinado.
 
 ## Preços
-Os preços do catálogo valem para pagamento em qualquer forma aceita. Descontos e condições especiais só com a equipe de vendas.
+Os preços do catálogo valem para qualquer forma de pagamento aceita. Descontos e condições especiais só com a equipe.

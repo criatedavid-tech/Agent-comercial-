@@ -385,7 +385,7 @@ async def simulator(ws: WebSocket) -> None:
     try:
         await agent.start()
         await ws.send_json({"kind": "ready", "phone": phone, "company": agent.company.name,
-                            "assistant": agent.company.assistant})
+                            "assistant": agent.company.assistant, "subject": agent.company.subject_label})
         await ws.send_json(contact_payload(phone))
         while True:
             msg = await ws.receive_json()

@@ -22,35 +22,42 @@ def crm(tmp_path):
 # --- empresa ------------------------------------------------------------------
 
 def test_example_company_loads(company):
-    assert company.name == "Casa Verde Jardinagem"
-    assert company.assistant == "Flora"
+    assert company.name == "Auto Center Rota Certa"
+    assert company.assistant == "Léo"
+    assert company.of_name == "do Auto Center Rota Certa"
+    assert company.subject_label == "veículo (modelo e ano)"
     assert len(company.team) == 2 and company.team_numbers() == {"5519999990001", "5519999990002"}
     assert company.can_quote and company.can_schedule
-    assert "segunda a sexta 08:00-18:00" in company.hours_text() and "domingo fechado" in company.hours_text()
-    assert {"plantas", "servicos", "gramas"} <= set(company.catalog.categories())
+    assert "sábado 08:00-13:00" in company.hours_text() and "domingo fechado" in company.hours_text()
+    assert {"pneus", "freios", "rodas", "ar-condicionado"} <= set(company.catalog.categories())
     assert {s.source for s in company.info} == {"faq", "politicas"}
 
 
 def test_catalog_search_ignores_accents_and_plural(company):
-    assert company.catalog.search("orquideas")[0].code == "ORQ-01"
-    assert company.catalog.search("Orquídea")[0].code == "ORQ-01"
-    assert company.catalog.search("ORQ-01")[0].code == "ORQ-01"
+    assert company.catalog.search("oleo")[0].code == "OLEO-01"
+    assert company.catalog.search("Troca de Óleo")[0].code == "OLEO-01"
+    assert company.catalog.search("FREIO-D")[0].code == "FREIO-D"
+    assert company.catalog.search("pneus 175")[0].code == "PNEU-175"
     assert company.catalog.search("helicóptero") == []
-    assert {i.category for i in company.catalog.search(category="vasos")} == {"vasos"}
+    assert {i.category for i in company.catalog.search(category="pneus")} == {"pneus"}
 
 
 def test_quote_is_computed_with_catalog_prices(company):
-    quote = company.catalog.quote([("ORQ-01", 2), ("vaso de cerâmica", 1), ("GRAMA-M2", 30)])
-    assert quote.total == Decimal("79.90") * 2 + Decimal("64.00") + Decimal("16.90") * 30
-    assert quote.total == Decimal("730.80")
-    assert "Total: R$ 730,80" in quote.describe() and "sem desconto" in quote.describe()
-    assert Decimal("159.80") in quote.amounts()
+    quote = company.catalog.quote([("PNEU-175", 4), ("alinhamento + balanceamento", 1), ("troca de óleo", 1)])
+    assert quote.total == Decimal("389.00") * 4 + Decimal("149.90") + Decimal("189.90")
+    assert quote.total == Decimal("1895.80")
+    assert "Total: R$ 1.895,80" in quote.describe() and "sem desconto" in quote.describe()
+    assert Decimal("1556.00") in quote.amounts()
 
 
 def test_quote_rejects_unknown_items_and_bad_quantities(company):
-    quote = company.catalog.quote([("PIANO", 1), ("ORQ-01", 0), ("ORQ-01", 5000), ("JIB-01", 1)])
-    assert [l.item.code for l in quote.lines] == ["JIB-01"]
+    quote = company.catalog.quote([("PIANO", 1), ("OLEO-01", 0), ("OLEO-01", 5000), ("ALINH-01", 1)])
+    assert [l.item.code for l in quote.lines] == ["ALINH-01"]
     assert len(quote.problems) == 3
+
+
+def test_free_service_shows_no_price(company):
+    assert "Avaliação de freios e suspensão (serviço): sem custo" in company.catalog.get("FREIO-AV").describe()
 
 
 def test_brl_and_prices():
@@ -64,9 +71,9 @@ def test_brl_and_prices():
 
 
 def test_faq_search(company):
-    [best, *_] = company.search_info("vocês entregam em Valinhos?")
-    assert best.title == "Vocês entregam?"
-    assert company.search_info("trocas")[0].title == "Trocas e garantia"
+    [best, *_] = company.search_info("vocês têm leva e traz?")
+    assert best.title == "Vocês têm leva e traz?"
+    assert company.search_info("garantia")[0].title == "Garantia"
     assert company.search_info("xyzw") == []
 
 
@@ -105,9 +112,10 @@ def test_contact_is_created_once_with_opt_in(crm):
 
 def test_update_keeps_existing_fields(crm):
     crm.ensure("1")
-    crm.update("1", name="Ana", interest="orquídea")
+    crm.update("1", name="Ana", interest="alinhamento", subject="Onix 2019")
     contact = crm.update("1", stage="qualificando", interest="", deadline="sábado")
-    assert (contact.name, contact.interest, contact.deadline, contact.stage) == ("Ana", "orquídea", "sábado", "qualificando")
+    assert (contact.name, contact.interest, contact.deadline, contact.stage) == ("Ana", "alinhamento", "sábado", "qualificando")
+    assert contact.subject == "Onix 2019"
     with pytest.raises(ValueError, match="campo desconhecido"):
         crm.update("1", telefone="2")
     with pytest.raises(ValueError, match="não existe"):
@@ -173,3 +181,18 @@ def test_company_dir_resolution(tmp_path, monkeypatch):
     assert config.company_dir("") == tmp_path / "empresa"
     assert config.company_dir("outra") == tmp_path / "outra"
     assert config.company_dir(str(tmp_path / "abs")) == tmp_path / "abs"
+
+
+def test_old_crm_database_gets_new_columns(tmp_path):
+    import sqlite3
+    path = tmp_path / "crm.db"
+    with sqlite3.connect(path) as db:  # banco criado antes do campo "subject" existir
+        db.execute("CREATE TABLE contacts (phone TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT '',"
+                   " stage TEXT NOT NULL DEFAULT 'novo', interest TEXT NOT NULL DEFAULT '', need TEXT NOT NULL DEFAULT '',"
+                   " deadline TEXT NOT NULL DEFAULT '', budget TEXT NOT NULL DEFAULT '', location TEXT NOT NULL DEFAULT '',"
+                   " notes TEXT NOT NULL DEFAULT '', opt_in INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL, updated TEXT NOT NULL)")
+        db.execute("INSERT INTO contacts (phone, name, created, updated) VALUES ('1', 'Ana', 'x', 'x')")
+    db.close()
+    crm = Crm(path)
+    assert crm.get("1").subject == ""
+    assert crm.update("1", subject="Onix 2019").subject == "Onix 2019"

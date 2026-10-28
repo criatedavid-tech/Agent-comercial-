@@ -15,7 +15,8 @@ import sqlite3
 STAGES = ("novo", "qualificando", "qualificado", "orcamento", "ganho", "perdido")
 ATTENDANT_STAGES = ("novo", "qualificando", "qualificado", "orcamento", "perdido")
 # Campos do lead que o atendente preenche.
-LEAD_FIELDS = ("name", "interest", "need", "deadline", "budget", "location", "notes")
+# subject: o que o cliente traz para a empresa (no auto center, o carro; o rótulo vem de empresa.toml).
+LEAD_FIELDS = ("name", "subject", "interest", "need", "deadline", "budget", "location", "notes")
 MAX_FIELD = 500
 
 SCHEMA = """
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     name TEXT NOT NULL DEFAULT '',
     origin TEXT NOT NULL DEFAULT '',
     stage TEXT NOT NULL DEFAULT 'novo',
+    subject TEXT NOT NULL DEFAULT '',
     interest TEXT NOT NULL DEFAULT '',
     need TEXT NOT NULL DEFAULT '',
     deadline TEXT NOT NULL DEFAULT '',
@@ -67,6 +69,7 @@ class Contact:
     name: str
     origin: str
     stage: str
+    subject: str
     interest: str
     need: str
     deadline: str
@@ -77,8 +80,8 @@ class Contact:
     created: str
     updated: str
 
-    def describe(self) -> str:
-        labels = {"name": "nome", "interest": "interesse", "need": "necessidade", "deadline": "prazo",
+    def describe(self, subject_label: str = "objeto") -> str:
+        labels = {"name": "nome", "subject": subject_label, "interest": "interesse", "need": "necessidade", "deadline": "prazo",
                   "budget": "orçamento do cliente", "location": "local", "notes": "observações"}
         rows = [f"etapa: {self.stage}"]
         rows += [f"{labels[f]}: {getattr(self, f)}" for f in LEAD_FIELDS if getattr(self, f)]
@@ -108,6 +111,11 @@ class Crm:
         path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self._db()) as db, db:
             db.executescript(SCHEMA)
+            # Bancos criados antes de uma coluna existir ganham a coluna (o CREATE TABLE não mexe neles).
+            columns = {r["name"] for r in db.execute("PRAGMA table_info(contacts)")}
+            for name in LEAD_FIELDS:
+                if name not in columns:
+                    db.execute(f"ALTER TABLE contacts ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 
     def _db(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path)

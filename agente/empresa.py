@@ -56,7 +56,8 @@ class Item:
         unit = f" ({self.unit})" if self.unit else ""
         extra = f"; condições: {self.conditions}" if self.conditions else ""
         about = f" — {self.description}" if self.description else ""
-        return f"[{self.code}] {self.name}{unit}: {brl(self.price)}{extra}{about}"
+        price = brl(self.price) if self.price else "sem custo"
+        return f"[{self.code}] {self.name}{unit}: {price}{extra}{about}"
 
 
 @dataclass(frozen=True)
@@ -219,6 +220,16 @@ class Company:
         return bool(self.rules.get("informar_preco", True))
 
     @property
+    def of_name(self) -> str:
+        """"do Auto Center X" ou "da Loja Y" (regra "preposicao" do empresa.toml)."""
+        return f"{self.rules.get('preposicao', 'da')} {self.name}"
+
+    @property
+    def subject_label(self) -> str:
+        """O que o cliente traz (regra "objeto"), ex. "veículo (modelo e ano)"; vazio se a empresa não usa."""
+        return str(self.rules.get("objeto", "")).strip()
+
+    @property
     def can_schedule(self) -> bool:
         return bool(self.rules.get("agendar_retorno", True))
 
@@ -275,7 +286,7 @@ def load_company(root: Path) -> Company:
         city=str(data.get("cidade", "")),
         hours={k: str(v) for k, v in data.get("horario", {}).items()},
         team=team,
-        rules=dict(data.get("regras", {})),
+        rules={"preposicao": str(data.get("preposicao", "da")).strip() or "da", **data.get("regras", {})},
         catalog=Catalog.from_csv(root / "catalogo.csv"),
         info=tuple(info),
         root=root,

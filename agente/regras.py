@@ -29,6 +29,8 @@ CLOSING = re.compile(
     r"\b(pedido|compra|venda|reserva|pagamento|negocio|orcamento)\s+(esta\s+|foi\s+|ja\s+esta\s+)?"
     r"(confirmad|fechad|finalizad|realizad|garantid|aprovad|efetivad)"
     r"|\b(vou|ja|pode deixar que)\s+(reservar|separar|confirmar|fechar|registrar)\s+((o|a|os|as|seu|sua|seus|suas)\s+)*(pedido|compra|venda|reserva)"
+    r"|\b(agendamento|horario|servico|visita|carro)\s+(esta\s+|foi\s+|ja\s+esta\s+|fica\s+)?(confirmad|marcad|agendad|garantid)"
+    r"|\b(vou|ja|pode deixar que)\s+(agendar|marcar|reservar)\s+((o|a|seu|sua|um|uma)\s+)*(horario|servico|vaga|data|dia)"
     r"|\bchave pix\b|\bpode (fazer|mandar|enviar) o pix\b|\bfechado[!.]?$"
 )
 HUMAN_CLAIM = re.compile(

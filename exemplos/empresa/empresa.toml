@@ -1,33 +1,36 @@
 # Configuração da empresa (exemplo fictício para testes e para o simulador).
 # Para uma empresa de verdade: copie esta pasta para empresa/ (fora do git) e edite.
 
-nome = "Casa Verde Jardinagem"
-segmento = "jardinagem e paisagismo"
+nome = "Auto Center Rota Certa"
+preposicao = "do"  # "assistente virtual do Auto Center..." (padrão: "da")
+segmento = "auto center: mecânica rápida, pneus, freios, suspensão e ar-condicionado"
 cidade = "Campinas - SP"
 # Como o atendente fala: uma ou duas frases.
-tom = "simpático, direto e acolhedor; frases curtas, como numa conversa de WhatsApp; trata o cliente por você"
-assistente = "Flora"  # nome do assistente virtual (ele sempre diz que é virtual se perguntarem)
+tom = "prestativo, direto e confiável; frases curtas, como numa conversa de WhatsApp; trata o cliente por você e explica sem termos técnicos demais"
+assistente = "Léo"  # nome do assistente virtual (ele sempre diz que é virtual se perguntarem)
 
 [horario]
 # Horário em que a equipe atende (o assistente responde a qualquer hora).
 seg_sex = "08:00-18:00"
-sab = "08:00-12:00"
+sab = "08:00-13:00"
 dom = ""
 
 [[equipe]]
-nome = "Marina Souza"
-funcao = "vendas"
+nome = "Rafael Mendes"
+funcao = "consultor de serviços"
 whatsapp = "5519999990001"
 
 [[equipe]]
-nome = "Carlos Lima"
-funcao = "paisagismo"
+nome = "Juliana Costa"
+funcao = "atendimento e agendamento"
 whatsapp = "5519999990002"
 
 [regras]
 informar_preco = true        # o atendente pode passar preço do catálogo
 agendar_retorno = true       # o atendente pode combinar um retorno da equipe
+# O que o cliente traz para a empresa (no CRM vira o campo "objeto").
+objeto = "veículo (modelo e ano)"
 # Perguntas que ele deve fazer para qualificar o cliente.
-qualificacao = ["o que precisa", "para quando", "faixa de orçamento", "bairro ou cidade"]
-# Quando o cliente quer algo que a base não cobre, quer negociar ou fechar: a equipe assume.
-chamar_humano = ["negociação ou desconto", "fechar pedido ou pagamento", "reclamação", "pedido para falar com uma pessoa", "dúvida que a base não responde"]
+qualificacao = ["modelo e ano do carro", "serviço que precisa ou o problema que o carro apresenta", "quando quer trazer o carro", "bairro ou cidade"]
+# Quando a equipe assume.
+chamar_humano = ["confirmar dia e horário na oficina", "diagnóstico de defeito (barulho, luz no painel, vazamento)", "carro fora do catálogo (SUV, picape, importado)", "negociação ou desconto", "reclamação ou garantia", "pedido para falar com uma pessoa"]

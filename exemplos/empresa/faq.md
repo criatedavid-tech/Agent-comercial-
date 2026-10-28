@@ -1,16 +1,19 @@
 # Perguntas frequentes
 
-## Vocês entregam?
-Sim, em Campinas e região (Valinhos, Vinhedo, Paulínia, Hortolândia e Sumaré). Entrega grátis em Campinas para pedidos a partir de R$ 200,00; abaixo disso a taxa é de R$ 15,00. Nas outras cidades a taxa é combinada com a equipe.
+## Precisa agendar?
+Troca de óleo, alinhamento e balanceamento podem ser sem agendamento, por ordem de chegada. Freios, suspensão, revisão e ar-condicionado: melhor agendar para não esperar. O dia e o horário são confirmados pela equipe.
 
-## Qual o prazo de entrega?
-Plantas, vasos e insumos: até 2 dias úteis. Grama: até 5 dias úteis, com dia agendado.
+## Quanto tempo demora?
+Troca de óleo: cerca de 40 minutos. Alinhamento e balanceamento: cerca de 1 hora. Pastilhas de freio: cerca de 1 hora e meia. Amortecedores e revisão: deixe o carro pela manhã e retire à tarde.
 
-## Vocês fazem jardim completo?
-Sim. Começa pelo projeto de paisagismo, com visita técnica, e depois a equipe passa o orçamento da execução.
+## Quais carros vocês atendem?
+Carros de passeio nacionais e importados. Os preços do catálogo valem para carros de passeio; SUV, picape e importados recebem orçamento da equipe.
 
-## Tem loja física?
-Sim, na Rua das Palmeiras, 120, Taquaral, Campinas. Aberta de segunda a sexta das 8h às 18h e sábado das 8h às 12h.
+## Vocês têm leva e traz?
+Sim, em Campinas, para serviços a partir de R$ 300,00. Abaixo disso a taxa é de R$ 30,00. O horário é combinado com a equipe.
 
-## As plantas têm garantia?
-Sim: 7 dias para a planta chegar e se adaptar bem. Veja a política de trocas.
+## Onde fica e qual o horário?
+Avenida Brasil, 1500, Jardim Guanabara, Campinas. Segunda a sexta das 8h às 18h e sábado das 8h às 13h. Tem sala de espera com café e wi-fi.
+
+## O carro está fazendo barulho ou acendeu luz no painel. O que é?
+Só dá para saber vendo o carro. A avaliação de freios e suspensão é sem custo, e o diagnóstico com scanner mostra o motivo da luz no painel.

@@ -12,7 +12,7 @@ O atendente é o agente que conversa com os **clientes da empresa**: pessoas des
 
 ## Configuração da empresa
 
-Uma pasta por instalação. O código procura, nesta ordem: `AGENT_EMPRESA_DIR`, `empresa/` na raiz do projeto e, se nenhuma existir, a empresa fictícia de exemplo em `exemplos/empresa/` (Casa Verde Jardinagem). `empresa/` fica **fora do git**: são dados do cliente.
+Uma pasta por instalação. O código procura, nesta ordem: `AGENT_EMPRESA_DIR`, `empresa/` na raiz do projeto e, se nenhuma existir, a empresa fictícia de exemplo em `exemplos/empresa/` (Auto Center Rota Certa: óleo, pneus, freios, suspensão, elétrica e ar-condicionado). `empresa/` fica **fora do git**: são dados do cliente.
 
 Para começar uma empresa nova:
 
@@ -22,7 +22,7 @@ cp -r exemplos/empresa empresa
 
 | Arquivo | Conteúdo |
 |---|---|
-| `empresa.toml` | `nome`, `segmento`, `cidade`, `tom` (como fala), `assistente` (nome do assistente virtual), `[horario]` da equipe, `[[equipe]]` (nome, função, WhatsApp) e `[regras]` |
+| `empresa.toml` | `nome`, `preposicao` ("do" ou "da": "assistente virtual **do** Auto Center"), `segmento`, `cidade`, `tom` (como fala), `assistente` (nome do assistente virtual), `[horario]` da equipe, `[[equipe]]` (nome, função, WhatsApp) e `[regras]` |
 | `catalogo.csv` | `codigo,nome,categoria,preco,unidade,condicoes,descricao`. Preço aceita `39.90` ou `39,90` |
 | `faq.md` | dúvidas frequentes; cada `## Pergunta` vira um trecho pesquisável |
 | `politicas.md` | pagamento, trocas, cancelamento, preços; mesmo formato |
@@ -31,6 +31,7 @@ cp -r exemplos/empresa empresa
 
 | Regra | Padrão | Efeito |
 |---|---|---|
+| `objeto` | (vazio) | o que o cliente traz, ex. `"veículo (modelo e ano)"`; vira um campo do lead no CRM e uma pergunta de qualificação |
 | `informar_preco` | `true` | `false`: o catálogo aparece sem preço e `calcular_orcamento` recusa |
 | `agendar_retorno` | `true` | `false`: `agendar_retorno` recusa |
 | `qualificacao` | o que precisa, para quando | perguntas que ele faz para qualificar |
@@ -45,7 +46,7 @@ O WhatsApp da equipe **não** vai para o modelo (só nomes e funções). Erro na
 | `consultar_catalogo` | busca por nome, código, categoria ou descrição (sem acento e plural simples) |
 | `calcular_orcamento` | total pelo preço de tabela, com `Decimal`; ignora qualquer "desconto" que o modelo mandar; move o lead para `orcamento` |
 | `consultar_informacoes` | busca no FAQ e nas políticas, sempre com o horário da equipe |
-| `registrar_lead` | nome, interesse, necessidade, prazo, orçamento, local, observação, etapa |
+| `registrar_lead` | nome, objeto (no auto center, o carro: aceita `carro`, `veiculo`, `modelo`), interesse, necessidade, prazo, orçamento, local, observação, etapa |
 | `agendar_retorno` | quando e motivo; fica pendente no CRM para a equipe (execução automática: fase 3) |
 | `ver_cadastro` | o cadastro **desta** conversa e os retornos combinados |
 
@@ -53,9 +54,9 @@ Nenhuma ferramenta recebe telefone: todas ficam presas ao contato da conversa (`
 
 ## CRM (`crm.db`)
 
-SQLite em `crm.db` (fora do git, entra no `agente-backup`).
+SQLite em `crm.db` (fora do git, entra no `agente-backup`). Colunas novas entram sozinhas em bancos antigos.
 
-- **contacts**: telefone, nome, origem (`whatsapp`, `simulador`), etapa, interesse, necessidade, prazo, orçamento, local, observações, opt-in, criado e atualizado. Quem inicia a conversa conta como opt-in.
+- **contacts**: telefone, nome, objeto (o carro, no auto center), origem (`whatsapp`, `simulador`), etapa, interesse, necessidade, prazo, orçamento, local, observações, opt-in, criado e atualizado. Quem inicia a conversa conta como opt-in.
 - **interactions**: cada mensagem do cliente (`entrada`), cada resposta já filtrada (`saida`) e eventos (`evento`: orçamento, cadastro, retorno).
 - **followups**: retornos combinados, com estado `pendente`.
 
@@ -71,8 +72,8 @@ LGPD: `Crm.delete(telefone)` apaga contato, interações e retornos; na interfac
 | Sem dados de outros clientes | ferramentas presas ao contato; o modelo não tem como pedir outro telefone |
 | Preço só do catálogo | `Catalog.quote` calcula; `regras.screen` tira da resposta valor em R$ que não veio do catálogo, das políticas, de um orçamento calculado ou do orçamento que o próprio cliente disse |
 | Sem desconto | não existe ferramenta de desconto; `regras.screen` tira frases que oferecem desconto ou percentual fora das políticas ("não posso dar desconto" passa) |
-| Sem fechar venda | `registrar_lead` recusa `ganho`; `regras.screen` tira "pedido confirmado", "vou reservar seu pedido", "pode fazer o PIX" |
-| Não finge ser humano | `regras.screen` tira "sou uma pessoa"/"não sou robô"; se o cliente pergunta "você é um robô?" e a resposta não deixa claro, o código acrescenta "Sou a Flora, assistente virtual da ..." |
+| Sem fechar venda nem agendamento | `registrar_lead` recusa `ganho`; `regras.screen` tira "pedido confirmado", "seu horário está confirmado", "já vou agendar seu horário", "pode fazer o PIX". O atendente anota a preferência e a equipe confirma o dia |
+| Não finge ser humano | `regras.screen` tira "sou uma pessoa"/"não sou robô"; se o cliente pergunta "você é um robô?" e a resposta não deixa claro, o código acrescenta "Aqui é Léo, assistente virtual do ..." |
 
 Frase tirada vira um aviso para o cliente ("Essa parte quem confirma é a equipe..."), um evento `blocked` na interface e uma linha `blocked` no log. O filtro é por padrões de texto: segura o que um modelo enganado costuma escrever, mas não substitui a falta de ferramenta, que é a defesa principal.
 
