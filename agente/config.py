@@ -41,6 +41,9 @@ class Config:
     uazapi_url: str = ""  # endereço do servidor UAZAPI, ex. https://suaempresa.uazapi.com
     uazapi_token: str = ""  # token da instância (cabeçalho "token")
     uazapi_webhook_secret: str = ""  # segredo no caminho do webhook: /whatsapp/uazapi/<segredo>
+    # Segundo número só para o atendente (clientes). Com ele, o número acima é só do maestro (dono e equipe).
+    uazapi_attendant_token: str = ""
+    uazapi_attendant_webhook_secret: str = ""
     transcribe_audio: bool = True  # áudio vira texto (Whisper da OpenAI, pela UAZAPI)
     openai_api_key: str = ""  # chave da OpenAI: transcrição pelo Whisper (feita pela UAZAPI)
     openrouter_api_key: str = ""  # sem chave da OpenAI: transcrição por um modelo que ouve áudio, pelo OpenRouter
@@ -57,6 +60,11 @@ class Config:
     def has_credentials(self) -> bool:
         """Tem como falar com um modelo: chave da Anthropic ou token de provedor alternativo."""
         return bool(os.getenv("ANTHROPIC_API_KEY", "").strip() or (self.base_url and self.auth_token))
+
+    @property
+    def attendant_channel(self) -> bool:
+        """Número próprio para o atendente (UAZAPI): clientes num número, maestro no outro."""
+        return bool(self.whatsapp_provider == "uazapi" and self.uazapi_attendant_token and self.uazapi_attendant_webhook_secret)
 
     @property
     def whatsapp_enabled(self) -> bool:
@@ -99,6 +107,8 @@ def load() -> Config:
         uazapi_url=os.getenv("UAZAPI_URL", "").strip().rstrip("/"),
         uazapi_token=os.getenv("UAZAPI_TOKEN", "").strip(),
         uazapi_webhook_secret=os.getenv("UAZAPI_WEBHOOK_SEGREDO", "").strip(),
+        uazapi_attendant_token=os.getenv("UAZAPI_ATENDENTE_TOKEN", "").strip(),
+        uazapi_attendant_webhook_secret=os.getenv("UAZAPI_ATENDENTE_WEBHOOK_SEGREDO", "").strip(),
         transcribe_audio=os.getenv("AGENT_TRANSCREVER_AUDIO", "true").strip().lower() in ("1", "true", "sim"),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip() or openrouter_token(),

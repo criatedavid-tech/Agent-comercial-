@@ -44,7 +44,8 @@ SHOWN = ("user", "text", "tool", "blocked", "result", "checkpoint")  # eventos q
 WEBHOOK = "/whatsapp/webhook"
 UAZAPI_HOOK = "/whatsapp/uazapi"  # + "/<UAZAPI_WEBHOOK_SEGREDO>"
 
-whatsapp: WhatsAppChannel | None = None  # ligado quando as variáveis WHATSAPP_* estão preenchidas
+whatsapp: WhatsAppChannel | None = None  # ligado quando as variáveis WHATSAPP_* estão preenchidas (maestro)
+attendant_whatsapp: WhatsAppChannel | None = None  # número próprio do atendente (UAZAPI_ATENDENTE_*), se houver
 scheduler: Scheduler | None = None
 followups: FollowupEngine | None = None  # retomada automática (ligada quando a empresa carrega)
 background: set[asyncio.Task] = set()
@@ -127,6 +128,11 @@ def set_paused(paused: bool) -> None:
         followups.paused = paused  # PARAR da equipe também segura as retomadas
 
 
+def customer_channel() -> WhatsAppChannel | None:
+    """Por onde falar com cliente: o número do atendente, ou o único número quando não há dois."""
+    return attendant_whatsapp or whatsapp
+
+
 async def send_to_customer(phone: str, text: str, kind: str = "retomada") -> bool:
     """Saída da retomada e da equipe: contato simulado vai para as abas do simulador; o resto, pelo WhatsApp."""
     if phone.startswith("sim-"):
@@ -136,18 +142,20 @@ async def send_to_customer(phone: str, text: str, kind: str = "retomada") -> boo
             except Exception:
                 simulated[phone].discard(ws)
         return True  # fica no CRM e aparece quando a aba do contato abrir de novo
-    if whatsapp is None or whatsapp.customer_factory is None:
+    channel = customer_channel()
+    if channel is None or channel.customer_factory is None:
         return False
-    if not whatsapp.in_service_window(phone):
+    if not channel.in_service_window(phone):
         return False  # o canal reiniciou e perdeu a hora da última mensagem: não arrisca fora da janela
-    return await whatsapp.send(phone, text)
+    return await channel.send(phone, text)
 
 
 async def send_template_to_customer(phone: str, name: str, params: list[str]) -> bool:
-    if phone.startswith("sim-") or whatsapp is None:
+    channel = customer_channel()
+    if phone.startswith("sim-") or channel is None:
         return False
     try:
-        await whatsapp.api.send_template(phone, name, params)
+        await channel.api.send_template(phone, name, params)
         return True
     except Exception as e:
         log.warning("modelo %s não enviado para %s: %s", name, phone, e)
@@ -224,16 +232,23 @@ def build_watch() -> sessoes.SessionWatch | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global scheduler, whatsapp, followups, watch, desk
+    global scheduler, whatsapp, attendant_whatsapp, followups, watch, desk
     agenda.ensure_summary(cfg.daily_summary)
     scheduler = Scheduler(agenda, run_scheduled, deliver)
     desk = build_desk()
     if cfg.whatsapp_enabled:
-        customers = (lambda phone: Attendant(cfg, phone, origin="whatsapp", crm=crm, desk=desk)) if cfg.attendant_whatsapp else None
+        def customers(phone: str) -> Attendant:
+            return Attendant(cfg, phone, origin="whatsapp", crm=crm, desk=desk)
+
         api = UazApi(cfg) if cfg.whatsapp_provider == "uazapi" else CloudApi(cfg)
-        whatsapp = WhatsAppChannel(cfg, api, history, Agent, on_pause=set_paused, customer_factory=customers)
+        # Com número próprio do atendente, o do maestro só atende o dono e a equipe; senão, um número faz os dois.
+        shared = customers if cfg.attendant_whatsapp and not cfg.attendant_channel else None
+        whatsapp = WhatsAppChannel(cfg, api, history, Agent, on_pause=set_paused, customer_factory=shared)
         whatsapp.desk = desk
         whatsapp.remote_link = remote_link
+        if cfg.attendant_channel:
+            attendant_whatsapp = WhatsAppChannel(cfg, UazApi(cfg, token=cfg.uazapi_attendant_token), history, Agent,
+                                                 customer_factory=customers, customers_only=True)
     followups = build_followups()
     watch = build_watch()
     jobs = [asyncio.create_task(scheduler.run_forever())]
@@ -244,8 +259,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     for job in jobs:
         job.cancel()
-    if whatsapp:
-        await whatsapp.close()
+    for channel in (whatsapp, attendant_whatsapp):
+        if channel:
+            await channel.close()
     await close_browsers()
 
 
@@ -318,17 +334,22 @@ async def uazapi_receive(secret: str, request: Request) -> dict:
     """Mensagens pela UAZAPI. Ela não assina: vale o segredo no caminho e, quando vem, o token da instância."""
     if whatsapp is None or cfg.whatsapp_provider != "uazapi":
         raise HTTPException(404, "UAZAPI não configurada")
-    if not hmac.compare_digest(secret, cfg.uazapi_webhook_secret):
+    # O segredo diz de qual número é a mensagem: maestro (dono e equipe) ou atendente (clientes).
+    if hmac.compare_digest(secret, cfg.uazapi_webhook_secret):
+        channel, instance_token = whatsapp, cfg.uazapi_token
+    elif attendant_whatsapp and hmac.compare_digest(secret, cfg.uazapi_attendant_webhook_secret):
+        channel, instance_token = attendant_whatsapp, cfg.uazapi_attendant_token
+    else:
         raise HTTPException(403, "segredo inválido")
     try:
         payload = await request.json()
     except ValueError:
         raise HTTPException(400, "corpo inválido") from None
     token = payload.get("token") if isinstance(payload, dict) else None
-    if not isinstance(payload, dict) or (token and not hmac.compare_digest(str(token), cfg.uazapi_token)):
+    if not isinstance(payload, dict) or (token and not hmac.compare_digest(str(token), instance_token)):
         raise HTTPException(403, "token da instância inválido")
     for msg in parse_uazapi(payload):
-        spawn(background, whatsapp.handle(msg))
+        spawn(background, channel.handle(msg))
     return {"ok": True}
 
 

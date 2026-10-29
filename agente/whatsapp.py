@@ -197,9 +197,9 @@ class CloudApi:
 class UazApi:
     """Cliente da UAZAPI: enviar texto, marcar como lida e cadastrar o webhook. Mesma interface do CloudApi."""
 
-    def __init__(self, cfg: Config, client: httpx.AsyncClient | None = None):
+    def __init__(self, cfg: Config, client: httpx.AsyncClient | None = None, token: str = ""):
         self.base = cfg.uazapi_url.rstrip("/")
-        self.headers = {"token": cfg.uazapi_token}
+        self.headers = {"token": token or cfg.uazapi_token}  # token: outra instância (ex. o número do atendente)
         self.openai_key = cfg.openai_api_key
         self.openrouter_key = cfg.openrouter_api_key
         self.transcription_model = cfg.transcription_model
@@ -331,21 +331,27 @@ def uazapi_main() -> None:
     parser = argparse.ArgumentParser(description="Cadastra o webhook do agente na instância da UAZAPI")
     parser.add_argument("endereco", nargs="?", default="",
                         help="endereço público do agente (padrão: AGENT_PUBLIC_URL), ex. https://abc.trycloudflare.com")
+    parser.add_argument("--atendente", action="store_true",
+                        help="cadastra na instância do atendente (UAZAPI_ATENDENTE_TOKEN), não na do maestro")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     cfg = config.load()
     base = (args.endereco or cfg.public_url).rstrip("/")
-    missing = [n for n, v in (("UAZAPI_URL", cfg.uazapi_url), ("UAZAPI_TOKEN", cfg.uazapi_token),
-                              ("UAZAPI_WEBHOOK_SEGREDO", cfg.uazapi_webhook_secret)) if not v]
+    if args.atendente:
+        token, secret, names = cfg.uazapi_attendant_token, cfg.uazapi_attendant_webhook_secret, (
+            "UAZAPI_ATENDENTE_TOKEN", "UAZAPI_ATENDENTE_WEBHOOK_SEGREDO")
+    else:
+        token, secret, names = cfg.uazapi_token, cfg.uazapi_webhook_secret, ("UAZAPI_TOKEN", "UAZAPI_WEBHOOK_SEGREDO")
+    missing = [n for n, v in (("UAZAPI_URL", cfg.uazapi_url), (names[0], token), (names[1], secret)) if not v]
     if missing:
         sys.exit(f"preencha no .env: {', '.join(missing)}")
     if not base.startswith("https://"):
         sys.exit("informe o endereço público com https:// (ou preencha AGENT_PUBLIC_URL)")
 
     async def configure() -> dict:
-        api = UazApi(cfg)
+        api = UazApi(cfg, token=token)
         try:
-            return await api.set_webhook(f"{base}/whatsapp/uazapi/{cfg.uazapi_webhook_secret}")
+            return await api.set_webhook(f"{base}/whatsapp/uazapi/{secret}")
         finally:
             await api.client.aclose()
 
@@ -353,7 +359,7 @@ def uazapi_main() -> None:
         asyncio.run(configure())
     except (WhatsAppError, httpx.HTTPError) as e:
         sys.exit(f"a UAZAPI recusou: {e}")
-    print(f"webhook cadastrado: {base}/whatsapp/uazapi/<segredo>")
+    print(f"webhook cadastrado ({'atendente' if args.atendente else 'maestro'}): {base}/whatsapp/uazapi/<segredo>")
 
 
 NOT_UNDERSTOOD = {
@@ -384,6 +390,7 @@ class WhatsAppChannel:
         agent_factory: Callable[..., Any],
         on_pause: Callable[[bool], None] = lambda paused: None,
         customer_factory: Callable[[str], Any] | None = None,
+        customers_only: bool = False,
     ):
         self.cfg = cfg
         self.api = api
@@ -391,6 +398,8 @@ class WhatsAppChannel:
         self.agent_factory = agent_factory
         self.on_pause = on_pause  # avisa a agenda (PARAR/CONTINUAR)
         self.customer_factory = customer_factory  # telefone → atendente; None = só a equipe é atendida
+        # Número só do atendente: todo remetente é cliente (inclusive o dono, se escrever para ele).
+        self.customers_only = customers_only
         self.contacts: dict[str, Contact] = {}
         self.paused = False
         self._seen: deque[str] = deque(maxlen=500)  # a Meta pode reenviar a mesma mensagem
@@ -422,7 +431,7 @@ class WhatsAppChannel:
         if not msg.id or msg.id in self._seen:
             return
         self._seen.append(msg.id)
-        if not self.allowed(msg.sender):
+        if self.customers_only or not self.allowed(msg.sender):
             if self.customer_factory is None:
                 log.warning("mensagem ignorada de número não permitido: %s", msg.sender)
                 return

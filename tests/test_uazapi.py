@@ -417,3 +417,66 @@ def test_reply_asking_to_act_in_the_browser_brings_the_vm_link(ucfg, tmp_path):
     run_channel(channel, Incoming("f1", OWNER, "text", "coloca o branco no carrinho"))
     text = api.sent[0][1]
     assert "Finalizar pedido" in text and "Link do navegador do agente" in text and "acesso-navegador/abc" in text
+
+
+# --- dois números: maestro (dono) e atendente (clientes) ----------------------------------------------
+
+ATT_SECRET = "segredo-do-numero-do-atendente"
+
+
+@pytest.fixture
+def two(ucfg):
+    return dataclasses.replace(ucfg, uazapi_attendant_token="tok-atendente", uazapi_attendant_webhook_secret=ATT_SECRET)
+
+
+def test_attendant_channel_needs_token_and_secret(ucfg, two):
+    assert two.attendant_channel and not ucfg.attendant_channel
+    assert not dataclasses.replace(two, uazapi_attendant_webhook_secret="").attendant_channel
+    assert not dataclasses.replace(two, whatsapp_provider="meta").attendant_channel
+
+
+def test_each_secret_goes_to_its_own_number(monkeypatch, two):
+    maestro, attendant = FakeChannel(), FakeChannel()
+    monkeypatch.setattr(web, "cfg", two)
+    monkeypatch.setattr(web, "whatsapp", maestro)
+    monkeypatch.setattr(web, "attendant_whatsapp", attendant)
+    client = TestClient(web.app, base_url="https://agente.autocenter.com.br")
+    assert client.post(f"/whatsapp/uazapi/{SECRET}", json=event("relatório de hoje")).status_code == 200
+    assert client.post(f"/whatsapp/uazapi/{ATT_SECRET}", json={**event("tem pistache?"), "token": "tok-atendente"}).status_code == 200
+    assert [m.text for m in maestro.handled] == ["relatório de hoje"]
+    assert [m.text for m in attendant.handled] == ["tem pistache?"]
+    # token de uma instância com o segredo da outra: recusado
+    assert client.post(f"/whatsapp/uazapi/{ATT_SECRET}", json=event("x")).status_code == 403
+
+
+def test_attendant_number_treats_everyone_as_customer(two, tmp_path):
+    """No número do atendente até o dono é cliente (para testar o atendimento como um cliente faria)."""
+    received, api = [], AudioApi()
+    channel = customer_channel(two, tmp_path, api, received)
+    channel.customers_only = True
+    run_channel(channel, Incoming("c1", OWNER, "text", "tem milkshake de pistache?"))
+    assert received == ["tem milkshake de pistache?"] and api.sent == [(OWNER, "resposta")]
+
+
+def test_maestro_number_ignores_strangers(two, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(two, api, History(tmp_path / "c.db"), Recorder)  # sem atendente: só o dono
+    run_channel(channel, Incoming("s1", CUSTOMER, "text", "oi, quanto custa?"))
+    assert api.sent == []
+
+
+def test_customer_messages_leave_by_the_attendant_number(monkeypatch, two, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    maestro_api, attendant_api = AudioApi(), AudioApi()
+    maestro = WhatsAppChannel(two, maestro_api, History(tmp_path / "a.db"), Recorder)
+    attendant = WhatsAppChannel(two, attendant_api, History(tmp_path / "b.db"), Recorder,
+                                customer_factory=lambda n: None, customers_only=True)
+    attendant.contacts[CUSTOMER] = __import__("agente.whatsapp", fromlist=["Contact"]).Contact(
+        CUSTOMER, customer=True, last_inbound=__import__("datetime").datetime.now())
+    monkeypatch.setattr(web, "whatsapp", maestro)
+    monkeypatch.setattr(web, "attendant_whatsapp", attendant)
+    assert asyncio.run(web.send_to_customer(CUSTOMER, "Oi, aqui é a equipe!", kind="humano"))
+    assert attendant_api.sent == [(CUSTOMER, "Oi, aqui é a equipe!")] and maestro_api.sent == []

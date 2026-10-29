@@ -211,6 +211,7 @@ Tudo fica no `.env`:
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
 | `AGENT_PUBLIC_URL` | (vazio) | `https://` da VM: os avisos de login expirado levam link da tela remota com este domínio |
 | `AGENT_ACESSOS_MIN` | `60` | de quantos em quantos minutos conferir os logins de `empresa/sistemas.toml` |
+| `UAZAPI_ATENDENTE_*` | (vazio) | segundo número só para o atendente; o primeiro fica só para o maestro |
 | `WHATSAPP_PROVEDOR`, `UAZAPI_*` | (vazio) | WhatsApp pela UAZAPI (não oficial, para testes): endereço, token da instância e segredo do webhook; veja [docs/whatsapp.md](docs/whatsapp.md#uazapi-para-testes) |
 | `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `AGENT_TRANSCREVER_AUDIO` | (vazio), (vazio), `true` | áudio do WhatsApp vira texto (Whisper pela UAZAPI, ou um modelo do OpenRouter que ouve áudio) |
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |

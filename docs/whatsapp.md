@@ -99,6 +99,12 @@ A UAZAPI conecta um número de WhatsApp comum (pelo QR code, como o WhatsApp Web
    (na VM, só `agente-uazapi`, que usa `AGENT_PUBLIC_URL`). O comando configura só mensagens recebidas, sem grupos e sem as que o próprio agente mandou.
 5. Mande "oi" para o número de teste de outro celular: se ele não estiver em `WHATSAPP_ALLOWED_NUMBERS`, quem responde é o atendente.
 
+**Dois números (recomendado):** um número para o **maestro** (o gerente, que só responde o dono e a equipe de `WHATSAPP_ALLOWED_NUMBERS`; outros números são ignorados) e outro só para o **atendente** (clientes). Crie uma segunda instância na UAZAPI com o número do atendente e preencha `UAZAPI_ATENDENTE_TOKEN` e `UAZAPI_ATENDENTE_WEBHOOK_SEGREDO` (outro texto aleatório). Depois cadastre o webhook dela:
+```bash
+agente-uazapi --atendente https://seu-endereco
+```
+No número do atendente todo mundo é cliente, até o dono, que pode testar o atendimento como um cliente faria. Os avisos para a equipe (cliente chamando, login expirou, resumo) saem pelo número do maestro; as respostas aos clientes (da equipe, retomadas) saem pelo número do atendente. Sem a segunda instância, um número faz os dois papéis: a equipe fala com o maestro e o resto com o atendente.
+
 **Segurança:** a UAZAPI não assina as chamadas. O webhook só aceita o caminho `/whatsapp/uazapi/<UAZAPI_WEBHOOK_SEGREDO>` e, quando o corpo traz o token da instância, ele precisa bater com `UAZAPI_TOKEN`. Grupos, mensagens enviadas pelo próprio número e contatos sem número de telefone (só LID) são ignorados.
 
 ## Segurança
