@@ -13,6 +13,7 @@ Regras no código (não só no prompt):
 """
 
 import asyncio
+from collections import deque
 from datetime import datetime
 import ipaddress
 from pathlib import Path
@@ -295,6 +296,8 @@ class Browser:
         self._ctx: Any = None
         self._page: Any = None
         self._probing = False  # aba da checagem de acesso: não vira a aba do agente
+        # Diário dos passos que deram certo (abrir, clicar, preencher): vira rotina em agente/aprendizado.py.
+        self.journal: deque[dict] = deque(maxlen=80)
 
     async def _get_page(self) -> Any:
         if self._page and not self._page.is_closed():
@@ -365,6 +368,7 @@ class Browser:
             except Exception as e:
                 raise BrowserError(f"não consegui abrir {url}: {e}") from None
             self._remember(page.url)
+            self.journal.append({"action": "open", "url": page.url})
             return await self._snapshot(page)
 
     @property
@@ -450,6 +454,8 @@ class Browser:
                     raise BrowserError(f"não consegui clicar em [{ref}]: {str(first).splitlines()[0][:200]}") from None
             await page.wait_for_timeout(800)
             what = re.sub(r"\s+", " ", info["text"])[:80] or info["id"] or "elemento"
+            if info["text"].strip():
+                self.journal.append({"action": "click", "url": page.url, "label": re.sub(r"\s+", " ", info["text"]).strip()[:80]})
             if info["checked"] is not None:
                 now = await el.evaluate("e => e.checked") if not page.is_closed() else None
                 what += f" (caixinha: {'marcada' if info['checked'] else 'desmarcada'} → {'marcada' if now else 'desmarcada'})"
@@ -462,8 +468,9 @@ class Browser:
                 raise BrowserError("página sem HTTPS: não digito nada aqui. Confira se o endereço é o site certo.")
             el = await self._element(page, ref)
             info = await el.evaluate(
-                "e => ({type: (e.type || '').toLowerCase(), auto: (e.autocomplete || '').toLowerCase(),"
-                " name: ((e.name || '') + ' ' + (e.id || '')).toLowerCase()})"
+                "e => { " + ELEMENT_LABEL_JS + " return {type: (e.type || '').toLowerCase(),"
+                " auto: (e.autocomplete || '').toLowerCase(), label: agenteLabel(e),"
+                " name: ((e.name || '') + ' ' + (e.id || '')).toLowerCase()}; }"
             )
             if info["type"] == "password" or "password" in info["auto"]:
                 raise BrowserError("campo de senha: senhas quem digita é o usuário. Use pedir_ajuda_humana.")
@@ -473,6 +480,9 @@ class Browser:
             if secret:
                 raise BrowserError(f"o texto parece conter {secret}: isso quem digita é o usuário")
             await el.fill(text, timeout=10000)
+            if info["label"].strip():
+                self.journal.append({"action": "fill", "url": page.url, "label": info["label"].strip()[:80],
+                                     "value": text, "submit": bool(submit)})
             if submit and await el.evaluate(
                 "e => !!e.form && [...e.form.querySelectorAll('button, input[type=submit]')]"
                 ".some(b => /finalizar|confirmar|concluir|pagar|comprar|place.?order|buy/i.test(b.innerText || b.value || b.id))"
@@ -517,6 +527,19 @@ class Browser:
                 raise BrowserError(f"não consegui abrir {url}: {str(e).splitlines()[0][:200]}") from None
             finally:
                 await page.close()
+
+    async def find_ref(self, label: str) -> str:
+        """Número do elemento pelo nome visível (para repetir uma rotina sem o modelo listar e escolher)."""
+        async with self._lock:
+            page = await self._get_page()
+            found = await page.evaluate(LIST_ELEMENTS_JS, [MAX_ELEMENTS, label])
+        want = _plain(label)
+        items = found["items"]
+        exact = [i for i in items if _plain(i["label"]) == want]
+        pick = (exact or [i for i in items if want in _plain(i["label"])] or [None])[0]
+        if pick is None:
+            raise BrowserError(f"não achei '{label}' nesta página")
+        return str(pick["ref"])
 
     async def current_url(self, restore: bool = False) -> str:
         """Endereço atual. restore: se o navegador reabriu em branco (ex. servidor reiniciado), volta à última página."""

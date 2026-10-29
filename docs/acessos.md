@@ -44,6 +44,35 @@ Na VM o navegador roda invisível. Para entrar, a pessoa abre o **link do aviso*
 - **O que a tela aceita:** clique dentro da tela, texto (até 500 caracteres por vez), teclas comuns (Enter, Tab, setas, Apagar...), rolagem, voltar e abrir endereço (sem rede local). Nada do que a pessoa digita vai para log.
 - **No computador** (sem VM), o painel tem o botão **Abrir navegador do agente**, que gera um link local na hora.
 
+## Aprender cada sistema (iFood, ERP...)
+
+Na primeira vez, o agente navega no sistema como uma pessoa: procura o menu, abre a tela, preenche o filtro. Daí em diante ele **não precisa repetir a exploração** (`agente/aprendizado.py`):
+
+- **Diário do navegador:** cada passo que deu certo (abrir página, clicar em "Relatórios", preencher "Data inicial") fica registrado, com o nome visível do elemento.
+- **Rotina:** ao concluir uma tarefa nova, o agente grava os passos com `salvar_rotina` ("vendas do dia"). Os valores que mudam a cada vez viram **parâmetros**: com `parametros="data=28/10/2026"`, a data do exemplo vira `{data}`.
+- **Repetição pelo código:** `executar_rotina` ("vendas do dia", `data=29/10/2026`) repete os passos sem o modelo decidir cada um. É mais rápido, gasta menos e não erra o caminho.
+- **Mapa do sistema:** `anotar_sistema` guarda notas como "relatório de vendas: Financeiro > Relatórios > Vendas; filtro de data no topo".
+- **Ao abrir um site conhecido**, junto com a página vem "📘 Já conheço este sistema" com as notas e as rotinas, e o agente usa a rotina em vez de navegar.
+- **Se o site mudar**, a rotina para no passo que não existe mais e diz qual. O agente segue dali na mão e grava de novo. Cada rotina conta quantas vezes deu certo e falhou.
+
+| Ferramenta | O que faz |
+|---|---|
+| `ver_sistema` | o que já sabe de um site (notas e rotinas) |
+| `anotar_sistema` | guarda uma nota sobre o sistema |
+| `ver_passos` | os últimos passos do navegador, numerados |
+| `salvar_rotina` | grava passos como rotina (`passos="3-9"` para escolher; sem ele, os do site atual desde a abertura) |
+| `executar_rotina` | repete a rotina com os parâmetros desta vez |
+
+**Travas:** a repetição usa as mesmas funções do navegador, então valem as mesmas regras. Senha e cartão nunca são digitados (por isso o login nunca vira passo), botões de comprar, finalizar, pagar ou assinar são recusados, e nada é digitado em página sem HTTPS. Testado em `tests/test_aprendizado.py` com um "ERP" falso, incluindo uma rotina que tenta clicar em "Finalizar pedido" e é barrada.
+
+Fica em `conhecimento/sistemas.db` (fora do git, entra no backup), separado por empresa como todo o resto (uma VM por empresa).
+
+### iFood
+
+O Portal do Parceiro (`portal.ifood.com.br`) entra como qualquer sistema: cadastre em `empresa/sistemas.toml` (há um exemplo comentado), faça o login pela tela remota (com o código que o iFood manda) e peça ao agente as tarefas ("vendas de ontem no iFood", "avaliações da semana"). Na primeira vez ele navega; nas próximas usa a rotina.
+
+O iFood também tem uma **API oficial para parceiros** (pedidos, cardápio, financeiro), mais estável que o navegador. Ela exige cadastro como desenvolvedor no iFood e homologação. Vale a pena quando a loja depender do iFood no dia a dia; o caminho pelo navegador serve para começar já.
+
 ## Cuidados
 
 - Sessão salva é acesso aberto ao sistema da loja. A pasta `navegador/` fica só na VM da empresa; trate como uma senha. Se a VM for comprometida, troque as senhas desses sistemas.

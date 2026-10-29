@@ -23,7 +23,7 @@ from claude_agent_sdk import (
     tool,
 )
 
-from . import gestao, guard, memory, sessoes
+from . import aprendizado, gestao, guard, memory, sessoes
 from .browser import Browser, BrowserError, shared_browser
 from .config import EXAMPLE_DATA, ROOT, Config
 from .crm import Crm
@@ -36,7 +36,8 @@ from .subagents import AGENTS
 KB_TOOLS = ["mcp__conhecimento__salvar_conhecimento", "mcp__conhecimento__buscar_conhecimento"]
 HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
 BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
-    "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos")]
+    "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos",
+    "ver_sistema", "anotar_sistema", "ver_passos", "salvar_rotina", "executar_rotina")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
 GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
 # Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
@@ -91,6 +92,7 @@ Navegador próprio:
 - O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
 - Os sistemas da loja cadastrados são conferidos sozinhos de tempos em tempos; quando um login expira, a equipe recebe um aviso com link para entrar de novo. Se abrir_pagina disser que o acesso expirou, não tente logar: avise o usuário. Para saber quais acessos estão ativos, use ver_acessos.
 - Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
+- Sistemas da loja (iFood, ERP, banco, portais): você aprende cada um. Ao abrir um site já conhecido, vem junto o que você aprendeu ("📘"): se houver rotina para a tarefa, use executar_rotina em vez de navegar. Ao concluir uma tarefa nova num desses sistemas, grave com salvar_rotina (os valores que mudam, como datas, viram parâmetros) e anote onde ficam as coisas com anotar_sistema. Se a rotina parar num passo, siga daí navegando e grave de novo.
 - O navegador tem uma aba só: uma página por vez. Nunca chame ferramentas do navegador em paralelo (nem você e um subagente ao mesmo tempo): uma abre por cima da outra e as leituras vêm da página errada. Para comparar várias lojas, use WebFetch em paralelo e o navegador só para a loja que precisar.
 - Pesquisa de preço: limite-se às 3 ou 4 lojas principais e responda em poucos minutos; o usuário está esperando no WhatsApp.
 - Senhas, cartão e códigos: você não digita. Login, CAPTCHA ou "você é um robô?": chame pedir_ajuda_humana para o usuário resolver na janela do navegador e continue depois.
@@ -419,8 +421,15 @@ def task_from_args(args: dict) -> Task:
 
 
 def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpTool]:
-    """Ferramentas do navegador: abrir, ler, listar elementos, clicar, preencher, capturar a tela e ver os acessos."""
+    """Ferramentas do navegador: abrir, ler, listar elementos, clicar, preencher, capturar a tela, ver os acessos e
+    o aprendizado dos sistemas (mapa e rotinas por site, agente/aprendizado.py)."""
     gate, access_status = access_checks(cfg)
+    learned = aprendizado.SystemMemory(cfg.knowledge_dir / "sistemas.db") if cfg else None
+
+    def known(url: str) -> str:
+        """O que já se sabe do site: entra junto com a página para o agente usar a rotina em vez de navegar."""
+        text = learned.describe(aprendizado.host_of(url)) if learned else ""
+        return f"\n\n{text}" if text else ""
 
     async def run(action) -> dict[str, Any]:
         try:
@@ -436,7 +445,10 @@ def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpToo
         blocked = gate(str(args["url"]))
         if blocked:
             return _reply(f"não fiz: {blocked}", error=True)
-        return await run(browser.open(args["url"]))
+
+        async def opened() -> str:
+            return await browser.open(args["url"]) + known(str(args["url"]))
+        return await run(opened())
 
     @tool("ler_pagina", "Lê o texto da página aberta. Opcional: um seletor CSS para ler só um trecho.",
           _schema({}, {"trecho": (str, "seletor CSS, ex. 'main' ou '#preco'; sem ele, lê a página toda")}))
@@ -473,7 +485,107 @@ def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpToo
     async def access(args: dict) -> dict[str, Any]:
         return _reply(access_status())
 
-    return [open_page, read_page, list_elements, click, fill, screenshot, access]
+    def learning(fn):
+        """Erros de uso viram resposta com a explicação, para o agente corrigir e tentar de novo."""
+        async def wrapped(args: dict) -> dict[str, Any]:
+            if learned is None:
+                return _reply("aprendizado de sistemas indisponível aqui", error=True)
+            try:
+                return _reply(await fn(args))
+            except aprendizado.LearningError as e:
+                return _reply(f"não fiz: {e}", error=True)
+            except BrowserError as e:
+                return _reply(f"não fiz: {e}", error=True)
+        return wrapped
+
+    def site(args: dict) -> str:
+        url = str(args.get("site") or args.get("endereco") or args.get("url") or "")
+        if not url:
+            url = next((e["url"] for e in reversed(browser.journal) if e.get("url")), "")
+        host = aprendizado.host_of(url)
+        if not host:
+            raise aprendizado.LearningError("informe o site, ex. 'portal.ifood.com.br'")
+        return host
+
+    @tool("ver_sistema", "O que você já aprendeu de um sistema (anotações e rotinas gravadas). Sem site: o atual.",
+          _schema({}, {"site": (str, "domínio ou endereço, ex. 'portal.ifood.com.br'")}))
+    async def show_system(args: dict) -> dict[str, Any]:
+        async def go(a: dict) -> str:
+            host = site(a)
+            return learned.describe(host) or f"ainda não aprendi nada de {host}"
+        return await learning(go)(args)
+
+    @tool("anotar_sistema", "Anota como um sistema funciona, para lembrar da próxima vez (onde fica cada coisa, "
+          "filtros, nomes de menus). Uma anotação curta por vez.",
+          _schema({"nota": (str, "ex. 'relatório de vendas: Financeiro > Relatórios > Vendas; filtro de data no topo'")},
+                  {"site": (str, "domínio; sem ele, o da página atual")}))
+    async def note_system(args: dict) -> dict[str, Any]:
+        async def go(a: dict) -> str:
+            host = site(a)
+            learned.note(host, str(a.get("nota") or a.get("texto") or ""))
+            return f"anotado em {host}"
+        return await learning(go)(args)
+
+    @tool("ver_passos", "Mostra, numerados, os últimos passos feitos no navegador (para escolher quais viram rotina).",
+          _schema({}))
+    async def show_steps(args: dict) -> dict[str, Any]:
+        async def go(a: dict) -> str:
+            steps = aprendizado.numbered(browser.journal)
+            if not steps:
+                return "nenhum passo registrado ainda"
+            return "\n".join(f"{n}. {aprendizado.describe_step(s)}" for n, s in steps)
+        return await learning(go)(args)
+
+    @tool("salvar_rotina",
+          "Grava como rotina os passos que deram certo (do diário do navegador), para repetir depois com executar_rotina. "
+          "Use logo depois de concluir uma tarefa nova num sistema. Valores que mudam a cada vez viram parâmetros.",
+          _schema({"nome": (str, "nome curto, ex. 'vendas do dia'"), "descricao": (str, "o que a rotina faz e devolve")},
+                  {"parametros": (str, "valores do exemplo que mudam, ex. 'data=28/10/2026; loja=Centro'"),
+                   "passos": (str, "quais passos do ver_passos, ex. '3-9'; sem ele, os do site atual desde a abertura")}))
+    async def save_routine(args: dict) -> dict[str, Any]:
+        async def go(a: dict) -> str:
+            journal = list(browser.journal)
+            if not journal:
+                raise aprendizado.LearningError("nada no diário: faça a tarefa no navegador primeiro")
+            if a.get("passos"):
+                start, end = aprendizado.parse_range(str(a["passos"]), len(journal))
+                chosen = journal[start - 1:end]
+            else:  # os passos do último site, a partir da última vez que ele foi aberto
+                host = aprendizado.host_of(journal[-1]["url"])
+                tail = []
+                for entry in reversed(journal):
+                    if aprendizado.host_of(entry["url"]) != host:
+                        break
+                    tail.insert(0, entry)
+                opens = [i for i, e in enumerate(tail) if e["action"] == "open"]
+                chosen = tail[opens[-1]:] if opens else tail
+            if chosen[0]["action"] != "open":
+                raise aprendizado.LearningError("a rotina precisa começar abrindo uma página: escolha os passos a partir de um 'abrir'")
+            params = aprendizado.parse_params(a.get("parametros") or "")
+            steps = aprendizado.steps_from_journal(chosen, params)
+            unused = [p for p in params if not any("{" + p + "}" in json.dumps(s, ensure_ascii=False) for s in steps)]
+            if unused:
+                raise aprendizado.LearningError(f"o valor de {', '.join(unused)} não aparece nos passos: confira o exemplo")
+            routine = learned.save(aprendizado.host_of(chosen[0]["url"]), str(a.get("nome") or ""),
+                                   str(a.get("descricao") or a.get("descrição") or ""), steps, list(params))
+            listing = "\n".join(f"{n}. {aprendizado.describe_step(s)}" for n, s in aprendizado.numbered(steps))
+            return f"rotina gravada em {routine.host}:\n{routine.describe()}\n{listing}"
+        return await learning(go)(args)
+
+    @tool("executar_rotina", "Repete uma rotina gravada (sem navegar passo a passo) e devolve a página do fim.",
+          _schema({"nome": (str, "nome da rotina")},
+                  {"parametros": (str, "valores desta vez, ex. 'data=29/10/2026'"), "site": (str, "domínio, se houver nomes iguais")}))
+    async def run_routine(args: dict) -> dict[str, Any]:
+        async def go(a: dict) -> str:
+            host = aprendizado.host_of(str(a["site"])) if a.get("site") else ""
+            routine = learned.routine(str(a.get("nome") or ""), host)
+            ok, text = await aprendizado.replay(browser, routine, aprendizado.parse_params(a.get("parametros") or ""), gate)
+            learned.mark(routine, ok)
+            return (f"rotina '{routine.name}' concluída.\n{text}" if ok else text)
+        return await learning(go)(args)
+
+    return [open_page, read_page, list_elements, click, fill, screenshot, access,
+            show_system, note_system, show_steps, save_routine, run_routine]
 
 
 class Agent:

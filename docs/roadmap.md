@@ -68,6 +68,8 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 - [x] Playwright com perfil persistente (fica logado nos sites)
 - [x] Preencher formulários e navegar em várias etapas (monitorar preços: com a agenda)
 - [x] Ver a janela do navegador remotamente quando estiver na VPS (tela remota com link temporário) e aviso quando um login dos sistemas da loja expira ([acessos.md](acessos.md))
+- [x] Aprendizado dos sistemas da loja (iFood, ERP): notas e rotinas gravadas, repetidas pelo código ([acessos.md](acessos.md#aprender-cada-sistema-ifood-erp))
+- [ ] iFood pela API oficial de parceiros (pedidos, cardápio, financeiro)
 - [ ] Backup criptografado do perfil do navegador fora da VM
 - [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)
 - [ ] Compras com **cartão virtual** + teto por compra e por mês no código

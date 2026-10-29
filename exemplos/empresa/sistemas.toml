@@ -1,14 +1,21 @@
-# Sistemas da loja que o agente usa pelo navegador (sistema da oficina, banco, portal de nota fiscal...).
-# Alguém da equipe faz o login uma vez pela tela remota do navegador; o agente segue logado.
+# Sistemas da loja que o agente usa pelo navegador (iFood, ERP, banco, portal de nota fiscal...).
+# Alguém da equipe faz o login uma vez pela tela remota do navegador (WhatsApp: NAVEGADOR); o agente segue logado.
 # De hora em hora (AGENT_ACESSOS_MIN) o código confere se cada um continua logado e, se o site
 # encerrar a sessão, avisa no WhatsApp com um link para entrar de novo.
+# O agente aprende cada sistema (anotações e rotinas gravadas, ver docs/acessos.md): da segunda vez em diante
+# ele repete o caminho que deu certo, sem navegar passo a passo.
 #
-# Tire o # das linhas abaixo e troque pelos sistemas da sua loja:
+# Tire o # das linhas dos sistemas que a loja usa e ajuste:
 #
 # [[sistema]]
-# nome = "Sistema da oficina"
-# endereco = "https://app.sistemadaoficina.com.br/painel"   # página que só abre logado
-# logado = "Sair"                                            # texto que só aparece com a sessão ativa
+# nome = "iFood (Portal do Parceiro)"
+# endereco = "https://portal.ifood.com.br/"      # página inicial do portal, que só abre logado
+# logado = "Sair"                                 # troque pelo nome da loja que aparece no topo, se preferir
+#
+# [[sistema]]
+# nome = "Sistema da oficina (ERP)"
+# endereco = "https://app.sistemadaoficina.com.br/painel"
+# logado = "Sair"
 #
 # [[sistema]]
 # nome = "Banco"
