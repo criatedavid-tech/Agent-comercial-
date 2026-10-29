@@ -130,7 +130,10 @@ def business_tools(company: Company, contact: ContactView, allowed: regras.Allow
     label = company.subject_label or "objeto"
 
     def show(item) -> str:
-        return item.describe() if company.can_quote else re.sub(r": R\$ [\d.,]+", ": preço com a equipe", item.describe())
+        if company.can_quote:
+            return item.describe()
+        # sem preço pelo assistente: nem o valor nem "sem custo" (item com preço 0 no catálogo não é grátis)
+        return re.sub(r": (R\$ [\d.,]+|sem custo)", ": preço com a equipe", item.describe(), count=1)
 
     @tool("consultar_catalogo",
           "Procura produtos e serviços da empresa no catálogo, com preço e condições. Sem busca, lista o começo do catálogo.",

@@ -192,6 +192,17 @@ def test_company_rules_can_turn_off_prices(cfg, company, crm):
     assert run_tool(agent, "agendar_retorno", {"quando": "amanhã"})["is_error"]
 
 
+def test_item_without_price_is_never_shown_as_free(cfg, company, crm):
+    """Catálogo sem preço (preço 0) com informar_preco = false: o cliente não pode ouvir "sem custo"."""
+    from dataclasses import replace
+    from decimal import Decimal
+    from agente.empresa import Catalog
+    items = [replace(i, price=Decimal(0)) for i in company.catalog.items]
+    closed = replace(company, rules={**company.rules, "informar_preco": False}, catalog=Catalog(items))
+    out = text_of(run_tool(Attendant(cfg, "1", company=closed, crm=crm), "consultar_catalogo", {"busca": "óleo"}))
+    assert "sem custo" not in out and "preço com a equipe" in out
+
+
 # --- regras no código (filtro da resposta) --------------------------------------
 
 @pytest.fixture
