@@ -231,6 +231,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Conceitos](docs/conceitos.md) | o que é um agente, loop, ferramentas, memória, MCP, proatividade |
 | [Comparativo das big techs](docs/comparativo.md) | Grok Bot, Dots, Claude Duet, Instinct, Muse: o que fazem e seus limites |
 | [Produto](docs/produto.md) | público, MVP, atendente × operador, fases |
+| [Agentes](docs/agentes.md) | gerente, especialistas por área (comercial, financeiro, operação) e atendente |
 | [Acessos aos sistemas](docs/acessos.md) | login salvo no navegador, aviso quando expira, tela remota na VM, aprendizado de cada sistema (iFood, ERP) |
 | [Gestão](docs/gestao.md) | planilhas da loja, números, alertas, como o operador usa |
 | [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |

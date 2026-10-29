@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import re
 
@@ -40,10 +40,11 @@ BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
     "ver_sistema", "anotar_sistema", "ver_passos", "salvar_rotina", "executar_rotina")]
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
 GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
+COMERCIAL_TOOLS = [f"mcp__comercial__{n}" for n in ("listar_leads", "fila_atendimento", "conversa_cliente")]
 # Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
 # tools=BUILTIN_TOOLS (no primeiro teste real o modelo achou e usou o CronCreate interno, que some com a sessão).
 BUILTIN_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", "Skill"]
-TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS, *GESTAO_TOOLS]
+TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS, *GESTAO_TOOLS, *COMERCIAL_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -69,9 +70,18 @@ Base de conhecimento (por áreas):
 - O que existe hoje:
 {knowledge}
 
+Sua equipe de especialistas (você é o gerente: fala com o dono e a equipe, distribui o trabalho e junta as respostas):
+- Pergunta rápida e direta (um número, um status, "vendas de hoje", "tem alguém na fila?"): responda você mesmo, com suas ferramentas.
+- Análise, levantamento ou tarefa de várias etapas: delegue (ferramenta Agent) ao especialista da área, passando tudo o que ele precisa (ele não vê esta conversa):
+  - comercial: funil, leads parados ou perdidos, motivos de perda, retomadas, fila da equipe, conversa de um cliente;
+  - financeiro: receita, despesas, resultado, caixa, gastos fora do padrão, descontos, contas em dobro;
+  - operacao: estoque, compras e todo uso dos sistemas da loja pelo navegador (Saipos, iFood, ERP, lojas online). Tarefa no navegador vai sempre para a operação; não use o navegador ao mesmo tempo que ela.
+- Pedido que envolve mais de uma área ("como foi a semana?", "onde estou perdendo dinheiro?"): peça a cada especialista a parte dele (comercial e financeiro podem ir em paralelo) e responda com UM resumo, o que precisa de atenção primeiro, sem repetir o que cada um disse.
+- Diga ao dono quem cuidou de cada parte só quando ajudar ("o financeiro achou...").
+
 Como trabalhar em tarefas maiores:
 - Skills: para finanças, saúde, estudos e compras online existem instruções especializadas. Carregue a skill do assunto (ferramenta Skill) antes de agir.
-- Subagentes (ferramenta Agent): delegue pesquisas na web ao "pesquisador", arrumação da base ao "organizador" e, ao terminar algo importante, peça ao "verificador" para conferir. Tarefas independentes podem ir em paralelo. Passe ao subagente tudo o que ele precisa saber: ele não vê esta conversa.
+- Ajudantes (ferramenta Agent): delegue pesquisas na web ao "pesquisador", arrumação da base ao "organizador" e, ao terminar algo importante, peça ao "verificador" para conferir. Tarefas independentes podem ir em paralelo. Passe ao subagente tudo o que ele precisa saber: ele não vê esta conversa.
 - Ações bloqueadas pela segurança: não tente contornar; explique ao usuário o que seria preciso.
 
 Gestão da empresa (vendas, despesas, estoque, caixa, atendimento):
@@ -197,6 +207,60 @@ def access_checks(cfg: Config | None) -> tuple[Callable[[str], str], Callable[[]
 
     store = sessoes.SessionStore(cfg.logs_dir / "sessoes.json")
     return (lambda url: sessoes.blocked_message(url, systems(), store.load())),         (lambda: sessoes.describe(systems(), store.load()))
+
+
+def comercial_server(cfg: Config):
+    """Servidor MCP do comercial: leads, fila da equipe e conversa de um cliente (só leitura do CRM)."""
+    return create_sdk_mcp_server("comercial", tools=comercial_tools(cfg))
+
+
+def comercial_tools(cfg: Config) -> list[SdkMcpTool]:
+    """Leitura do CRM do atendente para o comercial. Nada aqui muda contato, etapa ou mensagem."""
+    def crm() -> Crm:
+        return Crm(cfg.crm_db)
+
+    def line(c) -> str:
+        what = " · ".join(v for v in (c.subject, c.interest, c.need) if v)
+        team = f" · com a equipe ({c.handoff})" if c.handoff else ""
+        stop = " · pediu para não receber mensagens" if c.opt_out else ""
+        return f"- {c.name or 'sem nome'} ({c.phone}) · etapa {c.stage}{team}{stop}" + (f" · {what}" if what else "") + \
+            f" · última atualização {c.updated[:16].replace('T', ' ')}"
+
+    @tool("listar_leads", "Lista os contatos do atendimento (leads), os mais recentes primeiro. Filtros opcionais.",
+          _schema({}, {"etapa": (str, "novo, qualificando, qualificado, orcamento, ganho ou perdido"),
+                       "dias": (int, "só os atualizados nos últimos N dias; padrão 30"),
+                       "simulados": (bool, "incluir os contatos do simulador de testes; padrão não")}))
+    async def leads(args: dict) -> dict[str, Any]:
+        since = datetime.now() - timedelta(days=int(args.get("dias") or 30))
+        stage = str(args.get("etapa") or "").strip().lower()
+        found = [c for c in crm().contacts(limit=2000)
+                 if (args.get("simulados") or not c.phone.startswith("sim-"))
+                 and datetime.fromisoformat(c.updated) >= since and (not stage or c.stage == stage)]
+        if not found:
+            return _reply("nenhum lead com esses filtros")
+        return _reply(f"{len(found)} lead(s):\n" + "\n".join(line(c) for c in found[:60]))
+
+    @tool("fila_atendimento", "Clientes que chamaram a equipe ou estão sendo atendidos por alguém agora.", _schema({}))
+    async def queue(args: dict) -> dict[str, Any]:
+        items = crm().handoffs()
+        if not items:
+            return _reply("ninguém esperando a equipe agora")
+        return _reply("\n".join(f"#{c.ticket} " + line(c)[2:] + f" · motivo: {c.handoff_reason or '—'}" for c in items))
+
+    @tool("conversa_cliente", "Últimas mensagens de um cliente com o atendente e com a equipe.",
+          _schema({"telefone": (str, "telefone do cliente, como aparece em listar_leads")},
+                  {"limite": (int, "quantas mensagens; padrão 20")}))
+    async def conversation(args: dict) -> dict[str, Any]:
+        phone = str(args.get("telefone") or "")
+        contact = crm().get(phone)
+        if contact is None:
+            return _reply("cliente não encontrado no CRM", error=True)
+        who = {"entrada": "cliente", "saida": "atendente", "humano": "equipe", "retomada": "retomada", "evento": "·"}
+        rows = [f"{i.ts[5:16].replace('T', ' ')} {who.get(i.direction, i.direction)}: {i.text[:400]}"
+                for i in crm().interactions(phone, limit=int(args.get("limite") or 20))]
+        return _reply(line(contact) + "\n\n" + ("\n".join(rows) or "sem mensagens"))
+
+    return [leads, queue, conversation]
 
 
 def gestao_server(cfg: Config):
@@ -625,6 +689,7 @@ class Agent:
                 "agenda": agenda_server(self.agenda),
                 "navegador": browser_server(self.browser, self.cfg),
                 "gestao": gestao_server(self.cfg),
+                "comercial": comercial_server(self.cfg),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             # ENABLE_TOOL_SEARCH=false: as ferramentas próprias ficam visíveis desde o início (sem passo de busca).

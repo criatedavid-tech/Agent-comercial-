@@ -40,7 +40,9 @@ Monte o resumo do dia para o usuário, curto e em tópicos:
 1. O que está agendado para hoje (use listar_tarefas).
 2. O que entrou de novo na base de conhecimento e merece atenção (use buscar_conhecimento se precisar).
 3. Pendências e lembretes que você conhece pela memória.
-4. Uma sugestão prática para o dia, com base no perfil e nos objetivos do usuário.
+4. Situação da empresa: peça ao financeiro os alertas de dinheiro de ontem e ao comercial os leads parados e a fila
+   da equipe (podem ir em paralelo). Traga só o que precisa de atenção hoje, com a ação de cada item.
+5. Uma sugestão prática para o dia, com base no perfil e nos objetivos do usuário.
 Se não houver nada relevante em um item, pule o item."""
 
 
