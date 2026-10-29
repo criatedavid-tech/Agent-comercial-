@@ -376,8 +376,9 @@ class Browser:
         return self.profile_dir / "ultima-pagina.txt"
 
     def _remember(self, url: str) -> None:
-        """Última página aberta: a tela remota volta para ela quando o navegador reabre em branco."""
-        if url.startswith(("http://", "https://")):
+        """Última página aberta: a tela remota volta para ela quando o navegador reabre em branco.
+        Página de login com código temporário (ex. o redirecionamento do iFood) não serve para voltar: fica a anterior."""
+        if url.startswith(("http://", "https://")) and not re.search(r"openid-connect|/oauth|/auth\?|state=|code_challenge", url):
             try:
                 self.profile_dir.mkdir(parents=True, exist_ok=True)
                 self._last_file.write_text(url, encoding="utf-8")

@@ -472,6 +472,11 @@ async def remote_screen(ws: WebSocket, token: str) -> None:
             except BrowserError as e:
                 await ws.send_json({"kind": "error", "text": str(e)})
                 await asyncio.sleep(3)
+            except (WebSocketDisconnect, RuntimeError):
+                return  # a pessoa fechou a página
+            except Exception as e:  # página no meio de um redirecionamento (visto no login do iFood): tenta de novo
+                log.info("imagem da tela remota falhou: %s", e)
+                await asyncio.sleep(1)
             await asyncio.sleep(FRAME_S)
         await ws.send_json({"kind": "expired"})
         await ws.close()
