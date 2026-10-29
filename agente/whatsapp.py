@@ -50,6 +50,7 @@ STOP_WORDS = {"parar", "pare", "stop"}
 CONTINUE_WORDS = {"continuar", "continue", "voltar"}
 NEW_WORDS = {"nova", "/nova", "nova conversa"}
 BROWSER_WORDS = {"navegador", "login", "logar", "link do navegador"}
+CONNECT_WORDS = {"conectar", "conectar atendente", "conectar numero", "conectar número"}
 # Fala de login (na resposta do agente ou no pedido da pessoa). O link do site, tocado no celular, abre o
 # APLICATIVO da loja e o login fica fora do navegador do agente: o código troca pelo link da tela remota.
 LOGIN_TALK = re.compile(r"\b(login|logar|logue|loga|logado|entre com sua conta|entrar na (sua )?conta|fazer o acesso)\b", re.I)
@@ -240,6 +241,28 @@ class UazApi:
             body["openai_apikey"] = self.openai_key
         return str((await self._post("/message/download", body)).get("transcription") or "")
 
+    async def _get(self, path: str) -> dict:
+        resp = await self.client.get(self.base + path, headers=self.headers)
+        data = resp.json() if resp.content else {}
+        if resp.status_code >= 400:
+            raise WhatsAppError(str(data.get("error") or data.get("message") or f"HTTP {resp.status_code}"), resp.status_code)
+        return data
+
+    async def connection(self, phone: str = "") -> dict:
+        """Estado da conexão do número, para a página de conectar. Se o QR venceu, pede outro.
+        phone: em vez do QR, gera o código de 8 letras para "conectar com número de telefone" no WhatsApp."""
+        if phone:
+            data = await self._post("/instance/connect", {"phone": phone})
+        else:
+            data = await self._get("/instance/status")
+            inst = data.get("instance") or {}
+            if inst.get("status") != "connected" and not inst.get("qrcode"):
+                data = await self._post("/instance/connect", {})  # QR vencido ou nunca pedido
+        inst = data.get("instance") or {}
+        return {"connected": inst.get("status") == "connected" or bool(data.get("connected")),
+                "number": inst.get("owner") or "", "qrcode": inst.get("qrcode") or "",
+                "paircode": inst.get("paircode") or ""}
+
     async def set_webhook(self, url: str) -> dict:
         """Só mensagens recebidas, de pessoas (sem grupos), sem as que o próprio agente mandou."""
         return await self._post("/webhook", {"enabled": True, "url": url, "events": ["messages"],
@@ -405,6 +428,7 @@ class WhatsAppChannel:
         self._seen: deque[str] = deque(maxlen=500)  # a Meta pode reenviar a mesma mensagem
         self.desk: Any = None  # passagem para a equipe (web.py liga quando a empresa carrega)
         self.remote_link: Callable[[], str] | None = None  # link da tela remota do navegador (web.py)
+        self.connect_link: Callable[[], str] | None = None  # texto com o link para conectar o número do atendente
 
     @property
     def owner(self) -> str:
@@ -457,6 +481,9 @@ class WhatsAppChannel:
         if word in CONTINUE_WORDS:
             self.set_paused(False)
             await self.send(msg.sender, "▶️ Voltei. Pode mandar.")
+            return
+        if word in CONNECT_WORDS and self.connect_link:  # link para o cliente conectar o número do atendente
+            await self.send(msg.sender, self.connect_link())
             return
         if word in BROWSER_WORDS or (self.remote_link and asks_login_link(text)):
             await self.send(msg.sender, self.browser_link_text())  # na hora, sem passar pelo modelo

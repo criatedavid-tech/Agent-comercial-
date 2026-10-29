@@ -15,6 +15,10 @@ DOMINIO_AQUI {
 		reverse_proxy 127.0.0.1:8000
 	}
 
+	handle /conectar-whatsapp/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
 	handle /acesso-navegador/* {
 		reverse_proxy 127.0.0.1:8000
 	}

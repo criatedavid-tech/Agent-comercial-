@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<script>try { if (localStorage.getItem("tema") === "claro") document.documentElement.dataset.theme = "light"; } catch {}</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Conectar WhatsApp</title>
+<style>
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993;
+    --border: #33332f; --accent: #5fae84; --error: #f2b8b5;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #75746f;
+    --border: #e4e3de; --accent: #2f6f4f; --error: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; display: grid; gap: 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  ol { margin: 8px 0 0; padding-left: 20px; }
+  .qr { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: 10px; min-height: 280px; align-items: center; }
+  .qr img { width: 260px; height: 260px; image-rendering: pixelated; }
+  .ok { font-size: 18px; color: var(--accent); font-weight: 600; text-align: center; padding: 24px 0; }
+  input, button { font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  button { cursor: pointer; background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; }
+  .row input { flex: 1; min-width: 0; }
+  .code { font: 600 30px/1.2 ui-monospace, Consolas, monospace; letter-spacing: .15em; text-align: center; padding: 12px 0; }
+  .error { color: var(--error); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Conectar o WhatsApp do atendimento</h1>
+  <p class="muted">Faça isto no celular do número que vai atender os clientes. Ele continua funcionando normalmente; o assistente passa a responder por ele.</p>
+
+  <div class="card" id="done" hidden><div class="ok">✅ Conectado! <span id="number"></span></div>
+    <p class="muted">Pode fechar esta página. As mensagens dos clientes para este número já chegam ao assistente.</p></div>
+
+  <div class="card" id="byqr">
+    <strong>Opção 1: ler o QR code</strong> <span class="muted">(abra esta página em outro aparelho, como um computador)</span>
+    <ol class="muted">
+      <li>No celular do atendimento, abra o WhatsApp.</li>
+      <li>Toque em ⋮ (Android) ou Configurações (iPhone) &gt; <b>Aparelhos conectados</b> &gt; <b>Conectar um aparelho</b>.</li>
+      <li>Aponte a câmera para o QR abaixo. Ele se renova sozinho.</li>
+    </ol>
+    <div class="qr" id="qr"><span class="muted" id="qrwait" style="color:#555">Gerando o QR…</span><img id="qrimg" alt="QR code para conectar" hidden></div>
+  </div>
+
+  <div class="card" id="bycode">
+    <strong>Opção 2: código, sem QR</strong> <span class="muted">(se só tiver o próprio celular)</span>
+    <ol class="muted">
+      <li>Digite abaixo o número do WhatsApp do atendimento, com DDD, e toque em Gerar código.</li>
+      <li>No WhatsApp desse celular: <b>Aparelhos conectados</b> &gt; <b>Conectar um aparelho</b> &gt; <b>Conectar com número de telefone</b>.</li>
+      <li>Digite o código de 8 letras que aparecer aqui.</li>
+    </ol>
+    <div class="row" style="margin-top:10px">
+      <input id="phone" inputmode="numeric" placeholder="ex. 62 99999-8888" autocomplete="tel">
+      <button id="gen">Gerar código</button>
+    </div>
+    <div class="code" id="code" hidden></div>
+    <div class="error" id="err"></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const base = location.pathname.replace(/\/$/, "");
+let finished = false;
+
+async function poll() {
+  if (finished) return;
+  try {
+    const r = await fetch(base + "/estado", { cache: "no-store" });
+    if (r.status === 404) { $("err").textContent = "Este link expirou. Peça um novo a quem te enviou."; finished = true; return; }
+    const s = await r.json();
+    if (s.connected) {
+      finished = true;
+      $("done").hidden = false; $("byqr").hidden = true; $("bycode").hidden = true;
+      if (s.number) $("number").textContent = "(final " + s.number + ")";
+      return;
+    }
+    if (s.qrcode) {
+      $("qrimg").src = s.qrcode.startsWith("data:") ? s.qrcode : "data:image/png;base64," + s.qrcode;
+      $("qrimg").hidden = false; $("qrwait").hidden = true;
+    }
+  } catch { /* rede oscilando: tenta de novo */ }
+  setTimeout(poll, 5000);
+}
+
+$("gen").onclick = async () => {
+  $("err").textContent = ""; $("code").hidden = true;
+  let digits = $("phone").value.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) digits = "55" + digits;  // sem DDI: Brasil
+  try {
+    const r = await fetch(base + "/codigo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone: digits }) });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.detail || "não deu para gerar o código");
+    if (!out.paircode) throw new Error("a UAZAPI não devolveu o código; tente de novo em alguns segundos");
+    $("code").textContent = out.paircode; $("code").hidden = false;
+  } catch (e) { $("err").textContent = e.message; }
+};
+
+poll();
+</script>
+</body>
+</html>

@@ -32,6 +32,7 @@ você no WhatsApp ──► Meta ──► POST /whatsapp/webhook (agente-web)
 | `PARAR` | interrompe o que estiver rodando, esvazia a fila e **pausa a agenda** |
 | `CONTINUAR` | volta ao normal |
 | `NOVA` | começa uma conversa do zero |
+| `CONECTAR` | link (1 hora) para o cliente conectar o número do atendente: QR renovado ou código de 8 letras |
 | `NAVEGADOR` (ou `LOGIN`) | manda na hora o link da tela remota do navegador do agente, para você fazer login num site (vale 30 min) |
 | `FILA` | clientes que chamaram a equipe ou estão com alguém |
 | `ASSUMIR 12` | assume o cliente #12 (sem número, o único aguardando): daí em diante o que você manda vai para ele |
@@ -103,6 +104,8 @@ A UAZAPI conecta um número de WhatsApp comum (pelo QR code, como o WhatsApp Web
 ```bash
 agente-uazapi --atendente https://seu-endereco
 ```
+**Conectar o número do atendente sem estar com o celular:** mande **CONECTAR** no WhatsApp do maestro. Chega um link (vale 1 hora) para encaminhar a quem está com o celular do atendimento. A página mostra o QR sempre renovado (para ler de outro aparelho) e a opção de **código de 8 letras** (WhatsApp > Aparelhos conectados > Conectar com número de telefone), e avisa "✅ Conectado". Ela é pública só com o link (rota `/conectar-whatsapp/` no Caddy).
+
 No número do atendente todo mundo é cliente, até o dono, que pode testar o atendimento como um cliente faria. Os avisos para a equipe (cliente chamando, login expirou, resumo) saem pelo número do maestro; as respostas aos clientes (da equipe, retomadas) saem pelo número do atendente. Sem a segunda instância, um número faz os dois papéis: a equipe fala com o maestro e o resto com o atendente.
 
 **Segurança:** a UAZAPI não assina as chamadas. O webhook só aceita o caminho `/whatsapp/uazapi/<UAZAPI_WEBHOOK_SEGREDO>` e, quando o corpo traz o token da instância, ele precisa bater com `UAZAPI_TOKEN`. Grupos, mensagens enviadas pelo próprio número e contatos sem número de telefone (só LID) são ignorados.

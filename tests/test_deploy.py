@@ -75,7 +75,7 @@ def test_caddy_exposes_only_the_webhook_and_the_remote_screen():
     text = (DEPLOY / "Caddyfile").read_text(encoding="utf-8")
     proxied = re.findall(r"handle\s+(\S+)\s*\{\s*reverse_proxy", text)
     # a tela remota é pública, mas o servidor só a abre com link temporário válido (tests/test_sessoes.py)
-    assert proxied == [web.WEBHOOK, f"{web.UAZAPI_HOOK}/*", f"{web.REMOTE}/*", f"/ws{web.REMOTE}/*"], \
+    assert proxied == [web.WEBHOOK, f"{web.UAZAPI_HOOK}/*", f"{web.CONNECT}/*", f"{web.REMOTE}/*", f"/ws{web.REMOTE}/*"], \
         "nada além disso pode ser público"
     assert 'respond "Not found" 404' in text
     assert "DOMINIO_AQUI" in text

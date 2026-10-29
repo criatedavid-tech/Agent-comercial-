@@ -480,3 +480,83 @@ def test_customer_messages_leave_by_the_attendant_number(monkeypatch, two, tmp_p
     monkeypatch.setattr(web, "attendant_whatsapp", attendant)
     assert asyncio.run(web.send_to_customer(CUSTOMER, "Oi, aqui é a equipe!", kind="humano"))
     assert attendant_api.sent == [(CUSTOMER, "Oi, aqui é a equipe!")] and maestro_api.sent == []
+
+
+# --- conectar o número do atendente (cliente lê o QR ou usa o código) ------------------------------------
+
+def test_connection_renews_an_expired_qr_and_makes_pair_codes(ucfg):
+    calls, state = [], {"status": "disconnected", "qrcode": ""}
+
+    def handler(request):
+        calls.append((request.method, request.url.path, json.loads(request.content) if request.content else None))
+        if request.url.path == "/instance/status":
+            return httpx.Response(200, json={"instance": dict(state)})
+        body = json.loads(request.content or b"{}")
+        if body.get("phone"):
+            return httpx.Response(200, json={"instance": {"status": "connecting", "paircode": "ABCD-EFGH"}})
+        return httpx.Response(200, json={"instance": {"status": "connecting", "qrcode": "data:image/png;base64,AAA"}})
+
+    api = UazApi(ucfg, httpx.AsyncClient(transport=httpx.MockTransport(handler)), token="tok-atendente")
+    out = asyncio.run(api.connection())
+    assert out["qrcode"].endswith("AAA") and not out["connected"]
+    assert [c[1] for c in calls] == ["/instance/status", "/instance/connect"]  # QR vencido: pede outro
+    state.update(status="connecting", qrcode="data:image/png;base64,BBB")
+    calls.clear()
+    assert asyncio.run(api.connection())["qrcode"].endswith("BBB") and [c[1] for c in calls] == ["/instance/status"]
+    state.update(status="connected", owner=CUSTOMER)
+    assert asyncio.run(api.connection()) == {"connected": True, "number": CUSTOMER, "qrcode": state["qrcode"], "paircode": ""}
+    assert asyncio.run(api.connection(phone=CUSTOMER))["paircode"] == "ABCD-EFGH"
+    assert calls[-1] == ("POST", "/instance/connect", {"phone": CUSTOMER})
+
+
+class FakeConnectApi:
+    def __init__(self):
+        self.phones = []
+
+    async def connection(self, phone=""):
+        self.phones.append(phone)
+        if phone:
+            return {"connected": False, "number": "", "qrcode": "", "paircode": "WXYZ-1234"}
+        return {"connected": False, "number": "556299998888", "qrcode": "data:image/png;base64,QQQ", "paircode": ""}
+
+
+@pytest.fixture
+def connect(monkeypatch, two):
+    api = FakeConnectApi()
+    channel = FakeChannel()
+    channel.api = api
+    access = __import__("agente.sessoes", fromlist=["RemoteAccess"]).RemoteAccess(minutes=60)
+    monkeypatch.setattr(web, "cfg", dataclasses.replace(two, public_url="https://vm.exemplo.com"))
+    monkeypatch.setattr(web, "attendant_whatsapp", channel)
+    monkeypatch.setattr(web, "connect_access", access)
+    return TestClient(web.app, base_url="https://vm.exemplo.com"), access, api
+
+
+def test_connect_page_needs_a_valid_link(connect):
+    client, access, api = connect
+    token = access.issue()
+    assert client.get(f"/conectar-whatsapp/{token}").status_code == 200
+    assert client.get("/conectar-whatsapp/chute").status_code == 403
+    assert client.get("/conectar-whatsapp/chute/estado").status_code == 403
+    state = client.get(f"/conectar-whatsapp/{token}/estado").json()
+    assert state["qrcode"].endswith("QQQ") and state["number"] == "8888"  # só o final do número sai
+
+
+def test_pair_code_checks_origin_and_number(connect):
+    client, access, api = connect
+    token = access.issue()
+    origin = {"origin": "https://vm.exemplo.com"}
+    assert client.post(f"/conectar-whatsapp/{token}/codigo", json={"phone": "5562999998888"}).status_code == 403
+    assert client.post(f"/conectar-whatsapp/{token}/codigo", json={"phone": "123"}, headers=origin).status_code == 400
+    out = client.post(f"/conectar-whatsapp/{token}/codigo", json={"phone": "+55 62 99999-8888"}, headers=origin).json()
+    assert out["paircode"] == "WXYZ-1234" and api.phones[-1] == "5562999998888"
+
+
+def test_maestro_sends_the_connect_link(two, tmp_path):
+    from agente.history import History
+    from agente.whatsapp import WhatsAppChannel
+    api = AudioApi()
+    channel = WhatsAppChannel(two, api, History(tmp_path / "c.db"), Recorder)
+    channel.connect_link = lambda: "📲 Link para conectar: https://vm.exemplo.com/conectar-whatsapp/abc"
+    run_channel(channel, Incoming("k1", OWNER, "text", "Conectar"))
+    assert api.sent == [(OWNER, "📲 Link para conectar: https://vm.exemplo.com/conectar-whatsapp/abc")]

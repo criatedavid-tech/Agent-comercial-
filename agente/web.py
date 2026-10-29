@@ -54,6 +54,8 @@ watch: sessoes.SessionWatch | None = None  # checagem dos logins dos sistemas da
 desk: Desk | None = None  # passagem do atendente para a equipe (ligada quando a empresa carrega)
 remote_access = sessoes.RemoteAccess()  # links temporários da tela remota do navegador
 REMOTE = sessoes.REMOTE_PATH
+CONNECT = "/conectar-whatsapp"  # página para o cliente conectar o número do atendente (QR ou código)
+connect_access = sessoes.RemoteAccess(minutes=60)
 FRAME_S = 0.7  # intervalo entre imagens da tela remota
 EXPIRED_PAGE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Link expirado</title></head>
@@ -216,6 +218,13 @@ async def alert_team(title: str, text: str) -> None:
         agenda.mark_read([item.id])
 
 
+def connect_link() -> str:
+    """Texto pronto para o dono encaminhar ao cliente: o link da página de conectar o número do atendente."""
+    base = cfg.public_url or f"http://127.0.0.1:{cfg.web_port}"
+    return ("📲 *Link para conectar o WhatsApp do atendimento* (vale 1 hora). Encaminhe para quem está com o celular "
+            f"do número que vai atender os clientes:\n{base}{CONNECT}/{connect_access.issue()}")
+
+
 def browser():
     return shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless)
 
@@ -247,6 +256,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         whatsapp.desk = desk
         whatsapp.remote_link = remote_link
         if cfg.attendant_channel:
+            whatsapp.connect_link = connect_link
+        if cfg.attendant_channel:
             attendant_whatsapp = WhatsAppChannel(cfg, UazApi(cfg, token=cfg.uazapi_attendant_token), history, Agent,
                                                  customer_factory=customers, customers_only=True)
     followups = build_followups()
@@ -272,6 +283,16 @@ def is_local(host: str) -> bool:
     return host.rsplit(":", 1)[0] in LOCAL_HOSTS
 
 
+def connect_allowed(host: str, path: str) -> bool:
+    """Página de conectar o número: de fora só com link válido e só no domínio de AGENT_PUBLIC_URL."""
+    if not path.startswith(CONNECT + "/"):
+        return False
+    public = urlparse(cfg.public_url).hostname if cfg.public_url else None
+    if not (is_local(host) or (public and host.rsplit(":", 1)[0] == public)):
+        return False
+    return connect_access.valid(path.removeprefix(CONNECT + "/").split("/", 1)[0])
+
+
 def remote_allowed(host: str, path: str) -> bool:
     """Tela remota: só com link válido, e de fora só pelo domínio de AGENT_PUBLIC_URL."""
     if not path.startswith((REMOTE + "/", "/ws" + REMOTE + "/")):
@@ -289,7 +310,7 @@ async def local_only(request: Request, call_next):
     # Exceção: o webhook do WhatsApp chega pelo túnel/proxy com o domínio público e é autenticado pela assinatura.
     host, path = request.headers.get("host", ""), request.url.path
     webhook = path == WEBHOOK or path.startswith(UAZAPI_HOOK + "/")
-    if not is_local(host) and not webhook and not remote_allowed(host, path):
+    if not is_local(host) and not webhook and not remote_allowed(host, path) and not connect_allowed(host, path):
         return PlainTextResponse("host não permitido", status_code=403)
     return await call_next(request)
 
@@ -455,6 +476,53 @@ async def remote_page(token: str) -> FileResponse:
         return HTMLResponse(EXPIRED_PAGE, status_code=404)
     return FileResponse(STATIC / "navegador.html",
                         headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.get(CONNECT + "/{token}")
+async def connect_page(token: str):
+    if not connect_access.valid(token):
+        return HTMLResponse(EXPIRED_PAGE, status_code=404)
+    return FileResponse(STATIC / "conectar.html", headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+async def attendant_connection(token: str, phone: str = "") -> dict:
+    if not connect_access.valid(token):
+        raise HTTPException(404, "link expirado")
+    if attendant_whatsapp is None:
+        raise HTTPException(503, "número do atendente não configurado")
+    try:
+        return await attendant_whatsapp.api.connection(phone)
+    except Exception as e:
+        raise HTTPException(502, f"a UAZAPI não respondeu: {e}") from None
+
+
+@app.get(CONNECT + "/{token}/estado")
+async def connect_state(token: str) -> dict:
+    """Conectado? Se não, o QR atual (a página pergunta de poucos em poucos segundos; QR vencido é renovado)."""
+    state = await attendant_connection(token)
+    return {**state, "number": state["number"][-4:] if state["number"] else ""}  # só o final do número
+
+
+@app.post(CONNECT + "/{token}/codigo")
+async def connect_code(token: str, request: Request) -> dict:
+    """Código de 8 letras para conectar sem QR (WhatsApp > Aparelhos conectados > Conectar com número de telefone)."""
+    host = request.headers.get("host", "")
+    if request.headers.get("origin") not in (f"http://{host}", f"https://{host}"):
+        raise HTTPException(403, "origem não permitida")
+    phone = clean_phone(str((await request.json()).get("phone", "")))
+    if not 10 <= len(phone) <= 15:
+        raise HTTPException(400, "número com DDI e DDD, só dígitos (ex. 5562999998888)")
+    state = await attendant_connection(token, phone)
+    return {"paircode": state["paircode"], "connected": state["connected"]}
+
+
+@app.post("/api/whatsapp/conectar")
+async def new_connect_link(request: Request) -> dict:
+    """Painel (local): link novo para conectar o número do atendente."""
+    same_origin(request)
+    if not cfg.attendant_channel:
+        raise HTTPException(503, "número do atendente não configurado")
+    return {"text": connect_link()}
 
 
 @app.post("/api/navegador/link")
