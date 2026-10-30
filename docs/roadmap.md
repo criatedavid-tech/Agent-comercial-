@@ -70,7 +70,10 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 - [x] Ver a janela do navegador remotamente quando estiver na VPS (tela remota com link temporário) e aviso quando um login dos sistemas da loja expira ([acessos.md](acessos.md))
 - [x] Aprendizado dos sistemas da loja (iFood, ERP): notas e rotinas gravadas, repetidas pelo código ([acessos.md](acessos.md#aprender-cada-sistema-ifood-erp))
 - [x] Gerente + especialistas por área (comercial, financeiro, operação), cada um com as ferramentas da área ([agentes.md](agentes.md))
+- [x] WhatsApp pela UAZAPI, com um ou dois números e áudio transcrito ([whatsapp.md](whatsapp.md))
 - [ ] Quadro de solicitações entre áreas, com aprovação por limite de valor no código
+- [ ] Fechar as sessões paradas dos clientes para a memória da VM não crescer ([custos.md](custos.md))
+- [ ] Modelo configurável por agente (atendente, maestro, especialistas)
 - [ ] iFood pela API oficial de parceiros (pedidos, cardápio, financeiro)
 - [ ] Backup criptografado do perfil do navegador fora da VM
 - [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)

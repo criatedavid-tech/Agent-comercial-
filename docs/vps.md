@@ -4,7 +4,7 @@ Como colocar o agente para rodar 24 horas numa VPS própria: serviço que reinic
 
 ## O que você precisa
 
-- **VPS com Ubuntu 24.04** (ou Debian 12), **2 GB de RAM** no mínimo (o Chromium e o Claude Code pesam) e 20 GB de disco. Qualquer provedor serve.
+- **VPS com Ubuntu 24.04** (ou Debian 12). Para o piloto, 2 vCPU, 4 GB de RAM + 2 GB de swap e 40 GB de disco; para uma loja com movimento, 4 vCPU, 8 GB e 80 GB ([tamanhos e custos](custos.md)). Prefira um data center em São Paulo.
 - **Um domínio** (ou subdomínio) apontando para o IP da VPS: registro DNS do tipo **A**, por exemplo `agente.seudominio.com.br`. É o endereço do webhook do WhatsApp.
 - **Chave SSH** no seu computador. Se ainda não tem, crie com o comando abaixo:
 

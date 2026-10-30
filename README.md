@@ -2,9 +2,20 @@
 
 **Vendedor digital no WhatsApp para pequenas e médias empresas de qualquer segmento.** Atende na hora, tira dúvidas com base no catálogo da empresa, qualifica, faz follow-up sozinho e passa o cliente pronto para o vendedor humano fechar. O dono acompanha tudo num painel.
 
-> **Status:** em construção a partir do protótipo de agente pessoal ([criatedavid-tech/agent](https://github.com/criatedavid-tech/agent), congelado). O motor, a segurança, a agenda, o WhatsApp e o deploy vêm de lá. O desenho do produto, a arquitetura (atendente × operador) e as fases estão em **[docs/produto.md](docs/produto.md)**.
+> **Status:** em testes. Já funcionam o atendente, a passagem para a equipe, a retomada automática, a gestão, o maestro com especialistas por área e o aprendizado dos sistemas da loja. Pelo WhatsApp de verdade (UAZAPI) foram testados o maestro, o áudio e o login pela tela remota. Ainda faltam o teste com o número separado do atendente e com a API oficial da Meta. Por enquanto, os dados da gestão vêm de planilhas. Produto e fases: **[docs/produto.md](docs/produto.md)**.
 
-O restante deste README descreve o agente herdado do protótipo, que vira o **operador** (o agente do dono e da equipe).
+## Os agentes
+
+```
+  DONO ──► número do maestro ──► MAESTRO (gerente)
+                                    ├─ COMERCIAL: funil, leads, fila da equipe (só lê o CRM)
+                                    ├─ FINANCEIRO: receita, despesas, caixa, alertas de dinheiro
+                                    └─ OPERAÇÃO: estoque, compras, sistemas da loja (único com o navegador)
+
+  CLIENTES ──► número do atendente ──► ATENDENTE: só ferramentas do negócio, sem acesso a nada interno
+```
+
+O maestro responde direto o que é rápido e delega análises e tarefas longas. Com um número só, a equipe fala com o maestro e os demais com o atendente. Detalhes: [docs/agentes.md](docs/agentes.md).
 
 ---
 
@@ -25,8 +36,8 @@ O restante deste README descreve o agente herdado do protótipo, que vira o **op
 Requisitos: **Python 3.11+** e uma **chave da API da Anthropic** ([console.anthropic.com](https://console.anthropic.com)).
 
 ```bash
-git clone https://github.com/criatedavid-tech/agent.git
-cd agent
+git clone https://github.com/criatedavid-tech/Agent-comercial-.git
+cd Agent-comercial-
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e .
@@ -59,7 +70,7 @@ Para conversar pelo navegador em vez do terminal:
 agente-web                         # abre em http://127.0.0.1:8000
 ```
 
-Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. **Conversas** retoma uma conversa antiga com todo o contexto; cada pedido tem **desfazer edições**; **Painel** (http://127.0.0.1:8000/painel) mostra gastos por dia, conversas, agenda, base de conhecimento e bloqueios. Só escuta em `127.0.0.1` e recusa conexões e endereços de outros sites. Não exponha essa porta na VPS.
+Mostra as respostas formatadas, cada ferramenta usada e o custo de cada pedido. **Conversas** retoma uma conversa antiga com todo o contexto; cada pedido tem **desfazer edições**; **Painel** (http://127.0.0.1:8000/painel) mostra gastos por dia, conversas, agenda, base de conhecimento, bloqueios e acessos; **Atendimento** (http://127.0.0.1:8000/atendimento) é onde a equipe assume e responde clientes. Só escuta em `127.0.0.1` e recusa conexões e endereços de outros sites. Não exponha essa porta na VPS.
 
 **Simulador de cliente** (http://127.0.0.1:8000/simulador): você escreve como um cliente no WhatsApp e conversa com o **atendente** da empresa configurada em `empresa/` (sem ela, a empresa fictícia de `exemplos/empresa/`), vendo a ficha do lead no CRM atualizar a cada resposta. Detalhes: [docs/atendente.md](docs/atendente.md).
 
@@ -107,11 +118,14 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Organizar o que aprende | `salvar_conhecimento` | guarda notas por área: finanças, saúde, lazer, entretenimento, estudos (por nicho) e geral |
 | Consultar o que já sabe | `buscar_conhecimento` | "quanto gastei com aluguel?" busca nas notas antes de responder |
 | Agir sozinho na hora certa | `agendar_tarefa`, `listar_tarefas`, `cancelar_tarefa` | resumo diário às 7h, "toda segunda revise meus gastos", "me lembra às 15h do dentista" |
-| Delegar | subagentes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
+| Delegar por área | especialistas `comercial`, `financeiro`, `operacao` | "como foi outubro?" vira um resumo só, com a parte de cada área |
+| Delegar tarefas gerais | ajudantes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
+| Ver os clientes | `listar_leads`, `fila_atendimento`, `conversa_cliente` | leads parados, quem espera a equipe, o que um cliente disse (só leitura) |
+| Aprender cada sistema | `ver_sistema`, `anotar_sistema`, `ver_passos`, `salvar_rotina`, `executar_rotina` | navega uma vez no ERP ou no iFood; depois o código repete o caminho |
 | Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
 | Se proteger | hooks de segurança | barra `rm -rf /`, script baixado e executado, leitura do `.env`, escrita fora das pastas dele |
-| Navegar como gente | `abrir_pagina`, `listar_elementos`, `clicar`, `preencher`, `ler_pagina`, `capturar_tela` | Chromium próprio que fica logado; você resolve CAPTCHA e login na janela dele |
-| Falar pelo WhatsApp | webhook da API oficial da Meta | conversa por contato, PARAR/CONTINUAR, ajuda humana e avisos da agenda no celular |
+| Navegar como gente | `abrir_pagina`, `listar_elementos`, `clicar`, `preencher`, `ler_pagina`, `capturar_tela` | Chromium próprio que fica logado; o login é feito pela tela remota, no celular, e a sessão caída gera aviso (`ver_acessos`) |
+| Falar pelo WhatsApp | API oficial da Meta ou UAZAPI (testes) | um ou dois números, texto e áudio, PARAR/CONTINUAR, `NAVEGADOR`, `CONECTAR`, ajuda humana e avisos no celular |
 | Chamar você quando trava | `pedir_ajuda_humana` | CAPTCHA, "você é um robô?", código 2FA, login: ele pausa, te chama e continua quando você resolve |
 | Lembrar de você | `memory/*.md` | aprende preferências e as usa nas próximas conversas |
 | Registrar tudo | `logs/*.jsonl` | cada pedido, ferramenta usada e custo |
@@ -144,7 +158,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 ## Estrutura do projeto
 
 ```
-agent/
+Agent-comercial-/
 ├── README.md              ← você está aqui
 ├── CLAUDE.md              ← instruções para quem (humano ou IA) for programar no projeto
 ├── pyproject.toml         ← dependências e o comando `agente`
@@ -169,13 +183,13 @@ agent/
 │   ├── aprendizado.py     ← aprende cada sistema (iFood, ERP): anotações e rotinas gravadas, repetidas pelo código
 │   ├── sessoes.py         ← confere os logins dos sistemas da loja, avisa quando caem, links da tela remota
 │   ├── browser.py         ← navegador próprio (Playwright, perfil persistente)
-│   ├── whatsapp.py        ← canal WhatsApp (Cloud API: webhook, envio, comandos)
+│   ├── whatsapp.py        ← canal WhatsApp (Meta ou UAZAPI: envio, áudio, comandos, um ou dois números)
 │   ├── backup.py          ← agente-backup: cópia consistente dos dados, com rotação
 │   ├── vigia.py           ← agente-vigia: avisa no WhatsApp quando cai e quando volta
-│   ├── subagents.py       ← pesquisador, organizador, verificador
+│   ├── subagents.py       ← especialistas (comercial, financeiro, operacao) e ajudantes
 │   ├── cli.py             ← chat no terminal
 │   ├── web.py             ← chat no navegador (localhost, para testes)
-│   └── static/            ← index.html (chat), painel.html (painel), simulador.html (cliente)
+│   └── static/            ← chat, painel, atendimento, simulador, navegador (tela remota), conectar
 ├── exemplos/empresa/      ← empresa fictícia de exemplo (Auto Center Rota Certa)
 ├── exemplos/dados/        ← planilhas fictícias da loja (vendas, despesas, estoque, caixa) + gerador
 ├── dados/                 ← (você cria) planilhas da sua loja; fora do git
@@ -211,14 +225,14 @@ Tudo fica no `.env`:
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
 | `AGENT_PUBLIC_URL` | (vazio) | `https://` da VM: os avisos de login expirado levam link da tela remota com este domínio |
 | `AGENT_ACESSOS_MIN` | `60` | de quantos em quantos minutos conferir os logins de `empresa/sistemas.toml` |
-| `UAZAPI_ATENDENTE_*` | (vazio) | segundo número só para o atendente; o primeiro fica só para o maestro |
+| `UAZAPI_ATENDENTE_TOKEN`, `UAZAPI_ATENDENTE_WEBHOOK_SEGREDO` | (vazio) | segundo número só para o atendente; o primeiro fica só para o maestro |
 | `WHATSAPP_PROVEDOR`, `UAZAPI_*` | (vazio) | WhatsApp pela UAZAPI (não oficial, para testes): endereço, token da instância e segredo do webhook; veja [docs/whatsapp.md](docs/whatsapp.md#uazapi-para-testes) |
 | `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `AGENT_TRANSCREVER_AUDIO` | (vazio), (vazio), `true` | áudio do WhatsApp vira texto (Whisper pela UAZAPI, ou um modelo do OpenRouter que ouve áudio) |
 | `WHATSAPP_*` | (vazio) | token, ID do número, App Secret, token de verificação e números permitidos: veja [docs/whatsapp.md](docs/whatsapp.md) |
 | `AGENT_EMPRESA_DIR` | `empresa/` ou o exemplo | pasta da empresa que o atendente atende |
 | `AGENT_ATENDENTE_MAX_TURNS` | `12` | máximo de passos do atendente por mensagem de cliente |
 | `AGENT_DADOS_DIR` | `dados/` ou o exemplo | pasta das planilhas da loja para a gestão |
-| `AGENT_ATENDENTE_WHATSAPP` | `false` | clientes (números fora da equipe) falam com o atendente pelo WhatsApp |
+| `AGENT_ATENDENTE_WHATSAPP` | `false` | com um número só: clientes (fora da equipe) falam com o atendente pelo WhatsApp |
 | `AGENT_HELP_TIMEOUT_MIN` | `10` | quanto tempo ele espera você resolver um CAPTCHA, código ou login |
 
 Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
@@ -237,13 +251,14 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Gestão](docs/gestao.md) | planilhas da loja, números, alertas, como o operador usa |
 | [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |
 | [Arquitetura](docs/arquitetura.md) | como o código está organizado e o fluxo de um pedido |
+| [VM e custos](docs/custos.md) | tamanho da VM e estimativa de custo mensal por modelo |
 | [Instalação](docs/instalacao.md) | passo a passo local (Linux, macOS, Windows) e na VPS |
 | [Configuração](docs/configuracao.md) | todas as variáveis, memória, custos |
 | [Uso](docs/uso.md) | exemplos de pedidos, boas práticas, leitura dos logs |
 | [Segurança](docs/seguranca.md) | riscos reais (prompt injection, chaves, gastos) e como se proteger |
 | [Roadmap](docs/roadmap.md) | as 7 etapas, com o que entra em cada uma |
 | [VPS](docs/vps.md) | colocar em produção: instalação, serviço, HTTPS, backups, vigia |
-| [WhatsApp](docs/whatsapp.md) | passo a passo na Meta, comandos, regra das 24 h e segurança |
+| [WhatsApp](docs/whatsapp.md) | Meta e UAZAPI, um ou dois números, comandos, áudio, regra das 24 h e segurança |
 | [Desenvolvimento](docs/desenvolvimento.md) | como adicionar ferramentas, conectores e canais |
 | [Solução de problemas](docs/problemas.md) | erros comuns e como resolver |
 
@@ -256,7 +271,8 @@ O agente roda com **autonomia total**: ele não pede confirmação antes de agir
 - **Ele pode errar com confiança.** Confira o que importa.
 - **Prompt injection:** um e-mail ou site pode trazer instruções escondidas.
 - **Ações irreversíveis** (pagar, apagar, enviar) não têm "desfazer".
-- **Custo:** cada passo consome a API. O teto por pedido limita o estrago.
+- **Custo:** cada passo consome a API. O teto por pedido limita o estrago. Estimativas em [docs/custos.md](docs/custos.md).
+- **UAZAPI não é oficial:** viola os termos do WhatsApp e o número pode ser banido. Use só em testes; para clientes reais, a API da Meta.
 - **A VPS guarda as chaves de tudo.** Proteja-a como protegeria seu celular desbloqueado.
 
 ---
