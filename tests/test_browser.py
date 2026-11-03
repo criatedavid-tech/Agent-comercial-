@@ -43,6 +43,46 @@ def test_challenge_detection():
     assert looks_like_challenge("Segurança", "", [], "https://www.mercadolivre.com.br/captcha/wall?go_url=x")
 
 
+def test_browser_channel_setting():
+    from agente.config import browser_channel
+    assert browser_channel("") == "" and browser_channel("Chromium") == ""
+    assert browser_channel(" Chrome ") == "chrome" and browser_channel("msedge") == "msedge"
+    with pytest.raises(ValueError, match="AGENT_BROWSER_CHANNEL"):
+        browser_channel("firefox")
+
+
+def test_channel_reaches_the_launch(tmp_path):
+    """O canal escolhido vai para o Playwright; vazio vira None (o Chromium de sempre)."""
+    seen = {}
+
+    class FakeChromium:
+        async def launch_persistent_context(self, profile, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("parou aqui")
+
+    class FakePw:
+        chromium = FakeChromium()
+
+        async def stop(self):
+            pass
+
+    class FakeStarter:
+        async def start(self):
+            return FakePw()
+
+    import playwright.async_api as api
+    original = api.async_playwright
+    api.async_playwright = lambda: FakeStarter()
+    try:
+        for channel, expected in (("chrome", "chrome"), ("", None)):
+            b = Browser(tmp_path / "perfil", tmp_path / "capturas", headless=True, channel=channel)
+            with pytest.raises(BrowserError):
+                asyncio.run(b._get_page())
+            assert seen["channel"] == expected
+    finally:
+        api.async_playwright = original
+
+
 def test_cookie_banner_accept_all_is_refused():
     banner = "Usamos cookies para melhorar sua experiência."
     for text in ("Aceitar todos os cookies", "Aceitar todos", "Accept all", "Aceitar", "Permitir todos"):

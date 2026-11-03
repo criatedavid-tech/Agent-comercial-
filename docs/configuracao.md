@@ -57,6 +57,9 @@ Padrão: `07:00`. Hora do resumo diário: o agente lista o que está agendado pa
 ### `AGENT_BROWSER_HEADLESS`
 Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade no seu computador: é nela que você resolve CAPTCHA, login e códigos quando o agente pedir. Use `true` só onde não há tela (VPS); aí o agente avisa que você não consegue resolver verificações por enquanto.
 
+### `AGENT_BROWSER_CHANNEL`
+Padrão: vazio (o Chromium que vem com o Playwright). `chrome` ou `msedge` usa o Google Chrome ou o Microsoft Edge instalados no computador (na VM Linux, instale o Chrome antes). Serve para compatibilidade com sistemas que estranham o Chromium de teste; **não** muda como os sites tratam um navegador controlado por programa, e o agente continua sem esconder isso. Ao trocar, o perfil em `navegador/` é de outro programa: se algo estranho acontecer, apague a pasta e refaça os logins pela tela remota. Valor desconhecido faz o servidor recusar iniciar.
+
 ### `AGENT_PUBLIC_URL`
 Endereço público da VM, ex. `https://agente.autocenter.com.br` (o `provisionar.sh` preenche sozinho com `--dominio`). Os avisos de login expirado levam um link temporário para a tela remota do navegador com este domínio. Vazio: o link só abre na própria máquina ou pelo túnel SSH. Detalhes em [acessos.md](acessos.md).
 

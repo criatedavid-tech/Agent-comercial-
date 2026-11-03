@@ -226,7 +226,7 @@ def connect_link() -> str:
 
 
 def browser():
-    return shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless)
+    return shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless, cfg.browser_channel)
 
 
 def build_watch() -> sessoes.SessionWatch | None:

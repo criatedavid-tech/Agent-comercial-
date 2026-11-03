@@ -223,6 +223,7 @@ Tudo fica no `.env`:
 | `AGENT_TIMEZONE` | `America/Sao_Paulo` | fuso da agenda |
 | `AGENT_DAILY_SUMMARY` | `07:00` | hora do resumo diário; vazio desliga |
 | `AGENT_BROWSER_HEADLESS` | `false` | navegador próprio sem janela (use `true` só na VPS) |
+| `AGENT_BROWSER_CHANNEL` | (vazio) | `chrome` ou `msedge` usa o navegador instalado no computador, em vez do Chromium do Playwright |
 | `AGENT_PUBLIC_URL` | (vazio) | `https://` da VM: os avisos de login expirado levam link da tela remota com este domínio |
 | `AGENT_ACESSOS_MIN` | `60` | de quantos em quantos minutos conferir os logins de `empresa/sistemas.toml` |
 | `UAZAPI_ATENDENTE_TOKEN`, `UAZAPI_ATENDENTE_WEBHOOK_SEGREDO` | (vazio) | segundo número só para o atendente; o primeiro fica só para o maestro |

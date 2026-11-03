@@ -13,6 +13,19 @@ EXAMPLE_COMPANY = ROOT / "exemplos" / "empresa"  # empresa fictícia usada quand
 EXAMPLE_DATA = ROOT / "exemplos" / "dados"  # planilhas fictícias usadas quando dados/ ainda não existe
 
 
+BROWSER_CHANNELS = ("chrome", "msedge")
+
+
+def browser_channel(value: str) -> str:
+    """Navegador do agente: vazio/chromium = o do Playwright; chrome ou msedge = o instalado no computador."""
+    value = value.strip().lower()
+    if value in ("", "chromium"):
+        return ""
+    if value not in BROWSER_CHANNELS:
+        raise ValueError(f"AGENT_BROWSER_CHANNEL={value!r} não existe: use vazio, {' ou '.join(BROWSER_CHANNELS)}")
+    return value
+
+
 @dataclass(frozen=True)
 class Config:
     model: str
@@ -55,6 +68,7 @@ class Config:
     data_dir: Path = EXAMPLE_DATA  # planilhas da loja para a gestão: vendas, despesas, estoque, caixa
     public_url: str = ""  # https://dominio da VM; vazio = links da tela remota só funcionam pelo túnel SSH
     access_check_min: float = 60  # de quantos em quantos minutos confere os logins dos sistemas da loja
+    browser_channel: str = ""  # "" = Chromium do Playwright; "chrome" ou "msedge" = o navegador instalado no computador
 
     @property
     def has_credentials(self) -> bool:
@@ -119,6 +133,7 @@ def load() -> Config:
         data_dir=data_dir(os.getenv("AGENT_DADOS_DIR", "").strip()),
         public_url=os.getenv("AGENT_PUBLIC_URL", "").strip().rstrip("/"),
         access_check_min=float(os.getenv("AGENT_ACESSOS_MIN", "60")),
+        browser_channel=browser_channel(os.getenv("AGENT_BROWSER_CHANNEL", "")),
         attendant_whatsapp=os.getenv("AGENT_ATENDENTE_WHATSAPP", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):

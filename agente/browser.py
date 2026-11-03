@@ -326,7 +326,9 @@ def blocked_text(host: str, until: float) -> str:
 class Browser:
     """Um navegador por processo, compartilhado pelas conversas; uma ação por vez."""
 
-    def __init__(self, profile_dir: Path, shots_dir: Path, headless: bool = False, allow_private: bool = False):
+    def __init__(self, profile_dir: Path, shots_dir: Path, headless: bool = False, allow_private: bool = False,
+                 channel: str = ""):
+        self.channel = channel  # "chrome" ou "msedge": o navegador instalado; vazio: o Chromium do Playwright
         self.profile_dir = profile_dir
         self.shots_dir = shots_dir
         self.headless = headless
@@ -385,7 +387,7 @@ class Browser:
             try:
                 self._ctx = await self._pw.chromium.launch_persistent_context(
                     str(self.profile_dir), headless=self.headless, locale="pt-BR",
-                    viewport=VIEWPORT, accept_downloads=False,
+                    viewport=VIEWPORT, accept_downloads=False, channel=self.channel or None,
                 )
             except Exception as e:
                 await self._pw.stop()
@@ -562,9 +564,10 @@ class Browser:
             self._check_blocked(page.url)
             el = await self._element(page, ref)
             info = await el.evaluate(
-                "e => { " + ELEMENT_LABEL_JS + " return {type: (e.type || '').toLowerCase(),"
-                " auto: (e.autocomplete || '').toLowerCase(), label: agenteLabel(e),"
-                " name: ((e.name || '') + ' ' + (e.id || '')).toLowerCase()}; }"
+                "e => { " + ELEMENT_LABEL_JS + " return {tag: e.tagName.toLowerCase(),"
+                " type: (e.type || '').toLowerCase(), role: e.getAttribute('role') || '',"
+                " editable: !!e.isContentEditable, auto: (e.autocomplete || '').toLowerCase(),"
+                " label: agenteLabel(e), name: ((e.name || '') + ' ' + (e.id || '')).toLowerCase()}; }"
             )
             if info["type"] == "password" or "password" in info["auto"]:
                 raise BrowserError("campo de senha: senhas quem digita é o usuário. Use pedir_ajuda_humana.")
@@ -573,7 +576,39 @@ class Browser:
             secret = find_secret(text)
             if secret:
                 raise BrowserError(f"o texto parece conter {secret}: isso quem digita é o usuário")
-            await el.fill(text, timeout=10000)
+            if info["tag"] == "select":
+                try:
+                    await el.select_option(label=text, timeout=10000)
+                except Exception:
+                    try:
+                        await el.select_option(value=text, timeout=10000)
+                    except Exception:
+                        raise BrowserError(
+                            f"não encontrei a opção {text!r} no seletor [{ref}] '{info['label']}'"
+                        ) from None
+            elif info["tag"] in ("input", "textarea") or info["editable"]:
+                text_input_types = {
+                    "", "text", "search", "email", "tel", "url", "number", "date",
+                    "datetime-local", "month", "time", "week",
+                }
+                if info["tag"] == "input" and info["type"] not in text_input_types:
+                    raise BrowserError(
+                        f"o elemento [{ref}] '{info['label']}' é um controle {info['type'] or 'não textual'}, "
+                        "não um campo de texto; use clicar para alterá-lo"
+                    )
+                await el.fill(text, timeout=10000)
+            else:
+                if info["tag"] == "a" or info["role"] == "link":
+                    kind = "um link"
+                elif info["tag"] == "button" or info["role"] == "button":
+                    kind = "um botão"
+                else:
+                    kind = "um controle que não aceita texto"
+                raise BrowserError(
+                    f"o elemento [{ref}] '{info['label']}' é {kind}, não um campo de texto. "
+                    "Clique nele se precisar abrir o campo; depois liste os elementos novamente e preencha "
+                    "o input, textarea ou seletor correspondente."
+                )
             if info["label"].strip():
                 self.journal.append({"action": "fill", "url": page.url, "label": info["label"].strip()[:80],
                                      "value": text, "submit": bool(submit)})
@@ -703,8 +738,8 @@ async def close_browsers() -> None:
         await browser.close()
 
 
-def shared_browser(profile_dir: Path, shots_dir: Path, headless: bool) -> Browser:
+def shared_browser(profile_dir: Path, shots_dir: Path, headless: bool, channel: str = "") -> Browser:
     """O perfil só pode ser aberto uma vez por processo: todas as conversas usam o mesmo navegador."""
     if profile_dir not in _shared:
-        _shared[profile_dir] = Browser(profile_dir, shots_dir, headless)
+        _shared[profile_dir] = Browser(profile_dir, shots_dir, headless, channel=channel)
     return _shared[profile_dir]

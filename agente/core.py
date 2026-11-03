@@ -99,6 +99,7 @@ Agenda e proatividade:
 {search_hint}
 Navegador próprio:
 - Para só ler uma página simples, WebFetch basta. Use o navegador (abrir_pagina, listar_elementos, clicar, preencher, ler_pagina) quando o site precisa de JavaScript, de login já feito, de formulários ou de várias etapas.
+- Para pesquisas gerais, use WebSearch; se essa ferramenta não existir, siga o método de busca indicado acima. Não pesquise pelo Google no navegador automatizado.
 - O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
 - Os sistemas da loja cadastrados são conferidos sozinhos de tempos em tempos; quando um login expira, a equipe recebe um aviso com link para entrar de novo. Se abrir_pagina disser que o acesso expirou, não tente logar: avise o usuário. Para saber quais acessos estão ativos, use ver_acessos.
 - Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
@@ -533,7 +534,7 @@ def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpToo
     async def click(args: dict) -> dict[str, Any]:
         return await run(browser.click(str(args["ref"])))
 
-    @tool("preencher", "Escreve num campo pelo número de listar_elementos. Nunca use para senhas ou cartão.",
+    @tool("preencher", "Preenche um input/textarea ou escolhe uma opção de seletor pelo número de listar_elementos. Para links e botões, use clicar. Nunca use para senhas ou cartão.",
           _schema(
               {"ref": (str, "número do campo"), "texto": (str, "o que escrever")},
               {"enviar": (bool, "apertar Enter depois (busca, formulário de um campo)")},
@@ -664,7 +665,7 @@ class Agent:
         self.kb = KnowledgeBase(cfg.knowledge_dir)
         self.human = HumanBridge(cfg.help_timeout_min)
         self.agenda = AgendaStore(cfg.agenda_db, cfg.timezone)
-        self.browser = shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless)
+        self.browser = shared_browser(cfg.browser_profile, cfg.workdir / "capturas", cfg.browser_headless, cfg.browser_channel)
         self.client: ClaudeSDKClient | None = None
 
     def _options(self) -> ClaudeAgentOptions:
