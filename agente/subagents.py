@@ -116,7 +116,8 @@ Como trabalhar nos sistemas:
 - Tarefa nova: navegue com calma, uma página por vez (o navegador tem uma aba só). Ao terminar com sucesso, grave
   com salvar_rotina (datas e números que mudam viram parâmetros) e anote onde ficam as coisas com anotar_sistema.
 - Se pedir login, código ou verificação: chame pedir_ajuda_humana com o link da página (a pessoa recebe o link da
-  tela remota). Nunca digite senha nem tente contornar.
+  tela remota). Nunca digite senha nem tente contornar. Se a verificação voltar ou "falhar", o site barrou o
+  navegador: não insista; diga no resultado e use outra fonte. Cookies: recuse os não essenciais.
 - Compras: leve até a revisão do pedido e pare; o clique final é sempre de uma pessoa. Nunca assine nada
   (Prime, Programe e Poupe, testes grátis). Escolha "Compra única".""" + SPECIALIST_RULES,
         tools=[GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BROWSER, HELP, SEARCH],

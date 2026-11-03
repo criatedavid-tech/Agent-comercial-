@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from agente.browser import Browser, BrowserError, check_url, looks_like_challenge
+from agente.browser import Browser, BrowserError, check_url, is_accept_all_cookies, looks_like_challenge
 from agente.core import browser_tools
 
 # --- regras, sem navegador ---------------------------------------------------------
@@ -34,6 +34,19 @@ def test_challenge_detection():
     assert looks_like_challenge("Loja", "Confirme que você é humano para continuar", [])
     assert looks_like_challenge("Login", "", ["https://challenges.cloudflare.com/turnstile/v0/abc"])
     assert not looks_like_challenge("Notícias", "Preço do dólar hoje", ["https://www.youtube.com/embed/x"])
+    # visto no teste real: a Shopee manda para /verify/captcha e depois mostra "A verificação falhou"
+    assert looks_like_challenge("Shopee", "", [], "https://shopee.com.br/verify/captcha?anti_bot_tracking_id=1")
+    assert looks_like_challenge("Shopee", "Tente Novamente Mais Tarde\nA verificação falhou.", [])
+    assert not looks_like_challenge("Shopee", "Cubo mágico 3x3", [], "https://shopee.com.br/search?keyword=cubo")
+
+
+def test_cookie_banner_accept_all_is_refused():
+    banner = "Usamos cookies para melhorar sua experiência."
+    for text in ("Aceitar todos os cookies", "Aceitar todos", "Accept all", "Aceitar", "Permitir todos"):
+        assert is_accept_all_cookies(text, banner), text
+    for text in ("Rejeitar todos", "Somente necessários", "Configurar cookies", "Adicionar ao carrinho"):
+        assert not is_accept_all_cookies(text, banner), text
+    assert not is_accept_all_cookies("Aceitar", "Proposta de orçamento")  # sem aviso de cookies na página
 
 
 # --- uso real (Chromium invisível + servidor local) ------------------------------------
@@ -130,6 +143,37 @@ def test_refuses_passwords_cards_and_secrets(site, run_browser):
 def test_challenge_page_tells_agent_to_call_human(site, run_browser):
     page = run_browser(lambda b: b.open(f"{site}/desafio.html"))
     assert "VERIFICAÇÃO DE ROBÔ" in page and "pedir_ajuda_humana" in page
+
+
+def test_repeated_challenge_pauses_the_site(site, run_browser):
+    """Na Shopee o agente insistiu na verificação e o bloqueio piorou: na segunda seguida, o site entra em pausa."""
+    async def scenario(b: Browser):
+        first = await b.open(f"{site}/desafio.html")
+        second = await b.open(f"{site}/desafio.html")
+        errors = []
+        for attempt in (b.open(f"{site}/index.html"), b.click("1")):
+            try:
+                await attempt
+            except BrowserError as e:
+                errors.append(str(e))
+        b._now = lambda: 1e12  # horas depois: a pausa venceu
+        later = await b.open(f"{site}/index.html")
+        return first, second, errors, later
+
+    first, second, errors, later = run_browser(scenario)
+    assert "Chame pedir_ajuda_humana" in first and "BLOQUEOU" not in first
+    assert "BLOQUEOU" in second and "não chame pedir_ajuda_humana" in second
+    assert len(errors) == 2 and all("BLOQUEOU" in e for e in errors)
+    assert "Página: Loja Teste" in later
+
+
+def test_solved_challenge_resets_the_count(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/desafio.html")
+        await b.open(f"{site}/index.html")  # a pessoa resolveu: a página normal zera a contagem
+        return await b.open(f"{site}/desafio.html")
+
+    assert "BLOQUEOU" not in run_browser(scenario)
 
 
 def test_stale_reference_and_screenshot(site, run_browser):

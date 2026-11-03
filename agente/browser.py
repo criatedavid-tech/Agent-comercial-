@@ -9,15 +9,19 @@ Regras no código (não só no prompt):
   usar o agente contra o roteador ou contra o próprio painel;
 - nunca digita em campo de senha nem digita números de cartão, CPF ou senhas;
 - não digita nada em página sem HTTPS (dá para ler, não para preencher);
-- o texto das páginas volta marcado como informação, nunca como instrução.
+- o texto das páginas volta marcado como informação, nunca como instrução;
+- depois de MAX_CHALLENGES verificações de robô seguidas num site, o agente para de tentar nele por
+  BLOCK_HOURS (insistir só piora o bloqueio); não aceita "todos os cookies".
 """
 
 import asyncio
 from collections import deque
 from datetime import datetime
 import ipaddress
+import json
 from pathlib import Path
 import re
+import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -30,8 +34,13 @@ CHALLENGE_TEXTS = (
     "just a moment", "checking your browser", "verify you are human", "verifique se você é humano",
     "confirme que você é humano", "are you a robot", "você é um robô", "não sou um robô", "i'm not a robot",
     "unusual traffic", "tráfego incomum", "attention required", "access denied", "press & hold",
+    "a verificação falhou", "verification failed",
 )
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
+# Endereço da própria página de verificação (ex. Shopee: /verify/captcha?anti_bot_tracking_id=...).
+CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/", re.I)
+MAX_CHALLENGES = 2
+BLOCK_HOURS = 6
 
 MAX_ELEMENTS = 200
 # Campo com o foco agora: nome visível e quantos caracteres tem (nunca o conteúdo: pode ser senha ou código).
@@ -177,6 +186,10 @@ OFFER_REFUSAL = (
     "nada; aqui só é permitido recusar. Clique no botão de recusa ('Não, obrigado(a)', 'Agora não', 'Continuar sem'). "
     "Se não houver, chame pedir_ajuda_humana."
 )
+COOKIE_REFUSAL = (
+    "não aceito todos os cookies: só os essenciais. Procure 'Rejeitar', 'Somente necessários', 'Recusar' ou "
+    "'Configurar' (e desmarque os opcionais). Se só houver aceitar, ignore o aviso e continue."
+)
 UNKNOWN_REFUSAL = (
     "não consegui identificar o que este botão faz (ele não tem nome legível). Por segurança não clico em botão "
     "desconhecido: liste os elementos de novo, procure um com nome claro ou chame pedir_ajuda_humana."
@@ -214,6 +227,15 @@ def is_subscription_offer(page_text: str) -> bool:
     if not any(w in t for w in ("assinatura", "assine", "assinar", "subscription", "subscribe", "prime")):
         return False
     return sum(m in t for m in OFFER_MARKERS) >= 2
+
+
+def is_accept_all_cookies(text: str, page_text: str) -> bool:
+    """Botão de aceitar todos os cookies (o certo é recusar os não essenciais)."""
+    t = _plain(text)
+    if "cookie" not in _plain(page_text[:8000]) or any(w in t for w in ("rejeitar", "recusar", "necessarios", "essenciais", "reject")):
+        return False
+    return t in ("aceitar", "accept", "aceito", "concordo", "permitir", "allow", "ok") or bool(
+        re.search(r"(aceit|accept|permit|allow|concord)\w*\s+(todos|tudo|all|os cookies|cookies)", t))
 
 
 def is_decline_button(text: str) -> bool:
@@ -275,12 +297,29 @@ def insecure_page(url: str, allow_private: bool = False) -> bool:
     return urlparse(url).scheme == "http" and not allow_private
 
 
-def looks_like_challenge(title: str, text: str, frames: list[str]) -> bool:
+def looks_like_challenge(title: str, text: str, frames: list[str], url: str = "") -> bool:
     """Heurística: página de verificação de robô (Cloudflare, reCAPTCHA, hCaptcha...)."""
+    if url and CHALLENGE_URLS.search(urlparse(url).path + "?" + urlparse(url).query):
+        return True
     haystack = f"{title}\n{text[:3000]}".lower()
     if any(t in haystack for t in CHALLENGE_TEXTS):
         return True
     return any(any(f in src.lower() for f in CHALLENGE_FRAMES) for src in frames)
+
+
+def _host(url: str) -> str:
+    host = (urlparse(url).hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def blocked_text(host: str, until: float) -> str:
+    return (
+        f"{host} BLOQUEOU o navegador do agente com verificação de robô {MAX_CHALLENGES} vezes seguidas. "
+        f"Não tente de novo neste site antes de {datetime.fromtimestamp(until):%d/%m %H:%M} (insistir só piora o "
+        "bloqueio) e não chame pedir_ajuda_humana para resolver a verificação. Avise o usuário em uma mensagem: o "
+        "site barrou o navegador automático; ele pode fazer essa etapa no próprio celular ou computador, e você "
+        "continua com outras fontes (outra loja, pesquisa na web)."
+    )
 
 
 class Browser:
@@ -298,6 +337,39 @@ class Browser:
         self._probing = False  # aba da checagem de acesso: não vira a aba do agente
         # Diário dos passos que deram certo (abrir, clicar, preencher): vira rotina em agente/aprendizado.py.
         self.journal: deque[dict] = deque(maxlen=80)
+        # Verificações de robô seguidas por site; os sites em pausa ficam em verificacoes.json.
+        self._strikes: dict[str, int] = {}
+        self._now = time.time
+
+    @property
+    def _blocks_file(self) -> Path:
+        return self.profile_dir / "verificacoes.json"
+
+    def _blocks(self) -> dict[str, float]:
+        """Sites em pausa e até quando (segundos desde 1970); os vencidos somem."""
+        try:
+            data = json.loads(self._blocks_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return {h: float(u) for h, u in data.items() if float(u) > self._now()}
+
+    def blocked_until(self, url: str) -> float | None:
+        return self._blocks().get(_host(url))
+
+    def _block(self, host: str) -> float:
+        blocks = self._blocks()
+        blocks[host] = until = self._now() + BLOCK_HOURS * 3600
+        try:
+            self.profile_dir.mkdir(parents=True, exist_ok=True)
+            self._blocks_file.write_text(json.dumps(blocks), encoding="utf-8")
+        except OSError:
+            pass
+        return until
+
+    def _check_blocked(self, url: str) -> None:
+        until = self.blocked_until(url)
+        if until:
+            raise BrowserError(blocked_text(_host(url), until))
 
     async def _get_page(self) -> Any:
         if self._page and not self._page.is_closed():
@@ -346,7 +418,13 @@ class Browser:
         lines = [f"Página: {title}", f"Endereço: {page.url}"]
         if insecure_page(page.url, self.allow_private):
             lines.append("⚠ PÁGINA SEM HTTPS: só leia. Não preencha nada, não faça login e não compre aqui; avise o usuário.")
-        if looks_like_challenge(title, text, frames):
+        host = _host(page.url)
+        challenge = looks_like_challenge(title, text, frames, page.url)
+        self._strikes[host] = self._strikes.get(host, 0) + 1 if challenge else 0
+        if challenge and self._strikes[host] >= MAX_CHALLENGES:
+            self._strikes[host] = 0
+            lines.append("⚠ " + blocked_text(host, self._block(host)))
+        elif challenge:
             where = ("na janela do navegador do agente" if not self.headless
                      else "(o navegador está invisível, AGENT_BROWSER_HEADLESS=true: o usuário não consegue resolver daqui)")
             lines.append(
@@ -361,6 +439,7 @@ class Browser:
 
     async def open(self, url: str) -> str:
         url = check_url(url, self.allow_private)
+        self._check_blocked(url)
         async with self._lock:
             page = await self._get_page()
             try:
@@ -426,6 +505,7 @@ class Browser:
     async def click(self, ref: str) -> str:
         async with self._lock:
             page = await self._get_page()
+            self._check_blocked(page.url)
             el = await self._element(page, ref)
             info = await el.evaluate(
                 "e => { " + ELEMENT_LABEL_JS + " return {text: agenteLabel(e), id: e.id || '', name: e.name || '',"
@@ -439,6 +519,8 @@ class Browser:
                 raise BrowserError(BUY_NOW_REFUSAL if buy_now else PURCHASE_REFUSAL)
             if is_subscription_offer(info["page"]) and not is_decline_button(info["text"]):
                 raise BrowserError(OFFER_REFUSAL)
+            if is_accept_all_cookies(info["text"], info["page"]):
+                raise BrowserError(COOKIE_REFUSAL)
             button_like = info["tag"] == "button" or info["role"] == "button" or info["type"] in ("submit", "button", "image")
             if button_like and not info["text"].strip():
                 raise BrowserError(UNKNOWN_REFUSAL)
@@ -467,6 +549,7 @@ class Browser:
             page = await self._get_page()
             if insecure_page(page.url, self.allow_private):
                 raise BrowserError("página sem HTTPS: não digito nada aqui. Confira se o endereço é o site certo.")
+            self._check_blocked(page.url)
             el = await self._element(page, ref)
             info = await el.evaluate(
                 "e => { " + ELEMENT_LABEL_JS + " return {type: (e.type || '').toLowerCase(),"
@@ -523,7 +606,7 @@ class Browser:
                 text = await page.evaluate("() => document.body ? document.body.innerText : ''")
                 has_password = await page.evaluate("() => !!document.querySelector('input[type=password]')")
                 frames = [f.url for f in page.frames]
-                return Probe(page.url, title, text[:20000], has_password, looks_like_challenge(title, text, frames))
+                return Probe(page.url, title, text[:20000], has_password, looks_like_challenge(title, text, frames, page.url))
             except Exception as e:
                 raise BrowserError(f"não consegui abrir {url}: {str(e).splitlines()[0][:200]}") from None
             finally:

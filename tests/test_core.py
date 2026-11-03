@@ -187,6 +187,18 @@ def test_ask_converts_messages_to_events_and_logs(cfg):
     assert log[-1]["cost_usd"] == 0.0123
 
 
+def test_password_pasted_in_chat_never_reaches_the_model(cfg):
+    """Visto no teste real: o usuário colou e-mail e senha da Shopee e o gerente repassou ao subagente."""
+    agent = Agent(cfg)
+    agent.client = FakeClient([])
+    events = collect(agent, "compre na Shopee. credenciais: eu@exemplo.com\nsenha: Segredo123")
+    assert events[0].kind == "blocked" and "senha" in events[0].text
+    [sent] = agent.client.sent
+    assert "Segredo123" not in sent and "eu@exemplo.com" in sent and "removeu" in sent
+    log = next(cfg.logs_dir.glob("*.jsonl")).read_text(encoding="utf-8")
+    assert "Segredo123" not in log
+
+
 def test_result_status_on_errors(cfg):
     agent = Agent(cfg)
 

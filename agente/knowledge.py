@@ -39,6 +39,32 @@ SECRETS = [
 ]
 
 
+# Na conversa com o operador só senha e cartão saem (CPF pode ser dado de trabalho, ex. um cliente).
+REDACT = [
+    (re.compile(r"(?i)\b(senha|password|pass|pin)(\s*[:=]\s*|\s+(?:é|e|eh)\s+)\S+"), "senha"),
+    (re.compile(r"(?i)\b([\w.+-]+@[\w-]+\.[\w.]+)\s*/\s*\S+"), "senha"),
+    (re.compile(r"\b(?:\d[ -]?){13,19}\b"), "número de cartão"),
+]
+
+
+def redact_secrets(text: str) -> tuple[str, list[str]]:
+    """Tira senhas ("senha: x", "email / senha") e números de cartão; diz o que tirou."""
+    removed: list[str] = []
+
+    def cut(name: str, keep: int):
+        def sub(m: re.Match) -> str:
+            if name == "número de cartão" and not _luhn(re.sub(r"\D", "", m.group())):
+                return m.group()
+            if name not in removed:
+                removed.append(name)
+            return (m.group(1) + (m.group(2) if keep == 2 else " / ") if keep else "") + "[removido]"
+        return sub
+
+    for (pattern, name), keep in zip(REDACT, (2, 1, 0)):
+        text = pattern.sub(cut(name, keep), text)
+    return text, removed
+
+
 @dataclass
 class Hit:
     area: str

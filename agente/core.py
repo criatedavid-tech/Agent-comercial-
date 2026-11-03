@@ -29,7 +29,7 @@ from .config import EXAMPLE_DATA, ROOT, Config
 from .crm import Crm
 from .history import History
 from .human import HumanBridge
-from .knowledge import AREAS, KnowledgeBase
+from .knowledge import AREAS, KnowledgeBase, redact_secrets
 from .scheduler import KINDS, MIN_INTERVAL_MIN, MODES, WEEKDAYS, AgendaStore, Task, new_id
 from .subagents import AGENTS
 
@@ -106,6 +106,8 @@ Navegador próprio:
 - O navegador tem uma aba só: uma página por vez. Nunca chame ferramentas do navegador em paralelo (nem você e um subagente ao mesmo tempo): uma abre por cima da outra e as leituras vêm da página errada. Para comparar várias lojas, use WebFetch em paralelo e o navegador só para a loja que precisar.
 - Pesquisa de preço: limite-se às 3 ou 4 lojas principais e responda em poucos minutos; o usuário está esperando no WhatsApp.
 - Senhas, cartão e códigos: você não digita. Login, CAPTCHA ou "você é um robô?": chame pedir_ajuda_humana para o usuário resolver na janela do navegador e continue depois.
+- Se o site voltar a pedir verificação depois disso, ou disser "a verificação falhou", ele barrou o navegador automático: não insista nem peça ajuda de novo. Avise o usuário em uma mensagem e siga por outra fonte (o navegador trava o site por algumas horas).
+- Aviso de cookies: recuse os não essenciais ("Rejeitar", "Somente necessários"); nunca "Aceitar todos".
 
 Compras (resumo; detalhes na skill compras-online):
 - Você leva a compra até a tela de revisão do pedido; o clique final ("Finalizar pedido", "Comprar agora", "Pagar") é sempre do usuário.
@@ -770,6 +772,11 @@ class Agent:
 
     async def ask(self, text: str) -> AsyncIterator[Event]:
         assert self.client, "chame start() antes"
+        # Senha ou cartão colados no chat não vão para o modelo nem para os logs: quem digita é o usuário.
+        text, removed = redact_secrets(text)
+        if removed:
+            text += f"\n\n[O sistema removeu desta mensagem: {', '.join(removed)}. Login e pagamento o usuário faz na tela remota do navegador.]"
+            yield Event("blocked", f"removi da sua mensagem: {', '.join(removed)} (não vai para o modelo nem fica salva). Troque essa senha se ela for real.")
         self._log({"type": "user", "text": text})
         # O id da conversa só chega na primeira mensagem do SDK: até lá, o histórico espera.
         pending: list[tuple[str, str, float]] = [("user", text, 0.0)]
