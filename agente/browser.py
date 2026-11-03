@@ -40,6 +40,7 @@ CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turns
 # Endereço da própria página de verificação (ex. Shopee: /verify/captcha?anti_bot_tracking_id=...).
 CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/", re.I)
 MAX_CHALLENGES = 2
+CHALLENGE_WINDOW_MIN = 30  # verificações no mesmo site dentro desta janela contam juntas
 BLOCK_HOURS = 6
 
 MAX_ELEMENTS = 200
@@ -314,7 +315,7 @@ def _host(url: str) -> str:
 
 def blocked_text(host: str, until: float) -> str:
     return (
-        f"{host} BLOQUEOU o navegador do agente com verificação de robô {MAX_CHALLENGES} vezes seguidas. "
+        f"{host} BLOQUEOU o navegador do agente com verificação de robô {MAX_CHALLENGES} vezes em pouco tempo. "
         f"Não tente de novo neste site antes de {datetime.fromtimestamp(until):%d/%m %H:%M} (insistir só piora o "
         "bloqueio) e não chame pedir_ajuda_humana para resolver a verificação. Avise o usuário em uma mensagem: o "
         "site barrou o navegador automático; ele pode fazer essa etapa no próprio celular ou computador, e você "
@@ -337,8 +338,9 @@ class Browser:
         self._probing = False  # aba da checagem de acesso: não vira a aba do agente
         # Diário dos passos que deram certo (abrir, clicar, preencher): vira rotina em agente/aprendizado.py.
         self.journal: deque[dict] = deque(maxlen=80)
-        # Verificações de robô seguidas por site; os sites em pausa ficam em verificacoes.json.
-        self._strikes: dict[str, int] = {}
+        # Quando apareceu cada verificação de robô, por site; os sites em pausa ficam em verificacoes.json.
+        # Não zera com página normal: na Shopee a busca abre normal e só depois o JavaScript manda para a verificação.
+        self._strikes: dict[str, list[float]] = {}
         self._now = time.time
 
     @property
@@ -408,21 +410,28 @@ class Browser:
         self._pw = self._ctx = self._page = None
 
     async def _snapshot(self, page: Any, limit: int = PAGE_TEXT_LIMIT) -> str:
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=15000)
-        except Exception:
-            pass
-        title = await page.title()
-        text = await page.evaluate("() => document.body ? document.body.innerText : ''")
+        for attempt in range(3):
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                title = await page.title()
+                text = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                break
+            except Exception:
+                if attempt == 2:  # a página não para de trocar (redirecionamento em looping)
+                    title, text = "(a página não terminou de carregar)", ""
+                    break
+                await page.wait_for_timeout(1000)  # a página trocou no meio da leitura: lê a nova
         frames = [f.url for f in page.frames]
         lines = [f"Página: {title}", f"Endereço: {page.url}"]
         if insecure_page(page.url, self.allow_private):
             lines.append("⚠ PÁGINA SEM HTTPS: só leia. Não preencha nada, não faça login e não compre aqui; avise o usuário.")
         host = _host(page.url)
         challenge = looks_like_challenge(title, text, frames, page.url)
-        self._strikes[host] = self._strikes.get(host, 0) + 1 if challenge else 0
-        if challenge and self._strikes[host] >= MAX_CHALLENGES:
-            self._strikes[host] = 0
+        now = self._now()
+        recent = [t for t in self._strikes.get(host, []) if now - t < CHALLENGE_WINDOW_MIN * 60]
+        self._strikes[host] = recent + [now] if challenge else recent
+        if challenge and len(self._strikes[host]) >= MAX_CHALLENGES:
+            self._strikes[host] = []
             lines.append("⚠ " + blocked_text(host, self._block(host)))
         elif challenge:
             where = ("na janela do navegador do agente" if not self.headless
@@ -446,6 +455,7 @@ class Browser:
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             except Exception as e:
                 raise BrowserError(f"não consegui abrir {url}: {e}") from None
+            await page.wait_for_timeout(1000)  # sites que redirecionam por JavaScript logo depois de abrir
             self._remember(page.url)
             self.journal.append({"action": "open", "url": page.url})
             return await self._snapshot(page)

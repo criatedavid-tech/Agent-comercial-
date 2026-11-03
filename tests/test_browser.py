@@ -167,10 +167,20 @@ def test_repeated_challenge_pauses_the_site(site, run_browser):
     assert "Página: Loja Teste" in later
 
 
-def test_solved_challenge_resets_the_count(site, run_browser):
+def test_normal_page_between_challenges_still_counts(site, run_browser):
+    """Visto na Shopee: a busca abre normal e o JavaScript manda para a verificação; a página normal não zera."""
     async def scenario(b: Browser):
         await b.open(f"{site}/desafio.html")
-        await b.open(f"{site}/index.html")  # a pessoa resolveu: a página normal zera a contagem
+        await b.open(f"{site}/index.html")
+        return await b.open(f"{site}/desafio.html")
+
+    assert "BLOQUEOU" in run_browser(scenario)
+
+
+def test_old_challenge_does_not_count(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/desafio.html")
+        b._now = lambda: 1e12  # uma hora depois, fora da janela
         return await b.open(f"{site}/desafio.html")
 
     assert "BLOQUEOU" not in run_browser(scenario)
