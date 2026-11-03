@@ -38,6 +38,9 @@ def test_challenge_detection():
     assert looks_like_challenge("Shopee", "", [], "https://shopee.com.br/verify/captcha?anti_bot_tracking_id=1")
     assert looks_like_challenge("Shopee", "Tente Novamente Mais Tarde\nA verificação falhou.", [])
     assert not looks_like_challenge("Shopee", "Cubo mágico 3x3", [], "https://shopee.com.br/search?keyword=cubo")
+    # Mercado Livre: primeiro exige conta, depois mostra o CAPTCHA
+    assert looks_like_challenge("Mercado Libre", "", [], "https://www.mercadolivre.com.br/gz/account-verification?go=x")
+    assert looks_like_challenge("Segurança", "", [], "https://www.mercadolivre.com.br/captcha/wall?go_url=x")
 
 
 def test_cookie_banner_accept_all_is_refused():

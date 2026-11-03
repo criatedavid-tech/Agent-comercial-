@@ -37,8 +37,8 @@ CHALLENGE_TEXTS = (
     "a verificação falhou", "verification failed",
 )
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
-# Endereço da própria página de verificação (ex. Shopee: /verify/captcha?anti_bot_tracking_id=...).
-CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/", re.I)
+# Endereço da própria página de verificação (Shopee: /verify/captcha; Mercado Livre: /gz/account-verification, /captcha/wall).
+CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/|account-verification", re.I)
 MAX_CHALLENGES = 2
 CHALLENGE_WINDOW_MIN = 30  # verificações no mesmo site dentro desta janela contam juntas
 BLOCK_HOURS = 6
