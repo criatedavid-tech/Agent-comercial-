@@ -29,6 +29,7 @@ from .config import EXAMPLE_DATA, ROOT, Config
 from .crm import Crm
 from .history import History
 from .human import HumanBridge
+from .brechas import AREAS as BRECHA_AREAS, STATUSES as BRECHA_STATUSES, BrechaError, BrechaStore
 from .knowledge import AREAS, KnowledgeBase, redact_secrets
 from .scheduler import KINDS, MIN_INTERVAL_MIN, MODES, WEEKDAYS, AgendaStore, Task, new_id
 from .subagents import AGENTS
@@ -41,10 +42,11 @@ BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
 AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
 GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
 COMERCIAL_TOOLS = [f"mcp__comercial__{n}" for n in ("listar_leads", "fila_atendimento", "conversa_cliente")]
+BRECHAS_TOOLS = [f"mcp__brechas__{n}" for n in ("registrar_brecha", "listar_brechas", "atualizar_brecha")]
 # Ferramentas embutidas do Claude Code que o agente pode usar. allowed_tools só aprova; quem restringe é
 # tools=BUILTIN_TOOLS (no primeiro teste real o modelo achou e usou o CronCreate interno, que some com a sessão).
 BUILTIN_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Agent", "Skill"]
-TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS, *GESTAO_TOOLS, *COMERCIAL_TOOLS]
+TOOLS = [*BUILTIN_TOOLS, *KB_TOOLS, *HUMAN_TOOLS, *AGENDA_TOOLS, *BROWSER_TOOLS, *GESTAO_TOOLS, *COMERCIAL_TOOLS, *BRECHAS_TOOLS]
 
 # Skills ficam no plugin local (plugin/skills/<nome>/SKILL.md) e só entram no contexto quando o assunto aparece.
 PLUGIN_DIR = ROOT / "plugin"
@@ -90,6 +92,10 @@ Gestão da empresa (vendas, despesas, estoque, caixa, atendimento):
 - Alerta sobre pessoa é indício para conferir, nunca acusação: diga o que conferir e como (ex. comparar a saída com a OS física, perguntar ao funcionário, conferir o caixa junto).
 - Ao explicar, priorize: o que custa mais dinheiro, o que é mais fácil de resolver, e uma ação concreta para cada alerta.
 - Os dados vêm de {data_dir}{data_note}.
+
+Brechas (o que a empresa perde ou deixa de ganhar):
+- Os especialistas registram cada achado conferido com registrar_brecha (evidência obrigatória, valor só se veio de uma ferramenta). Quem muda o status é você, com atualizar_brecha: depois de contar uma brecha ao dono ela vira "proposta"; "aprovada" só se ele disser sim; "resolvida" ou "descartada" quando ele concluir ou recusar.
+- Ao responder "onde estou perdendo dinheiro?", use listar_brechas e proponha UMA por vez, a de maior valor e menor esforço, com o valor e uma pergunta de sim ou não. Valor por mês e valor único não se misturam, e o total é estimativa: diga isso. Você não paga nem cobra nada: a ação é sempre da pessoa.
 
 Agenda e proatividade:
 - Para lembretes e tarefas recorrentes ("todo dia às 8h", "toda segunda", "daqui a 2 horas", "dia 5 de cada mês"), use agendar_tarefa. O horário é o do fuso {timezone}.
@@ -215,6 +221,60 @@ def access_checks(cfg: Config | None) -> tuple[Callable[[str], str], Callable[[]
 def comercial_server(cfg: Config):
     """Servidor MCP do comercial: leads, fila da equipe e conversa de um cliente (só leitura do CRM)."""
     return create_sdk_mcp_server("comercial", tools=comercial_tools(cfg))
+
+
+def brechas_server(cfg: Config):
+    """Servidor MCP das brechas: registrar (especialistas), listar e atualizar o status (só o gerente)."""
+    return create_sdk_mcp_server("brechas", tools=brechas_tools(cfg))
+
+
+def brechas_tools(cfg: Config) -> list[SdkMcpTool]:
+    """Brechas: o que a empresa perde ou deixa de ganhar, com evidência e valor estimado (agente/brechas.py).
+    Os especialistas só têm registrar_brecha e listar_brechas; mudar o status é do gerente (atualizar_brecha)."""
+    def store() -> BrechaStore:
+        return BrechaStore(cfg.brechas_db)
+
+    @tool("registrar_brecha",
+          "Registra uma brecha achada (dinheiro escapando, cliente parado, compra mal feita). Exige evidência. "
+          "O mesmo título ou o mesmo documento (NF, boleto, venda) não duplica. Não muda o status.",
+          _schema({"titulo": (str, "curto, com o documento quando houver. Ex.: 'NF 18777 do Boi Bom paga duas vezes'"),
+                   "area": (str, f"uma de: {', '.join(BRECHA_AREAS)}"),
+                   "evidencia": (str, "de onde vem: ferramenta, período e linhas conferidas")},
+                  {"acao": (str, "o que fazer para resolver, em uma frase"),
+                   "valor_mes": (str, "estimativa em R$ por mês, só se o problema se repete (vindo de uma ferramenta de gestão)"),
+                   "valor_unico": (str, "estimativa em R$ a recuperar uma vez; nunca coloque o mesmo valor nos dois")}))
+    async def register(args: dict) -> dict[str, Any]:
+        try:
+            brecha, what = store().register(args.get("titulo"), args.get("area"), args.get("evidencia"),
+                                            args.get("acao") or "", args.get("valor_mes"), args.get("valor_unico"))
+        except BrechaError as e:
+            return _reply(f"não registrei: {e}", error=True)
+        again = " (já existia o mesmo documento: anotei nela em vez de criar outra)" if what == "anotada" else ""
+        return _reply(f"brecha {what}{again}: {brecha.describe()}")
+
+    @tool("listar_brechas",
+          "Lista as brechas abertas (ou de um status), as de maior valor no ano primeiro, com o total estimado.",
+          _schema({}, {"status": (str, f"um de: {', '.join(BRECHA_STATUSES)}; sem isso, só as abertas"),
+                       "area": (str, f"uma de: {', '.join(BRECHA_AREAS)}")}))
+    async def list_(args: dict) -> dict[str, Any]:
+        status, area = str(args.get("status") or "").strip(), str(args.get("area") or "").strip()
+        if status and status not in BRECHA_STATUSES or area and area not in BRECHA_AREAS:
+            return _reply(f"status: {', '.join(BRECHA_STATUSES)}; área: {', '.join(BRECHA_AREAS)}", error=True)
+        return _reply(store().describe(status, area))
+
+    @tool("atualizar_brecha",
+          "Muda o status de uma brecha (depois de contar ao dono, ele aprovar, concluir ou recusar) e/ou anota. "
+          "Só o gerente usa.",
+          _schema({"id": (int, "número da brecha, como em listar_brechas")},
+                  {"status": (str, f"um de: {', '.join(BRECHA_STATUSES)}"), "nota": (str, "anotação curta")}))
+    async def update(args: dict) -> dict[str, Any]:
+        try:
+            brecha = store().update(int(args.get("id") or 0), str(args.get("status") or "").strip(), str(args.get("nota") or ""))
+        except BrechaError as e:
+            return _reply(f"não atualizei: {e}", error=True)
+        return _reply(f"atualizada: {brecha.describe()}")
+
+    return [register, list_, update]
 
 
 def comercial_tools(cfg: Config) -> list[SdkMcpTool]:
@@ -693,6 +753,7 @@ class Agent:
                 "navegador": browser_server(self.browser, self.cfg),
                 "gestao": gestao_server(self.cfg),
                 "comercial": comercial_server(self.cfg),
+                "brechas": brechas_server(self.cfg),
             },
             # A ponte humana espera minutos pela resposta: o limite da ferramenta tem de ser maior.
             # ENABLE_TOOL_SEARCH=false: as ferramentas próprias ficam visíveis desde o início (sem passo de busca).

@@ -17,6 +17,8 @@ SEARCH = "mcp__conhecimento__buscar_conhecimento"
 SAVE = "mcp__conhecimento__salvar_conhecimento"
 GESTAO = {n: f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")}
 COMERCIAL = [f"mcp__comercial__{n}" for n in ("listar_leads", "fila_atendimento", "conversa_cliente")]
+# Os especialistas registram e consultam brechas; mudar o status (atualizar_brecha) é só do gerente.
+BRECHAS = [f"mcp__brechas__{n}" for n in ("registrar_brecha", "listar_brechas")]
 BROWSER = [f"mcp__navegador__{n}" for n in (
     "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos",
     "ver_sistema", "anotar_sistema", "ver_passos", "salvar_rotina", "executar_rotina")]
@@ -69,9 +71,11 @@ Como trabalhar:
   ação para cada (ligar, mandar retorno, oferecer outro item do catálogo).
 - Motivos de perda: agrupe ("achou caro", "comparando preços") e sugira o que mudar.
 - Fila da equipe: quem espera há mais tempo e por quê, para alguém assumir.
-- Não mande mensagem para cliente nem mude etapa: você só lê e recomenda.""" + SPECIALIST_RULES,
-        tools=[GESTAO["funil_comercial"], GESTAO["relatorio_gestao"], *COMERCIAL, SEARCH],
-        mcpServers=["gestao", "comercial", "conhecimento"],
+- Não mande mensagem para cliente nem mude etapa: você só lê e recomenda.
+- O que achar de concreto vira brecha (registrar_brecha), seguindo a skill leads-parados.""" + SPECIALIST_RULES,
+        tools=[GESTAO["funil_comercial"], GESTAO["relatorio_gestao"], *COMERCIAL, *BRECHAS, SEARCH],
+        mcpServers=["gestao", "comercial", "brechas", "conhecimento"],
+        skills=["agente:leads-parados"],
         model="sonnet",
         background=False,
         maxTurns=20,
@@ -91,9 +95,12 @@ Como trabalhar:
 - Comece pelo que custa mais dinheiro; para cada alerta, mostre as linhas que o sustentam (consultar_lancamentos)
   e uma ação concreta (conferir nota, falar com o fornecedor, recontar o caixa junto).
 - Compare com o período anterior quando fizer sentido; diga se a diferença é normal ou não.
-- Você não paga, não transfere e não aprova nada: só analisa e recomenda.""" + SPECIALIST_RULES,
-        tools=[GESTAO["relatorio_gestao"], GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], SEARCH],
-        mcpServers=["gestao", "conhecimento"],
+- Você não paga, não transfere e não aprova nada: só analisa e recomenda.
+- Cada achado conferido vira brecha (registrar_brecha), com evidência e, se vier de uma ferramenta, o valor. Roteiros:
+  raio-x-financeiro (visão geral), fechamento-caixa e despesas-e-duplicidades.""" + SPECIALIST_RULES,
+        tools=[GESTAO["relatorio_gestao"], GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BRECHAS, SEARCH],
+        mcpServers=["gestao", "brechas", "conhecimento"],
+        skills=["agente:raio-x-financeiro", "agente:fechamento-caixa", "agente:despesas-e-duplicidades"],
         model="sonnet",
         background=False,
         maxTurns=20,
@@ -119,10 +126,11 @@ Como trabalhar nos sistemas:
   tela remota). Nunca digite senha nem tente contornar. Se a verificação voltar ou "falhar", o site barrou o
   navegador: não insista; diga no resultado e use outra fonte. Cookies: recuse os não essenciais.
 - Compras: leve até a revisão do pedido e pare; o clique final é sempre de uma pessoa. Nunca assine nada
-  (Prime, Programe e Poupe, testes grátis). Escolha "Compra única".""" + SPECIALIST_RULES,
-        tools=[GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BROWSER, HELP, SEARCH],
-        mcpServers=["gestao", "navegador", "humano", "conhecimento"],
-        skills=["agente:compras-online"],
+  (Prime, Programe e Poupe, testes grátis). Escolha "Compra única".
+- Achado de estoque ou compra conferido vira brecha (registrar_brecha), seguindo a skill estoque-sem-venda.""" + SPECIALIST_RULES,
+        tools=[GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BROWSER, *BRECHAS, HELP, SEARCH],
+        mcpServers=["gestao", "navegador", "brechas", "humano", "conhecimento"],
+        skills=["agente:compras-online", "agente:estoque-sem-venda"],
         model="sonnet",
         background=False,
         maxTurns=40,

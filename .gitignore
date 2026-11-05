@@ -13,6 +13,7 @@ backups/
 # Dados de clientes: configuração da empresa e CRM ficam fora do git
 /empresa/
 crm.db
+brechas.db
 /dados/
 
 # Configuração local do app Claude (caminhos desta máquina)

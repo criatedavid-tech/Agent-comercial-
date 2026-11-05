@@ -32,9 +32,11 @@ Cada um é um subagente (`AGENTS` em `agente/subagents.py`) com **só as ferrame
 
 | Especialista | Cuida de | Ferramentas |
 |---|---|---|
-| `comercial` | funil do WhatsApp, leads parados e perdidos, motivos de perda, fila da equipe, conversa de um cliente | `funil_comercial`, `relatorio_gestao`, `listar_leads`, `fila_atendimento`, `conversa_cliente` (só leitura do CRM) |
-| `financeiro` | receita, despesas, resultado, caixa, gastos fora do padrão, contas em dobro, descontos | `relatorio_gestao`, `alertas_gestao`, `consultar_lancamentos` |
-| `operacao` | estoque, compras e os sistemas da loja pelo navegador | `alertas_gestao`, `consultar_lancamentos`, navegador, aprendizado dos sistemas (`executar_rotina`, `salvar_rotina`...), `pedir_ajuda_humana`, skill de compras |
+| `comercial` | funil do WhatsApp, leads parados e perdidos, motivos de perda, fila da equipe, conversa de um cliente | `funil_comercial`, `relatorio_gestao`, `listar_leads`, `fila_atendimento`, `conversa_cliente` (só leitura do CRM), brechas, skill `leads-parados` |
+| `financeiro` | receita, despesas, resultado, caixa, gastos fora do padrão, contas em dobro, descontos | `relatorio_gestao`, `alertas_gestao`, `consultar_lancamentos`, brechas, skills `raio-x-financeiro`, `fechamento-caixa`, `despesas-e-duplicidades` |
+| `operacao` | estoque, compras e os sistemas da loja pelo navegador | `alertas_gestao`, `consultar_lancamentos`, navegador, aprendizado dos sistemas (`executar_rotina`, `salvar_rotina`...), `pedir_ajuda_humana`, brechas, skills de compras e `estoque-sem-venda` |
+
+"Brechas" são `registrar_brecha` e `listar_brechas`; mudar o status (`atualizar_brecha`) é só do gerente. Detalhes em [brechas.md](brechas.md).
 
 **Só a operação usa o navegador.** Ele tem uma aba só, e com dois agentes nele, um abria por cima do outro (visto no teste real). Por isso o pesquisador também não tem navegador: ele lê a web com `WebFetch` e, se uma página só funcionar com JavaScript, diz isso no resultado.
 

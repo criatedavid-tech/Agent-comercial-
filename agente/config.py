@@ -63,6 +63,7 @@ class Config:
     transcription_model: str = "google/gemini-2.5-flash-lite"
     company_dir: Path = EXAMPLE_COMPANY  # empresa.toml, catalogo.csv, faq.md, politicas.md
     crm_db: Path = ROOT / "crm.db"
+    brechas_db: Path = ROOT / "brechas.db"  # brechas achadas pelos especialistas (agente/brechas.py)
     attendant_max_turns: int = 12  # passos por mensagem de cliente: o atendente responde rápido ou passa adiante
     attendant_whatsapp: bool = False  # números fora de WHATSAPP_ALLOWED_NUMBERS falam com o atendente
     data_dir: Path = EXAMPLE_DATA  # planilhas da loja para a gestão: vendas, despesas, estoque, caixa
@@ -129,6 +130,7 @@ def load() -> Config:
         transcription_model=os.getenv("AGENT_TRANSCRICAO_MODELO", "").strip() or "google/gemini-2.5-flash-lite",
         company_dir=company_dir(os.getenv("AGENT_EMPRESA_DIR", "").strip()),
         crm_db=ROOT / "crm.db",
+        brechas_db=ROOT / "brechas.db",
         attendant_max_turns=int(os.getenv("AGENT_ATENDENTE_MAX_TURNS", "12")),
         data_dir=data_dir(os.getenv("AGENT_DADOS_DIR", "").strip()),
         public_url=os.getenv("AGENT_PUBLIC_URL", "").strip().rstrip("/"),

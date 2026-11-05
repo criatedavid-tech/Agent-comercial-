@@ -120,6 +120,7 @@ Explicação completa: [docs/conceitos.md](docs/conceitos.md) · [docs/arquitetu
 | Agir sozinho na hora certa | `agendar_tarefa`, `listar_tarefas`, `cancelar_tarefa` | resumo diário às 7h, "toda segunda revise meus gastos", "me lembra às 15h do dentista" |
 | Delegar por área | especialistas `comercial`, `financeiro`, `operacao` | "como foi outubro?" vira um resumo só, com a parte de cada área |
 | Delegar tarefas gerais | ajudantes `pesquisador`, `organizador`, `verificador` | pesquisa em paralelo, arruma a base, confere o trabalho antes de entregar |
+| Registrar o que se perde | `registrar_brecha`, `listar_brechas`, `atualizar_brecha` | cada achado conferido vira uma ficha com evidência, valor estimado e andamento ([brechas.md](docs/brechas.md)) |
 | Ver os clientes | `listar_leads`, `fila_atendimento`, `conversa_cliente` | leads parados, quem espera a equipe, o que um cliente disse (só leitura) |
 | Aprender cada sistema | `ver_sistema`, `anotar_sistema`, `ver_passos`, `salvar_rotina`, `executar_rotina` | navega uma vez no ERP ou no iFood; depois o código repete o caminho |
 | Saber agir por assunto | skills `financas`, `saude`, `estudos`, `compras-online` | regras especializadas carregadas só quando o assunto aparece |
@@ -252,6 +253,7 @@ Detalhes e dicas: [docs/configuracao.md](docs/configuracao.md).
 | [Gestão](docs/gestao.md) | planilhas da loja, números, alertas, como o operador usa |
 | [Atendente](docs/atendente.md) | empresa/, ferramentas, CRM, regras no código, simulador |
 | [Arquitetura](docs/arquitetura.md) | como o código está organizado e o fluxo de um pedido |
+| [Brechas e roteiros](docs/brechas.md) | fichas dos achados (evidência, valor, status) e os roteiros dos especialistas |
 | [VM e custos](docs/custos.md) | tamanho da VM e estimativa de custo mensal por modelo |
 | [Instalação](docs/instalacao.md) | passo a passo local (Linux, macOS, Windows) e na VPS |
 | [Configuração](docs/configuracao.md) | todas as variáveis, memória, custos |
