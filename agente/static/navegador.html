@@ -41,6 +41,9 @@
   .screen.zoom img { width: 250%; max-width: none; }
   .screen:focus { border-color: var(--accent); }
   .screen img { display: block; width: 100%; height: auto; cursor: pointer; user-select: none; -webkit-user-drag: none; }
+  .screen.drag img { cursor: grab; touch-action: none; }
+  .screen.drag { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .screen .wait { padding: 60px 16px; text-align: center; color: var(--muted); }
   #msg { font-size: 14px; color: var(--muted); white-space: pre-line; min-height: 1.5em; }
   #msg.error { color: var(--error); }
@@ -73,9 +76,11 @@
   <div class="bar">
     <button class="primary" id="done">Já entrei</button>
     <button id="zoom" type="button" title="Ampliar a tela (arraste para os lados)">🔍 Ampliar</button>
+    <button id="drag" type="button" aria-pressed="false" title="Para captcha de arrastar uma peça ou de pressionar e segurar">✋ Arrastar: desligado</button>
     <button data-key="Tab">Tab</button>
     <button id="back" title="Voltar">← Voltar</button>
   </div>
+  <p class="hint">Captcha de arrastar a setinha ou a peça, ou de "pressione e segure": ligue o botão <b>✋ Arrastar</b> e faça o gesto direto na tela; depois desligue para voltar a tocar e rolar.</p>
   <p class="hint">Toque no campo (e-mail, senha, código) na tela: o teclado abre e cada letra que você digitar vai direto para ele.
     A seta azul do teclado confirma (Continuar, Entrar, Verificar). No computador, clique na tela e digite direto.</p>
   <div id="msg" role="status"></div>
@@ -162,7 +167,48 @@ function gone(text) {  // link caiu ou expirou: trava a digitação e avisa onde
 }
 
 const touch = matchMedia("(pointer: coarse)").matches;  // celular: o teclado só abre num campo de verdade
+
+// Modo arrastar: o gesto (caminho do dedo e o tempo de cada ponto) vai inteiro para o site, no mesmo ritmo.
+// Serve para a setinha ou a peça do captcha e para "pressione e segure". Mexer pouco por mais de meio segundo = segurar.
+let dragMode = false, gesture = null;
+function viewPoint(e) {
+  const box = $("img").getBoundingClientRect();
+  return { x: (e.clientX - box.left) * VIEW.width / box.width, y: (e.clientY - box.top) * VIEW.height / box.height };
+}
+$("drag").onclick = () => {
+  dragMode = !dragMode;
+  $("drag").setAttribute("aria-pressed", String(dragMode));
+  $("drag").textContent = `✋ Arrastar: ${dragMode ? "ligado" : "desligado"}`;
+  $("screen").classList.toggle("drag", dragMode);
+  if (dragMode) say("Agora arraste ou segure direto na tela. Desligue para voltar a tocar e rolar.");
+};
+$("img").addEventListener("pointerdown", (e) => {
+  if (!dragMode) return;
+  e.preventDefault();
+  $("img").setPointerCapture(e.pointerId);
+  gesture = { t0: performance.now(), points: [{ ...viewPoint(e), t: 0 }] };
+});
+$("img").addEventListener("pointermove", (e) => {
+  if (!gesture) return;
+  gesture.points.push({ ...viewPoint(e), t: Math.round(performance.now() - gesture.t0) });
+});
+function endGesture(e) {
+  if (!gesture) return;
+  const g = gesture; gesture = null;
+  g.points.push({ ...viewPoint(e), t: Math.round(performance.now() - g.t0) });
+  const first = g.points[0], last = g.points[g.points.length - 1];
+  const moved = Math.max(...g.points.map(p => Math.hypot(p.x - first.x, p.y - first.y)));
+  if (moved < 8 && last.t > 450) send({ type: "hold", x: first.x, y: first.y, ms: last.t });
+  else if (moved < 8) send({ type: "click", x: first.x, y: first.y });
+  else {
+    const step = Math.max(1, Math.ceil(g.points.length / 120));  // no máximo ~120 pontos: o caminho continua o mesmo
+    send({ type: "drag", points: g.points.filter((_, i) => i % step === 0 || i === g.points.length - 1) });
+  }
+}
+$("img").addEventListener("pointerup", endGesture);
+$("img").addEventListener("pointercancel", (e) => { gesture = null; });
 $("img").addEventListener("click", (e) => {
+  if (dragMode) return;  // no modo arrastar o gesto já foi enviado inteiro
   const box = $("img").getBoundingClientRect();
   send({ type: "click", x: (e.clientX - box.left) * VIEW.width / box.width, y: (e.clientY - box.top) * VIEW.height / box.height });
   $("typed").value = ""; sent = "";  // campo novo: a caixa recomeça vazia

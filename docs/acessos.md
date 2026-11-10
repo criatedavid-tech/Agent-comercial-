@@ -41,7 +41,8 @@ Na VM o navegador roda invisível. Para entrar, a pessoa abre o **link do aviso*
 - **A senha é digitada pela pessoa.** As travas do agente (não digitar senha, cartão ou CPF) continuam valendo para o agente; a tela remota é a pessoa usando o navegador.
 - **O link é temporário:** vale 30 minutos e só abre no domínio da VM (`AGENT_PUBLIC_URL`). Sem link válido, a rota responde 403. O código fica só em memória, em hash, e some quando o servidor reinicia. Cada aviso gera um link novo.
 - **O que fica público:** só a tela remota e o webhook do WhatsApp (`deploy/Caddyfile`; `tests/test_deploy.py` confere). Painel, chat e APIs continuam só pelo túnel SSH.
-- **O que a tela aceita:** clique dentro da tela, texto (até 500 caracteres por vez), teclas comuns (Enter, Tab, setas, Apagar...), rolagem, voltar e abrir endereço (sem rede local). Nada do que a pessoa digita vai para log.
+- **O que a tela aceita:** clique dentro da tela, texto (até 500 caracteres por vez), teclas comuns (Enter, Tab, setas, Apagar...), rolagem, voltar, abrir endereço (sem rede local) e os gestos de **arrastar** e **segurar** (abaixo). Nada do que a pessoa digita vai para log.
+- **Captcha de arrastar e "pressione e segure":** abaixo da tela há o botão **✋ Arrastar**. Ligado, o dedo (ou o mouse) arrasta direto na imagem: a página manda o caminho com o tempo de cada ponto e o navegador o repete no mesmo ritmo (`remote()` em `browser.py`, comandos `drag` e `hold`). Segurar o dedo parado por mais de meio segundo vira "pressione e segure". Depois do captcha, desligue o botão para voltar a tocar e rolar. O gesto é sempre de uma pessoa; o agente continua sem resolver verificação sozinho. Limites: até 300 pontos, 15 s de gesto, 10 s de segurar, tudo dentro da tela.
 - **No computador** (sem VM), o painel tem o botão **Abrir navegador do agente**, que gera um link local na hora.
 
 ## Aprender cada sistema (iFood, ERP...)

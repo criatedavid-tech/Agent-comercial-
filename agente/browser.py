@@ -63,6 +63,12 @@ FOCUS_FIRST_FIELD_JS = """() => {
   if (target) target.focus();
 }"""
 VIEWPORT = {"width": 1280, "height": 860}
+# Gesto de uma pessoa na tela remota (captcha de arrastar uma peça, "pressione e segure"): o caminho do dedo
+# chega com o tempo de cada ponto e o navegador o repete no mesmo ritmo.
+MAX_GESTURE_POINTS = 300
+MAX_GESTURE_MS = 15000
+MAX_STEP_MS = 800  # pausa máxima entre dois pontos (o dedo parado no meio do caminho)
+MAX_HOLD_MS = 10000
 REMOTE_KEYS = {"Enter", "Tab", "Shift+Tab", "Backspace", "Delete", "Escape", "ArrowUp", "ArrowDown",
                "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"}
 
@@ -321,6 +327,24 @@ def blocked_text(host: str, until: float) -> str:
         "site barrou o navegador automático; ele pode fazer essa etapa no próprio celular ou computador, e você "
         "continua com outras fontes (outra loja, pesquisa na web)."
     )
+
+
+def gesture_points(raw: Any) -> list[tuple[float, float, float]]:
+    """Valida o caminho de um arrasto vindo da tela remota: (x, y, milissegundos desde o início) dentro da tela."""
+    if not isinstance(raw, list) or not 2 <= len(raw) <= MAX_GESTURE_POINTS:
+        raise BrowserError(f"arraste com pelo menos 2 e no máximo {MAX_GESTURE_POINTS} pontos")
+    points, last = [], 0.0
+    for p in raw:
+        x, y, t = float(p["x"]), float(p["y"]), float(p["t"])
+        if not (0 <= x <= VIEWPORT["width"] and 0 <= y <= VIEWPORT["height"]):
+            raise BrowserError("arraste fora da tela")
+        if t < last or t != t:  # voltou no tempo ou não é número
+            raise BrowserError("arraste com tempos fora de ordem")
+        points.append((x, y, t))
+        last = t
+    if points[-1][2] > MAX_GESTURE_MS:
+        raise BrowserError("arraste muito longo: faça de novo, mais rápido")
+    return points
 
 
 class Browser:
@@ -701,6 +725,31 @@ class Browser:
                 if not (0 <= x <= VIEWPORT["width"] and 0 <= y <= VIEWPORT["height"]):
                     raise BrowserError("clique fora da tela")
                 await page.mouse.click(x, y)
+            elif kind == "drag":
+                points = gesture_points(action.get("points"))
+                await page.mouse.move(points[0][0], points[0][1])
+                await page.mouse.down()
+                try:
+                    last = points[0][2]
+                    for x, y, t in points[1:]:
+                        wait = min(t - last, MAX_STEP_MS)
+                        if wait >= 1:
+                            await page.wait_for_timeout(wait)
+                        await page.mouse.move(x, y)
+                        last = t
+                finally:
+                    await page.mouse.up()  # nunca deixa o botão do mouse preso
+            elif kind == "hold":
+                x, y = float(action["x"]), float(action["y"])
+                ms = float(action["ms"])
+                if not (0 <= x <= VIEWPORT["width"] and 0 <= y <= VIEWPORT["height"]):
+                    raise BrowserError("toque fora da tela")
+                await page.mouse.move(x, y)
+                await page.mouse.down()
+                try:
+                    await page.wait_for_timeout(max(0, min(ms, MAX_HOLD_MS)))
+                finally:
+                    await page.mouse.up()
             elif kind == "type":
                 # No celular a pessoa às vezes digita sem ter tocado no campo (ex. o código de verificação):
                 # sem nada focado, o texto vai para o primeiro campo visível e vazio da página.
