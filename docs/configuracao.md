@@ -60,6 +60,12 @@ Padrão: `false`. Com `false`, o navegador próprio abre uma janela de verdade n
 ### `AGENT_BROWSER_CHANNEL`
 Padrão: vazio (o Chromium que vem com o Playwright). `chrome` ou `msedge` usa o Google Chrome ou o Microsoft Edge instalados no computador (na VM Linux, instale o Chrome antes). Serve para compatibilidade com sistemas que estranham o Chromium de teste; **não** muda como os sites tratam um navegador controlado por programa, e o agente continua sem esconder isso. Ao trocar, o perfil em `navegador/` é de outro programa: se algo estranho acontecer, apague a pasta e refaça os logins pela tela remota. Valor desconhecido faz o servidor recusar iniciar.
 
+### `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`
+Padrão: vazios (conector desligado). Credenciais OAuth criadas no Google Cloud para o conector de leitura do Google ([google.md](google.md) tem o passo a passo). Com elas preenchidas e o servidor reiniciado, a conta é conectada em `http://127.0.0.1:8000/google`.
+
+### `AGENT_GOOGLE_CHAVE`
+Padrão: `~/.agente/chave-google`. Arquivo com a chave que criptografa os tokens do Google (`google.enc`). Fica fora da pasta do projeto de propósito: quem copiar o `google.enc` sem essa chave não consegue abrir. Faça cópia da chave junto com o backup; sem ela é preciso conectar a conta de novo.
+
 ### `AGENT_PUBLIC_URL`
 Endereço público da VM, ex. `https://agente.autocenter.com.br` (o `provisionar.sh` preenche sozinho com `--dominio`). Os avisos de login expirado levam um link temporário para a tela remota do navegador com este domínio. Vazio: o link só abre na própria máquina ou pelo túnel SSH. Detalhes em [acessos.md](acessos.md).
 

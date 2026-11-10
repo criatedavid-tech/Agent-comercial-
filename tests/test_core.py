@@ -17,7 +17,7 @@ from claude_agent_sdk import (
 )
 
 from agente import guard
-from agente.core import (PLUGIN_DIR, SKILLS, TOOLS, Agent, agenda_tools, brechas_tools, browser_tools, comercial_tools, gestao_tools,
+from agente.core import (PLUGIN_DIR, SKILLS, TOOLS, Agent, agenda_tools, brechas_tools, browser_tools, comercial_tools, gestao_tools, google_tools,
                          human_tools, knowledge_tools)
 from agente.subagents import AGENTS
 
@@ -36,7 +36,7 @@ def test_options_wire_everything(cfg):
     options = Agent(cfg)._options()
     assert options.permission_mode == "bypassPermissions"
     assert options.max_turns == cfg.max_turns and options.max_budget_usd == cfg.max_budget_usd
-    assert set(options.mcp_servers) == {"conhecimento", "humano", "agenda", "navegador", "gestao", "comercial", "brechas"}
+    assert set(options.mcp_servers) == {"conhecimento", "humano", "agenda", "navegador", "gestao", "comercial", "brechas", "google"}
     assert set(options.agents) == {"pesquisador", "organizador", "verificador", "comercial", "financeiro", "operacao"}
     assert options.skills == SKILLS
     assert options.setting_sources == []  # não herda configurações pessoais do Claude Code
@@ -71,6 +71,7 @@ def test_all_allowed_tools_exist(cfg):
     names |= {f"mcp__gestao__{t.name}" for t in gestao_tools(cfg)}
     names |= {f"mcp__comercial__{t.name}" for t in comercial_tools(cfg)}
     names |= {f"mcp__brechas__{t.name}" for t in brechas_tools(cfg)}
+    names |= {f"mcp__google__{t.name}" for t in google_tools(cfg)}
     custom = {t for t in TOOLS if t.startswith("mcp__")}
     assert custom == names
 

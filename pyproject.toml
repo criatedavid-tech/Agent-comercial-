@@ -11,7 +11,8 @@ dependencies = [
     "uvicorn[standard]>=0.29",
     "tzdata>=2024.1",  # fusos horários no Windows
     "playwright>=1.45",  # navegador próprio (depois: playwright install chromium)
-    "httpx>=0.27",  # WhatsApp Cloud API (e TestClient nos testes)
+    "httpx>=0.27",  # WhatsApp Cloud API, conector do Google (e TestClient nos testes)
+    "cryptography>=42",  # cofre dos tokens do Google (já vinha junto das outras dependências)
 ]
 
 [project.optional-dependencies]

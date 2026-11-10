@@ -58,8 +58,8 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 **Você vai precisar:** app no Meta for Developers, número dedicado e domínio com HTTPS (ou túnel para testes).
 
 ## ⬜ Etapa 3: Conectores (MCP)
-- [ ] Gmail: ler, resumir, rascunhar e enviar
-- [ ] Google Calendar: consultar, criar e remarcar
+- [x] Google (Sheets, Drive, Agenda e Gmail) em **só leitura**, por OAuth, em `/google` ([google.md](google.md))
+- [ ] Google: escrever (rascunho de e-mail, criar evento, linha na planilha), sempre por conector e com o ok do usuário
 - [ ] GitHub: repositórios, issues e PRs
 - [ ] Vercel e Supabase: deploy, logs e banco
 - [ ] Memória em SQLite: contatos, tarefas, histórico pesquisável

@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 import asyncio
+from html import escape as html_escape
 import hmac
 import logging
 import os
@@ -23,6 +24,7 @@ from .atendente import Attendant, company_now
 from .core import Agent
 from .crm import Crm, clean_phone
 from .empresa import CompanyError, load_company
+from .google import GoogleClient, GoogleError
 from .history import History
 from .knowledge import KnowledgeBase
 from .passagem import PANEL, Desk, member_name
@@ -278,6 +280,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Agente pessoal", lifespan=lifespan)
+google = GoogleClient(cfg)  # conexão OAuth do Google (só leitura); as ferramentas do agente usam o cofre em disco
 
 
 def is_local(host: str) -> bool:
@@ -393,6 +396,47 @@ async def simulator_page() -> FileResponse:
 @app.get("/atendimento")
 async def desk_page() -> FileResponse:
     return FileResponse(STATIC / "atendimento.html")
+
+
+@app.get("/google")
+async def google_page() -> FileResponse:
+    return FileResponse(STATIC / "google.html")
+
+
+@app.get("/api/google")
+async def google_status() -> dict:
+    return google.status()
+
+
+@app.post("/api/google/conectar")
+async def google_connect(request: Request) -> dict:
+    """Botão Conectar Google: devolve o endereço da autorização no Google (a volta é o /oauth/google/callback)."""
+    same_origin(request)
+    try:
+        return {"url": google.auth_url(f"http://{request.headers['host']}/oauth/google/callback")}
+    except GoogleError as e:
+        raise HTTPException(400, str(e)) from None
+
+
+@app.get("/oauth/google/callback")
+async def google_callback(request: Request) -> HTMLResponse:
+    """Volta do Google. Sem Origin (é uma navegação): quem vale é o state de uso único gerado em /api/google/conectar."""
+    params = request.query_params
+    try:
+        if params.get("error"):
+            raise GoogleError("você não autorizou no Google: nada foi conectado")
+        email = await google.finish(params.get("state", ""), params.get("code", ""))
+    except GoogleError as e:
+        return HTMLResponse(f"<meta charset=utf-8><p>{html_escape(str(e))}</p><p><a href=/google>Voltar</a></p>", status_code=400,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    return HTMLResponse(f"<meta charset=utf-8><meta http-equiv=refresh content='0;url=/google?conectado={html_escape(email)}'>",
+                        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@app.delete("/api/google")
+async def google_disconnect(request: Request, conta: str = "") -> dict:
+    same_origin(request)
+    return {"desconectadas": await google.disconnect(conta)}
 
 
 def same_origin(request: Request) -> None:

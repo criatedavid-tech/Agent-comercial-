@@ -29,6 +29,8 @@ BLOCKED_COMMANDS = [
     "crontab -r",
     "cat ../.env",
     "type C:\\Users\\x\\.ssh\\id_rsa",
+    "cat google.enc",
+    "type C:\\Users\\x\\.agente\\chave-google",
 ]
 
 ALLOWED_COMMANDS = [
@@ -42,6 +44,7 @@ ALLOWED_COMMANDS = [
     "ls -la",
     "echo 'formatar o texto'",
     "cat .env.example",
+    "ls planilhas-google",
 ]
 
 
@@ -55,7 +58,8 @@ def test_allows_normal_commands(cfg, command):
     assert guard.check("Bash", {"command": command}, cfg) is None
 
 
-@pytest.mark.parametrize("path", ["C:/projeto/.env", "/home/x/.ssh/id_rsa", "/home/x/.aws/credentials", "~/.git-credentials"])
+@pytest.mark.parametrize("path", ["C:/projeto/.env", "/home/x/.ssh/id_rsa", "/home/x/.aws/credentials", "~/.git-credentials",
+                                  "C:/projeto/google.enc", "/home/x/.agente/chave-google"])
 def test_blocks_reading_credentials(cfg, path):
     assert guard.check("Read", {"file_path": path}, cfg)
 

@@ -69,6 +69,10 @@ class Config:
     data_dir: Path = EXAMPLE_DATA  # planilhas da loja para a gestão: vendas, despesas, estoque, caixa
     public_url: str = ""  # https://dominio da VM; vazio = links da tela remota só funcionam pelo túnel SSH
     access_check_min: float = 60  # de quantos em quantos minutos confere os logins dos sistemas da loja
+    google_client_id: str = ""  # OAuth do Google (agente/google.py): só leitura de Sheets, Drive, Agenda e Gmail
+    google_client_secret: str = ""
+    google_vault: Path = ROOT / "google.enc"  # refresh tokens criptografados (fora do git)
+    google_key_file: Path = Path.home() / ".agente" / "chave-google"  # chave do cofre: fora da pasta do projeto
     browser_channel: str = ""  # "" = Chromium do Playwright; "chrome" ou "msedge" = o navegador instalado no computador
 
     @property
@@ -136,6 +140,9 @@ def load() -> Config:
         public_url=os.getenv("AGENT_PUBLIC_URL", "").strip().rstrip("/"),
         access_check_min=float(os.getenv("AGENT_ACESSOS_MIN", "60")),
         browser_channel=browser_channel(os.getenv("AGENT_BROWSER_CHANNEL", "")),
+        google_client_id=os.getenv("GOOGLE_CLIENT_ID", "").strip(),
+        google_client_secret=os.getenv("GOOGLE_CLIENT_SECRET", "").strip(),
+        google_key_file=Path(os.getenv("AGENT_GOOGLE_CHAVE", "").strip() or Path.home() / ".agente" / "chave-google"),
         attendant_whatsapp=os.getenv("AGENT_ATENDENTE_WHATSAPP", "false").strip().lower() in ("1", "true", "sim"),
     )
     for d in (cfg.workdir, cfg.memory_dir, cfg.knowledge_dir, cfg.logs_dir):

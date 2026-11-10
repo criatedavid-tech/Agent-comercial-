@@ -18,6 +18,8 @@ SAVE = "mcp__conhecimento__salvar_conhecimento"
 GESTAO = {n: f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")}
 COMERCIAL = [f"mcp__comercial__{n}" for n in ("listar_leads", "fila_atendimento", "conversa_cliente")]
 # Os especialistas registram e consultam brechas; mudar o status (atualizar_brecha) é só do gerente.
+GOOGLE_READ = [f"mcp__google__{n}" for n in ("google_status", "ler_planilha", "buscar_drive", "ler_documento")]
+GOOGLE_AGENDA = ["mcp__google__google_status", "mcp__google__ver_agenda_google"]  # o Gmail é só do gerente
 BRECHAS = [f"mcp__brechas__{n}" for n in ("registrar_brecha", "listar_brechas")]
 BROWSER = [f"mcp__navegador__{n}" for n in (
     "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos",
@@ -73,8 +75,8 @@ Como trabalhar:
 - Fila da equipe: quem espera há mais tempo e por quê, para alguém assumir.
 - Não mande mensagem para cliente nem mude etapa: você só lê e recomenda.
 - O que achar de concreto vira brecha (registrar_brecha), seguindo a skill leads-parados.""" + SPECIALIST_RULES,
-        tools=[GESTAO["funil_comercial"], GESTAO["relatorio_gestao"], *COMERCIAL, *BRECHAS, SEARCH],
-        mcpServers=["gestao", "comercial", "brechas", "conhecimento"],
+        tools=[GESTAO["funil_comercial"], GESTAO["relatorio_gestao"], *COMERCIAL, *BRECHAS, *GOOGLE_AGENDA, SEARCH],
+        mcpServers=["gestao", "comercial", "brechas", "google", "conhecimento"],
         skills=["agente:leads-parados"],
         model="sonnet",
         background=False,
@@ -98,8 +100,8 @@ Como trabalhar:
 - Você não paga, não transfere e não aprova nada: só analisa e recomenda.
 - Cada achado conferido vira brecha (registrar_brecha), com evidência e, se vier de uma ferramenta, o valor. Roteiros:
   raio-x-financeiro (visão geral), fechamento-caixa e despesas-e-duplicidades.""" + SPECIALIST_RULES,
-        tools=[GESTAO["relatorio_gestao"], GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BRECHAS, SEARCH],
-        mcpServers=["gestao", "brechas", "conhecimento"],
+        tools=[GESTAO["relatorio_gestao"], GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BRECHAS, *GOOGLE_READ, SEARCH],
+        mcpServers=["gestao", "brechas", "google", "conhecimento"],
         skills=["agente:raio-x-financeiro", "agente:fechamento-caixa", "agente:despesas-e-duplicidades"],
         model="sonnet",
         background=False,
@@ -128,8 +130,9 @@ Como trabalhar nos sistemas:
 - Compras: leve até a revisão do pedido e pare; o clique final é sempre de uma pessoa. Nunca assine nada
   (Prime, Programe e Poupe, testes grátis). Escolha "Compra única".
 - Achado de estoque ou compra conferido vira brecha (registrar_brecha), seguindo a skill estoque-sem-venda.""" + SPECIALIST_RULES,
-        tools=[GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BROWSER, *BRECHAS, HELP, SEARCH],
-        mcpServers=["gestao", "navegador", "brechas", "humano", "conhecimento"],
+        tools=[GESTAO["alertas_gestao"], GESTAO["consultar_lancamentos"], *BROWSER, *BRECHAS, *GOOGLE_READ,
+               GOOGLE_AGENDA[1], HELP, SEARCH],
+        mcpServers=["gestao", "navegador", "brechas", "google", "humano", "conhecimento"],
         skills=["agente:compras-online", "agente:estoque-sem-venda"],
         model="sonnet",
         background=False,

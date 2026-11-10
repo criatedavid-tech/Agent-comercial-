@@ -30,7 +30,7 @@ BLOCKED_COMMANDS = [
 ]
 
 # Arquivos que o agente nunca lê nem altera, por nenhum caminho.
-SECRET_FILES = re.compile(r"(?i)(^|[\\/\s\"'=])(\.env|id_rsa|id_ed25519|\.ssh|\.aws[\\/]credentials|\.git-credentials|\.netrc)([\\/\s\"']|$)")
+SECRET_FILES = re.compile(r"(?i)(^|[\\/\s\"'=])(\.env|id_rsa|id_ed25519|\.ssh|\.aws[\\/]credentials|\.git-credentials|\.netrc|google\.enc|chave-google)([\\/\s\"']|$)")
 
 DENY_PREFIX = "Bloqueado pela segurança do agente"
 
