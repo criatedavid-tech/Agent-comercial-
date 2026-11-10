@@ -133,15 +133,30 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && alive && (!ws || ws.readyState > 1)) connect();
 });
 
-function onMessage(e) {
-  if (e.data instanceof Blob) {
+// Quadro novo sem piscar: a imagem é decodificada fora da tela e só então troca a que está visível
+// (trocar o src direto deixa o Chrome mostrar um instante em branco). Com a decodificação ocupada,
+// só o quadro mais novo espera a vez; os do meio são descartados.
+let decoding = false, waiting = null;
+function showFrame(blob) {
+  if (decoding) { waiting = blob; return; }
+  decoding = true;
+  const url = URL.createObjectURL(blob);
+  const next = new Image();
+  next.src = url;
+  next.decode().then(() => {
     const old = $("img").src;
-    $("img").src = URL.createObjectURL(e.data);
-    if (old) URL.revokeObjectURL(old);
+    $("img").src = url;
+    if (old.startsWith("blob:")) URL.revokeObjectURL(old);
     $("img").hidden = false; $("wait").hidden = true;
     if (!zoomedOnce && touch) { zoomedOnce = true; $("zoom").click(); }  // celular: começa ampliado
-    return;
-  }
+  }).catch(() => URL.revokeObjectURL(url)).finally(() => {
+    decoding = false;
+    if (waiting) { const b = waiting; waiting = null; showFrame(b); }
+  });
+}
+
+function onMessage(e) {
+  if (e.data instanceof Blob) { showFrame(e.data); return; }
   const m = JSON.parse(e.data);
   if (m.kind === "url" && document.activeElement !== $("url")) {
     $("url").value = lastUrl = m.text === "about:blank" ? "" : m.text;

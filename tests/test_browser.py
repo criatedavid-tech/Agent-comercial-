@@ -150,6 +150,8 @@ def test_remote_page_has_the_drag_mode():
     from pathlib import Path
     html = (Path(__file__).parent.parent / "agente" / "static" / "navegador.html").read_text(encoding="utf-8")
     assert 'id="drag"' in html and 'type: "drag"' in html and 'type: "hold"' in html and "pointerdown" in html
+    # quadro novo decodificado fora da tela antes de trocar a imagem: sem isso o Chrome pisca
+    assert "next.decode()" in html and "waiting = blob" in html
 
 
 def test_cookie_banner_accept_all_is_refused():
