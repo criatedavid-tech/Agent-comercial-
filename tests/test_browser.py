@@ -41,6 +41,10 @@ def test_challenge_detection():
     # Mercado Livre: primeiro exige conta, depois mostra o CAPTCHA
     assert looks_like_challenge("Mercado Libre", "", [], "https://www.mercadolivre.com.br/gz/account-verification?go=x")
     assert looks_like_challenge("Segurança", "", [], "https://www.mercadolivre.com.br/captcha/wall?go_url=x")
+    # depois de várias tentativas de login, o Mercado Livre trava: insistir só piora
+    assert looks_like_challenge("Mercado Livre", "Você alcançou o limite de tentativas\nTente novamente mais tarde.", [])
+    assert looks_like_challenge("Login", "", [], "https://www.mercadolivre.com.br/login/identification/no-feasible-authenticators?challenge_id=1")
+    assert not looks_like_challenge("Login", "Digite seu e-mail ou telefone", [], "https://www.mercadolivre.com.br/login/identification")
 
 
 def test_browser_channel_setting():

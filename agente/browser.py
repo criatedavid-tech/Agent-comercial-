@@ -34,11 +34,11 @@ CHALLENGE_TEXTS = (
     "just a moment", "checking your browser", "verify you are human", "verifique se você é humano",
     "confirme que você é humano", "are you a robot", "você é um robô", "não sou um robô", "i'm not a robot",
     "unusual traffic", "tráfego incomum", "attention required", "access denied", "press & hold",
-    "a verificação falhou", "verification failed",
+    "a verificação falhou", "verification failed", "alcançou o limite de tentativas", "too many attempts",
 )
 CHALLENGE_FRAMES = ("challenges.cloudflare.com", "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "captcha")
 # Endereço da própria página de verificação (Shopee: /verify/captcha; Mercado Livre: /gz/account-verification, /captcha/wall).
-CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/|account-verification", re.I)
+CHALLENGE_URLS = re.compile(r"/verify/|captcha|anti_bot|/challenge|/sorry/|account-verification|no-feasible-authenticators", re.I)
 MAX_CHALLENGES = 2
 CHALLENGE_WINDOW_MIN = 30  # verificações no mesmo site dentro desta janela contam juntas
 BLOCK_HOURS = 6
