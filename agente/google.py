@@ -4,8 +4,9 @@ O mesmo método dos conectores de assistentes como o Instinct: em vez de abrir o
 a pessoa autoriza uma vez ("Conectar Google") e o agente lê pela API oficial.
 
 Regras no código, não só no prompt:
-- **só leitura**: os escopos pedidos são os `.readonly` de `SCOPES` e nada mais; qualquer escopo fora da lista, na
-  volta do Google, recusa a conexão; as chamadas às APIs são sempre GET;
+- **leitura, com uma única escrita**: os escopos são os `.readonly` e o `gmail.modify` (só para mover e-mails à
+  lixeira, em dois passos e com o sim do usuário em mensagem posterior); qualquer escopo fora de `SCOPES`, na volta
+  do Google, recusa a conexão; as chamadas são GET, exceto `_post`, que só aceita o endereço do Gmail;
 - **o agente nunca vê o token**: o refresh token fica criptografado (Fernet) em `google.enc` e a chave, num arquivo
   fora da pasta de dados (`chave-google`); as ferramentas só recebem texto;
 - o fluxo OAuth usa `state` de uso único e PKCE (S256); o retorno só vale na máquina do servidor;
@@ -50,8 +51,14 @@ SERVICES = {
     "drive": SCOPE_BASE + "drive.readonly",
     "calendar": SCOPE_BASE + "calendar.readonly",
     "gmail": SCOPE_BASE + "gmail.readonly",
+    # Única escrita permitida: organizar o Gmail (mover para a lixeira, que guarda 30 dias). O escopo gmail.modify
+    # NÃO apaga de vez, não envia e-mail e não mexe em contatos; apagar definitivo é outro escopo, que não pedimos.
+    "gmail_organizar": SCOPE_BASE + "gmail.modify",
 }
-SERVICE_NAMES = {"sheets": "Planilhas", "drive": "Drive e Documentos", "calendar": "Agenda", "gmail": "Gmail"}
+SERVICE_NAMES = {"sheets": "Planilhas", "drive": "Drive e Documentos", "calendar": "Agenda", "gmail": "Gmail",
+                 "gmail_organizar": "Gmail (mover para a lixeira)"}
+TRASH_MAX = 50  # e-mails por plano
+TRASH_TTL_S = 600
 SCOPES = ("openid", "email", *SERVICES.values())
 
 CONNECT_TTL_S = 600  # tempo para terminar a autorização no Google
@@ -174,6 +181,8 @@ class GoogleClient:
         self.vault = TokenVault(cfg.google_vault, cfg.google_key_file)
         self._pending: dict[str, tuple[str, str, float]] = {}  # state -> (verifier, redirect_uri, quando)
         self._tokens: dict[str, tuple[str, float]] = {}  # email -> (access token, validade)
+        self.turn = 0  # sobe a cada mensagem do usuário (Agent.ask); a lixeira só executa em turno posterior ao plano
+        self._plans: dict[str, tuple[str, list[str], int, float]] = {}  # plano -> (conta, ids, turno, quando)
 
     # --- conexão -------------------------------------------------------------------------------------
 
@@ -215,7 +224,7 @@ class GoogleClient:
         extra = granted - set(SCOPES) - {"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"}
         if extra:  # o Google devolveu acesso além de leitura: não guarda
             await self._revoke(data["refresh_token"])
-            raise GoogleError("o Google devolveu permissões além das de leitura: conexão recusada")
+            raise GoogleError("o Google devolveu permissões além das previstas (leitura e lixeira do Gmail): conexão recusada")
         info = await self.http.get(USERINFO_URL, headers={"Authorization": f"Bearer {data['access_token']}"})
         email = str(info.json().get("email", "")).lower() if info.status_code == 200 else ""
         if not email:
@@ -293,6 +302,20 @@ class GoogleClient:
                        429: "limite do Google: tente de novo em 1 minuto"}
             raise GoogleError(f"{reasons.get(r.status_code, f'erro do Google {r.status_code}')}. {why}".strip())
         return r.text if text else r.json()
+
+    async def _post(self, email: str, service: str, url: str, body: dict) -> None:
+        """Única chamada de escrita: organizar e-mails. Só aceita o endereço do Gmail."""
+        if not url.startswith(GMAIL_API):
+            raise GoogleError("escrita recusada: só o Gmail pode ser organizado")
+        email = self._account(email, service)
+        for attempt in (1, 2):
+            token = await self._access(email, force=attempt == 2)
+            r = await self.http.post(url, json=body, headers={"Authorization": f"Bearer {token}"})
+            if r.status_code != 401 or attempt == 2:
+                break
+        if r.status_code >= 400:
+            raise GoogleError("o Google recusou (falta a permissão de organizar o Gmail: conecte de novo em /google)"
+                              if r.status_code == 403 else f"erro do Google {r.status_code}")
 
     # --- leituras ----------------------------------------------------------------------------------
 
@@ -376,6 +399,48 @@ class GoogleClient:
 
         rows = await asyncio.gather(*(one(i) for i in ids))
         return f"{UNTRUSTED}\n" + clean("\n".join(rows))
+
+    # --- organizar o Gmail: lixeira, em dois passos ---------------------------------------------------
+
+    async def plan_trash(self, query: str, limit: int = 20, account: str = "") -> str:
+        """Passo 1: acha os e-mails, guarda um plano e devolve a lista. Nada é movido ainda."""
+        email = self._account(account, "gmail_organizar")
+        limit = max(1, min(int(limit or 20), TRASH_MAX))
+        data = await self._get(email, "gmail", f"{GMAIL_API}/messages", {"q": query or "in:inbox", "maxResults": limit})
+        ids = [m["id"] for m in data.get("messages", [])]
+        if not ids:
+            return "nenhum e-mail encontrado com essa busca; nada a mover"
+        listing = await self.search_mail_ids(email, ids)
+        now = time.time()
+        self._plans = {p: v for p, v in self._plans.items() if now - v[3] < TRASH_TTL_S}
+        plan = secrets.token_hex(4)
+        self._plans[plan] = (email, ids, self.turn, now)
+        return (f"PLANO {plan}: {len(ids)} e-mail(s) iriam para a lixeira (o Gmail guarda 30 dias). Nada foi movido.\n{listing}\n"
+                f"Mostre esta lista ao usuário e pergunte se pode mover. Só depois do sim dele, em uma mensagem nova, "
+                f"use mover_emails_lixeira com o plano {plan}.")
+
+    async def search_mail_ids(self, email: str, ids: list[str]) -> str:
+        async def one(mid: str) -> str:
+            m = await self._get(email, "gmail", f"{GMAIL_API}/messages/{mid}", {
+                "format": "metadata", "metadataHeaders": ["From", "Subject", "Date"]})
+            h = {x["name"].lower(): x["value"] for x in m.get("payload", {}).get("headers", [])}
+            return f"{h.get('date', '')[:16]} · de {h.get('from', '?')} · {h.get('subject', '(sem assunto)')}"
+
+        return clean("\n".join(await asyncio.gather(*(one(i) for i in ids))))
+
+    async def confirm_trash(self, plan: str) -> str:
+        """Passo 2: move para a lixeira os e-mails do plano. Só vale em turno posterior ao do plano (o usuário disse sim)."""
+        item = self._plans.get(plan or "")
+        if item is None or time.time() - item[3] >= TRASH_TTL_S:
+            self._plans.pop(plan or "", None)
+            raise GoogleError("esse plano não existe ou venceu: faça a busca de novo (preparar_lixeira_emails)")
+        email, ids, turn, _ = item
+        if self.turn <= turn:
+            raise GoogleError("o usuário ainda não respondeu: mostre a lista a ele e espere o sim antes de mover")
+        del self._plans[plan]  # uso único
+        await self._post(email, "gmail_organizar", f"{GMAIL_API}/messages/batchModify",
+                         {"ids": ids, "addLabelIds": ["TRASH"], "removeLabelIds": ["INBOX"]})
+        return f"{len(ids)} e-mail(s) movidos para a lixeira. Dá para recuperar pelo Gmail em até 30 dias."
 
     async def read_mail(self, message_id: str, account: str = "") -> str:
         if not re.fullmatch(r"[A-Za-z0-9]{6,40}", message_id or ""):

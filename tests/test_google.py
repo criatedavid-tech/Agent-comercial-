@@ -38,6 +38,7 @@ class FakeGoogle:
         self.challenge = ""
         self.sheet_rows = [["Data", "Valor"], ["01/11", "100,00"], ["02/11", "senha: abc123"]]
         self.fail_network = False
+        self.modified: list[dict] = []  # corpos de batchModify (mover para a lixeira)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         if self.fail_network:
@@ -102,6 +103,9 @@ class FakeGoogle:
                 return httpx.Response(200, json={"payload": {"mimeType": "text/html", "headers": [], "body": {
                     "data": b64("<style>x{}</style><p>Olá <b>mundo</b></p><script>alert(1)</script>")}}})
             return httpx.Response(200, json={"snippet": "Olá", "payload": {"headers": []}})
+        if path == "/gmail/v1/users/me/messages/batchModify" and request.method == "POST":
+            self.modified.append(json.loads(request.content))
+            return httpx.Response(204)
         return httpx.Response(404, json={"error": {"message": "não existe"}})
 
 
@@ -135,13 +139,15 @@ def client(gcfg, fake):
 
 # --- conexão -------------------------------------------------------------------------------------------
 
-def test_authorization_asks_only_for_read_scopes(gcfg, fake):
+def test_authorization_asks_only_for_read_scopes_and_gmail_organize(gcfg, fake):
     client = make_client(gcfg, fake)
     first, second = client.auth_url(REDIRECT), client.auth_url(REDIRECT)
     query = parse_qs(urlparse(first).query)
     scopes = set(query["scope"][0].split())
     assert scopes == set(SCOPES)
-    assert all(s.endswith(".readonly") for s in scopes - {"openid", "email"})  # nada de escrever, enviar ou apagar
+    # leitura, mais gmail.modify (lixeira); nada de enviar, de apagar de vez (mail.google.com) nem de escrever em Drive/Agenda
+    assert {s.rsplit("/", 1)[-1] for s in scopes - {"openid", "email"}} == {
+        "spreadsheets.readonly", "drive.readonly", "calendar.readonly", "gmail.readonly", "gmail.modify"}
     assert query["code_challenge_method"] == ["S256"] and query["access_type"] == ["offline"] and query["prompt"] == ["consent"]
     assert query["client_id"] == ["cid"] and query["redirect_uri"] == [REDIRECT]
     assert query["state"] != parse_qs(urlparse(second).query)["state"]  # um state novo a cada tentativa
@@ -155,7 +161,7 @@ def test_without_client_credentials_it_explains(cfg, fake):
 def test_connection_stores_the_token_encrypted(gcfg, fake, client):
     status = client.status()
     assert status["configured"] and [a["email"] for a in status["accounts"]] == ["dono@exemplo.com"]  # e-mail em minúsculas
-    assert status["accounts"][0]["services"] == ["sheets", "drive", "calendar", "gmail"]
+    assert status["accounts"][0]["services"] == ["sheets", "drive", "calendar", "gmail", "gmail_organizar"]
     raw = gcfg.google_vault.read_bytes()
     assert b"rt-segredo-1" not in raw and b"dono@exemplo.com" not in raw  # nada em texto aberto
     assert gcfg.google_key_file.exists() and gcfg.google_key_file.parent != gcfg.google_vault.parent  # chave fora da pasta de dados
@@ -185,9 +191,9 @@ def test_expired_authorization_is_refused(gcfg, fake):
 
 
 def test_broader_scope_than_read_is_refused_and_revoked(gcfg, fake):
-    fake.granted = ALL_SCOPES + " https://www.googleapis.com/auth/gmail.modify"
+    fake.granted = ALL_SCOPES + " https://mail.google.com/"  # apagar de vez: nunca
     client = make_client(gcfg, fake)
-    with pytest.raises(GoogleError, match="além das de leitura"):
+    with pytest.raises(GoogleError, match="além das"):
         connect(client, fake)
     assert client.status()["accounts"] == []
     assert ("POST", "oauth2.googleapis.com", "/revoke") in fake.calls
@@ -313,6 +319,59 @@ def test_google_never_writes(client, fake):
         assert method == "GET" or host == "oauth2.googleapis.com", (method, host, path)
 
 
+# --- lixeira do Gmail: dois passos ------------------------------------------------------------------------
+
+def test_trash_needs_a_plan_and_a_later_user_turn(client, fake):
+    plan_text = asyncio.run(client.plan_trash("category:promotions"))
+    assert "Nada foi movido" in plan_text and "m1abc123" not in plan_text.split("PLANO")[0]
+    plan = plan_text.split("PLANO ")[1].split(":")[0]
+    assert fake.modified == []  # o plano não mexe em nada
+    with pytest.raises(GoogleError, match="ainda não respondeu"):  # mesmo turno: o modelo não pode se autorizar
+        asyncio.run(client.confirm_trash(plan))
+    assert fake.modified == []
+    client.turn += 1  # o usuário respondeu
+    out = asyncio.run(client.confirm_trash(plan))
+    assert "2 e-mail(s) movidos" in out and "30 dias" in out
+    assert fake.modified == [{"ids": ["m1abc123", "m2abc123"], "addLabelIds": ["TRASH"], "removeLabelIds": ["INBOX"]}]
+    with pytest.raises(GoogleError, match="não existe ou venceu"):  # plano de uso único
+        asyncio.run(client.confirm_trash(plan))
+
+
+def test_trash_unknown_or_expired_plan_is_refused(client, fake):
+    client.turn += 1
+    with pytest.raises(GoogleError, match="não existe ou venceu"):
+        asyncio.run(client.confirm_trash("inventado"))
+    plan = asyncio.run(client.plan_trash("x")).split("PLANO ")[1].split(":")[0]
+    client.turn += 1
+    client._plans[plan] = (*client._plans[plan][:3], 0.0)  # venceu há muito tempo
+    with pytest.raises(GoogleError, match="não existe ou venceu"):
+        asyncio.run(client.confirm_trash(plan))
+    assert fake.modified == []
+
+
+def test_trash_needs_the_organize_permission(gcfg, fake):
+    fake.granted = ALL_SCOPES.replace(SERVICES["gmail_organizar"], "")
+    client = make_client(gcfg, fake)
+    connect(client, fake)
+    with pytest.raises(GoogleError, match="não liberou Gmail"):
+        asyncio.run(client.plan_trash("x"))
+
+
+def test_the_only_write_is_gmail_batch_modify(client, fake):
+    with pytest.raises(GoogleError, match="só o Gmail"):
+        asyncio.run(client._post("", "gmail_organizar", "https://www.googleapis.com/drive/v3/files/x/trash", {}))
+    assert not [c for c in fake.calls if c[0] == "POST" and c[1] != "oauth2.googleapis.com"]
+
+
+def test_trash_tools_follow_the_two_steps(gcfg, client, fake):
+    text, error = tool_call(gcfg, client, "preparar_lixeira_emails", {"busca": "category:promotions", "limite": 99})
+    assert not error and "PLANO" in text and fake.modified == []
+    assert any(p.get("maxResults") == "50" for p in fake.params)  # teto de 50 por plano
+    plan = text.split("PLANO ")[1].split(":")[0]
+    text, error = tool_call(gcfg, client, "mover_emails_lixeira", {"plano": plan})
+    assert error and "ainda não respondeu" in text and fake.modified == []
+
+
 # --- ferramentas e agentes -----------------------------------------------------------------------------
 
 def tool_call(gcfg, client, name, args):
@@ -323,7 +382,7 @@ def tool_call(gcfg, client, name, args):
 
 def test_tools_read_and_explain_errors(gcfg, client, fake):
     text, error = tool_call(gcfg, client, "google_status", {})
-    assert not error and "dono@exemplo.com: sheets, drive, calendar, gmail" in text
+    assert not error and "dono@exemplo.com: sheets, drive, calendar, gmail, gmail_organizar" in text
     text, error = tool_call(gcfg, client, "ler_planilha", {"planilha": SHEET, "aba": "Vendas"})
     assert not error and "Data | Valor" in text
     text, error = tool_call(gcfg, client, "ler_planilha", {"planilha": "oi"})
@@ -343,7 +402,8 @@ def test_tools_without_connection_say_where_to_connect(gcfg, fake):
 
 def test_gmail_is_only_for_the_manager_and_the_attendant_has_no_google():
     assert set(GOOGLE_TOOLS) <= set(TOOLS)
-    gmail = {"mcp__google__buscar_emails", "mcp__google__ler_email"}
+    gmail = {"mcp__google__buscar_emails", "mcp__google__ler_email",
+             "mcp__google__preparar_lixeira_emails", "mcp__google__mover_emails_lixeira"}
     for name, agent in AGENTS.items():
         assert not gmail & set(agent.tools or []), name
     assert "mcp__google__ler_planilha" in AGENTS["financeiro"].tools and "mcp__google__ver_agenda_google" in AGENTS["comercial"].tools
