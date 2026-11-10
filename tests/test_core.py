@@ -200,6 +200,23 @@ def test_password_pasted_in_chat_never_reaches_the_model(cfg):
     assert "Segredo123" not in log
 
 
+def test_image_error_from_a_text_only_model_tells_what_to_do(cfg):
+    """Visto no teste real: 'entre no meu criate' fez o modelo ler um PNG e o provedor respondeu 400."""
+    agent = Agent(cfg)
+    agent.client = FakeClient([AssistantMessage(content=[TextBlock(text="API Error: 400 No endpoints found that support image input")],
+                                                model="m")])
+    [event] = collect(agent, "entre no meu criate")
+    assert event.kind == "text" and "Nova conversa" in event.text and "AGENT_MODEL" in event.text
+    assert "No endpoints found that support image input" in event.text  # a mensagem original continua visível
+    agent.client = FakeClient([AssistantMessage(content=[TextBlock(text="API Error: 500 erro do provedor")], model="m")])
+    assert collect(agent, "x")[0].text == "API Error: 500 erro do provedor"  # outros erros ficam como vieram
+
+
+def test_prompt_sends_login_requests_to_the_browser(cfg):
+    prompt = Agent(cfg)._options().system_prompt
+    assert "entre no meu Criate" in prompt and "Não procure o sistema em arquivos" in prompt
+
+
 def test_result_status_on_errors(cfg):
     agent = Agent(cfg)
 

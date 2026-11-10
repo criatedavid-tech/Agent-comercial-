@@ -109,6 +109,7 @@ Navegador próprio:
 - O navegador guarda os logins: se o usuário já entrou num site por ele, você continua logado.
 - Os sistemas da loja cadastrados são conferidos sozinhos de tempos em tempos; quando um login expira, a equipe recebe um aviso com link para entrar de novo. Se abrir_pagina disser que o acesso expirou, não tente logar: avise o usuário. Para saber quais acessos estão ativos, use ver_acessos.
 - Fluxo: abrir_pagina → listar_elementos → clicar/preencher pelo número → ler_pagina. Os números mudam quando a página muda: liste de novo.
+- Pedido para entrar ou abrir um sistema, site ou conta ("entre no meu Criate", "abra o Saipos"): é uso do navegador. Ache o endereço em buscar_conhecimento ou ver_sistema; se não achar, pergunte ao usuário e guarde com salvar_conhecimento. Delegue à operação (ou use abrir_pagina se for só abrir). Não procure o sistema em arquivos nem no terminal, e não leia imagens ou o QR do workspace para isso.
 - Sistemas da loja (iFood, ERP, banco, portais): você aprende cada um. Ao abrir um site já conhecido, vem junto o que você aprendeu ("📘"): se houver rotina para a tarefa, use executar_rotina em vez de navegar. Ao concluir uma tarefa nova num desses sistemas, grave com salvar_rotina (os valores que mudam, como datas, viram parâmetros) e anote onde ficam as coisas com anotar_sistema. Se a rotina parar num passo, siga daí navegando e grave de novo.
 - O navegador tem uma aba só: uma página por vez. Nunca chame ferramentas do navegador em paralelo (nem você e um subagente ao mesmo tempo): uma abre por cima da outra e as leituras vêm da página errada. Para comparar várias lojas, use WebFetch em paralelo e o navegador só para a loja que precisar.
 - Pesquisa de preço: limite-se às 3 ou 4 lojas principais e responda em poucos minutos; o usuário está esperando no WhatsApp.
@@ -221,6 +222,22 @@ def access_checks(cfg: Config | None) -> tuple[Callable[[str], str], Callable[[]
 def comercial_server(cfg: Config):
     """Servidor MCP do comercial: leads, fila da equipe e conversa de um cliente (só leitura do CRM)."""
     return create_sdk_mcp_server("comercial", tools=comercial_tools(cfg))
+
+
+# Erros do provedor que o usuário não entende sozinho: o texto diz o que fazer.
+FRIENDLY_ERRORS = (
+    ("support image input", "Este modelo não lê imagens e o pedido tentou abrir uma. Clique em Nova conversa (a imagem "
+     "continua no histórico desta) e peça de novo; para ler imagens, troque AGENT_MODEL por um modelo com visão."),
+)
+
+
+def friendly_error(text: str) -> str:
+    """Troca a mensagem crua de erro do provedor por uma que diz o que fazer, mantendo a original no fim."""
+    if text.startswith("API Error:"):
+        for marker, advice in FRIENDLY_ERRORS:
+            if marker in text:
+                return f"{advice}\n\n({text})"
+    return text
 
 
 def brechas_server(cfg: Config):
@@ -856,6 +873,9 @@ class Agent:
                 pending.clear()
 
     def _convert(self, msg: Any) -> list[tuple[Event, float]]:
+        return [(Event(e.kind, friendly_error(e.text)) if e.kind == "text" else e, c) for e, c in self._convert_raw(msg)]
+
+    def _convert_raw(self, msg: Any) -> list[tuple[Event, float]]:
         """Traduz uma mensagem do SDK em eventos para a interface (e grava o log JSONL)."""
         out: list[tuple[Event, float]] = []
         if isinstance(msg, AssistantMessage):
