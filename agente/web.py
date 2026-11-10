@@ -56,7 +56,8 @@ remote_access = sessoes.RemoteAccess()  # links temporários da tela remota do n
 REMOTE = sessoes.REMOTE_PATH
 CONNECT = "/conectar-whatsapp"  # página para o cliente conectar o número do atendente (QR ou código)
 connect_access = sessoes.RemoteAccess(minutes=60)
-FRAME_S = 0.7  # intervalo entre imagens da tela remota
+FRAME_S = 0.7  # intervalo entre imagens da tela remota quando o navegador só sabe screenshot
+FRAME_FAST_S = 0.15  # com screencast: só é enviado o que mudou, então dá para olhar com mais frequência
 EXPIRED_PAGE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Link expirado</title></head>
 <body style="margin:0;background:#161615;color:#ecebe6;font:17px/1.5 system-ui,sans-serif;padding:32px 20px">
@@ -555,9 +556,13 @@ async def remote_screen(ws: WebSocket, token: str) -> None:
         pass
 
     async def frames() -> None:
+        sent = -1
         while remote_access.valid(token):
             try:
-                await ws.send_bytes(await browser().view())
+                image = await browser().view()
+                if browser().frame_seq != sent:  # página parada: não manda o mesmo quadro de novo
+                    sent = browser().frame_seq
+                    await ws.send_bytes(image)
             except BrowserError as e:
                 await ws.send_json({"kind": "error", "text": str(e)})
                 await asyncio.sleep(3)
@@ -566,7 +571,7 @@ async def remote_screen(ws: WebSocket, token: str) -> None:
             except Exception as e:  # página no meio de um redirecionamento (visto no login do iFood): tenta de novo
                 log.info("imagem da tela remota falhou: %s", e)
                 await asyncio.sleep(1)
-            await asyncio.sleep(FRAME_S)
+            await asyncio.sleep(FRAME_FAST_S if browser().casting else FRAME_S)
         await ws.send_json({"kind": "expired"})
         await ws.close()
 

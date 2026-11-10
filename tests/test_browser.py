@@ -154,6 +154,76 @@ def test_remote_page_has_the_drag_mode():
     assert "next.decode()" in html and "waiting = blob" in html
 
 
+# --- imagem da tela remota: quadros empurrados pelo navegador, sem screenshot repetido ---------------
+
+def test_remote_view_streams_frames_and_follows_the_page(site, run_browser):
+    """O screenshot a cada poucos décimos de segundo fazia a janela real do agente piscar."""
+    async def scenario(b: Browser):
+        await b.open(f"{site}/slider.html")
+        first = await b.view()
+        seed = b.frame_seq
+        casting = b.casting
+        await b.remote({"type": "drag", "points": path(40, 200, ms=500)})  # a setinha anda e a página repinta
+        for _ in range(40):
+            await b.view()
+            if b.frame_seq > seed:
+                break
+            await asyncio.sleep(0.1)
+        return first, casting, seed, b.frame_seq
+
+    first, casting, seed, after = run_browser(scenario)
+    assert first[:2] == b"\xff\xd8" and casting  # JPEG, e o navegador está transmitindo
+    assert after > seed  # quadro novo chegou sem nenhum screenshot extra
+
+
+def test_remote_view_is_not_blocked_by_a_long_gesture(site, run_browser):
+    """A imagem não espera o travamento das ações: continua chegando durante o arrasto."""
+    async def scenario(b: Browser):
+        await b.open(f"{site}/slider.html")
+        await b.view()
+        holding = asyncio.create_task(b.remote({"type": "hold", "x": 100, "y": 330, "ms": 1500}))
+        await asyncio.sleep(0.3)
+        started = asyncio.get_running_loop().time()
+        image = await b.view()
+        took = asyncio.get_running_loop().time() - started
+        await holding
+        return image, took
+
+    image, took = run_browser(scenario)
+    assert image[:2] == b"\xff\xd8" and took < 0.5
+
+
+def test_remote_view_falls_back_to_screenshot_and_restarts_the_cast(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/slider.html")
+        await b.view()
+        await b._stop_cast()  # como depois de ficar parado: a próxima imagem liga de novo
+        stopped = b.casting
+        await b.view()
+        restarted = b.casting
+        b._cast_failed = True  # navegador que não sabe transmitir
+        await b._stop_cast()
+        shot = await b.view()
+        return stopped, restarted, shot, b.casting
+
+    stopped, restarted, shot, casting_after = run_browser(scenario)
+    assert stopped is False and restarted is True
+    assert shot[:2] == b"\xff\xd8" and casting_after is False
+
+
+def test_closing_the_browser_stops_the_cast(site, run_browser):
+    async def scenario(b: Browser):
+        await b.open(f"{site}/slider.html")
+        await b.view()
+        watch = b._cast_watch
+        await b.close()
+        await asyncio.sleep(0.1)
+        return b.casting, watch.done()
+
+    casting, watch_done = run_browser(scenario)
+    assert casting is False and watch_done is True
+
+
 def test_cookie_banner_accept_all_is_refused():
     banner = "Usamos cookies para melhorar sua experiência."
     for text in ("Aceitar todos os cookies", "Aceitar todos", "Accept all", "Aceitar", "Permitir todos"):

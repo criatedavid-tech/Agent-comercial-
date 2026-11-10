@@ -185,10 +185,15 @@ def test_remote_access_links_expire():
 
 
 class FakeBrowser:
-    def __init__(self):
+    def __init__(self, static=False):
         self.actions = []
+        self.frame_seq = 0
+        self.static = static  # página parada: o navegador não gera quadro novo
+        self.casting = True
 
     async def view(self):
+        if not self.static or self.frame_seq == 0:
+            self.frame_seq += 1
         return b"\xff\xd8jpeg"
 
     async def current_url(self, restore=False):
@@ -239,6 +244,27 @@ def test_remote_screen_streams_and_forwards_input(remote):
                 replies.append(json.loads(msg["text"]))  # pula as imagens
         assert replies[1] == {"kind": "field", "field": {"name": "Usuário", "length": 6, "secret": False}, "after": "type"}
     assert fake_browser.actions == [{"type": "type", "text": "rafael"}]
+
+
+def test_remote_screen_does_not_resend_a_frame_that_did_not_change(remote, monkeypatch):
+    """Com screencast só vai quadro novo: página parada não manda a mesma imagem de novo (e não pisca)."""
+    access, _ = remote
+    still = FakeBrowser(static=True)
+    monkeypatch.setattr(web, "browser", lambda: still)
+    monkeypatch.setattr(web, "FRAME_FAST_S", 0.02)
+    token = access.issue()
+    client = TestClient(web.app, base_url="https://vm.exemplo.com")
+    headers = {"host": "vm.exemplo.com", "origin": "https://vm.exemplo.com"}
+    with client.websocket_connect(f"/ws/acesso-navegador/{token}", headers=headers) as ws:
+        assert ws.receive_json()["kind"] == "url"
+        assert ws.receive_bytes().startswith(b"\xff\xd8")  # o primeiro quadro vai
+        ws.send_json({"type": "type", "text": "a"})
+        kinds = []
+        while len(kinds) < 2:
+            msg = ws.receive()
+            kinds.append("bytes" if msg.get("bytes") else json.loads(msg["text"])["kind"])
+    assert kinds == ["url", "field"]  # nenhuma imagem repetida no meio
+    assert still.frame_seq == 1  # página parada: o número do quadro não subiu, então nada foi reenviado
 
 
 @pytest.mark.parametrize("headers,token_ok", [

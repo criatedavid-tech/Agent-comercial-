@@ -63,6 +63,11 @@ FOCUS_FIRST_FIELD_JS = """() => {
   if (target) target.focus();
 }"""
 VIEWPORT = {"width": 1280, "height": 860}
+# Imagem da tela remota: o navegador empurra os quadros (screencast) em vez de a gente pedir um screenshot a cada
+# poucos décimos de segundo: o screenshot repetido fazia a janela real do agente piscar (visto no teste real).
+# O screencast para sozinho depois de CAST_IDLE_S sem ninguém olhando.
+CAST_IDLE_S = 15
+CAST_QUALITY = 60
 # Gesto de uma pessoa na tela remota (captcha de arrastar uma peça, "pressione e segure"): o caminho do dedo
 # chega com o tempo de cada ponto e o navegador o repete no mesmo ritmo.
 MAX_GESTURE_POINTS = 300
@@ -364,6 +369,13 @@ class Browser:
         self._probing = False  # aba da checagem de acesso: não vira a aba do agente
         # Diário dos passos que deram certo (abrir, clicar, preencher): vira rotina em agente/aprendizado.py.
         self.journal: deque[dict] = deque(maxlen=80)
+        # Quadros da tela remota: o último que o navegador mandou e um número que sobe a cada quadro novo.
+        self._frame: bytes | None = None
+        self.frame_seq = 0
+        self._cast_page: Any = None
+        self._cast_failed = False  # o navegador não soube transmitir: volta ao screenshot
+        self._cast_seen = 0.0
+        self._cast_watch: asyncio.Task | None = None
         # Quando apareceu cada verificação de robô, por site; os sites em pausa ficam em verificacoes.json.
         # Não zera com página normal: na Shopee a busca abre normal e só depois o JavaScript manda para a verificação.
         self._strikes: dict[str, list[float]] = {}
@@ -428,7 +440,45 @@ class Browser:
         if not self._probing:
             self._page = page  # link que abre em nova aba: o agente passa a usar a aba nova
 
+    @property
+    def casting(self) -> bool:
+        return self._cast_page is not None
+
+    def _on_frame(self, frame: Any) -> None:
+        self._frame = frame["data"]
+        self.frame_seq += 1
+
+    async def _start_cast(self, page: Any) -> None:
+        await self._stop_cast()
+        try:
+            await page.screencast.start(on_frame=self._on_frame, quality=CAST_QUALITY, size=VIEWPORT)
+        except Exception:
+            self._cast_failed = True
+            return
+        self._cast_page = page
+        self._cast_seen = time.monotonic()
+        if self._cast_watch is None or self._cast_watch.done():
+            self._cast_watch = asyncio.create_task(self._watch_cast())
+
+    async def _stop_cast(self) -> None:
+        page, self._cast_page = self._cast_page, None
+        if page is not None and not page.is_closed():
+            try:
+                await page.screencast.stop()
+            except Exception:
+                pass
+
+    async def _watch_cast(self) -> None:
+        """Desliga a transmissão quando ninguém pede imagem há CAST_IDLE_S (gasta CPU em página animada)."""
+        while self._cast_page is not None:
+            await asyncio.sleep(2)
+            if time.monotonic() - self._cast_seen > CAST_IDLE_S:
+                await self._stop_cast()
+
     async def close(self) -> None:
+        if self._cast_watch:
+            self._cast_watch.cancel()
+        await self._stop_cast()
         if self._ctx:
             await self._ctx.close()
         if self._pw:
@@ -707,10 +757,29 @@ class Browser:
             return page.url
 
     async def view(self) -> bytes:
-        """Imagem da aba do agente para a tela remota."""
-        async with self._lock:
-            page = await self._get_page()
-            return await page.screenshot(type="jpeg", quality=60)
+        """Imagem da aba do agente para a tela remota: o último quadro transmitido pelo navegador.
+
+        Não usa o travamento das ações: a imagem continua chegando enquanto um arrasto ou um clique acontece.
+        Sem screencast (navegador que não suporta), cai no screenshot, que é mais pesado e pisca a janela real."""
+        page = self._page if self._page and not self._page.is_closed() else None
+        if page is None:
+            async with self._lock:
+                page = await self._get_page()
+        self._cast_seen = time.monotonic()
+        if not self._cast_failed:
+            if self._cast_page is not page:
+                self._frame = None
+                await self._start_cast(page)
+            if self._frame is None and not self._cast_failed:
+                # a página parada pode não gerar quadro nenhum: um screenshot só, para ter o primeiro
+                self._frame = await page.screenshot(type="jpeg", quality=CAST_QUALITY)
+                self.frame_seq += 1
+            if not self._cast_failed:
+                return self._frame
+        shot = await page.screenshot(type="jpeg", quality=CAST_QUALITY)
+        self._frame = shot
+        self.frame_seq += 1
+        return shot
 
     async def remote(self, action: dict) -> dict:
         """Comando da tela remota, feito por uma pessoa (login). Devolve o endereço e o campo com o foco.
