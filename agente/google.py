@@ -56,9 +56,32 @@ SERVICES = {
     "gmail_organizar": SCOPE_BASE + "gmail.modify",
     # Criar compromissos na agenda principal. O código nunca coloca convidados (convidado recebe e-mail em nome do usuário).
     "calendar_escrever": SCOPE_BASE + "calendar.events",
+    "sheets_escrever": SCOPE_BASE + "spreadsheets",
+    "docs_escrever": SCOPE_BASE + "documents",
+    "gmail_enviar": SCOPE_BASE + "gmail.compose",  # rascunho e envio (envio só pelo plano confirmado)
 }
 SERVICE_NAMES = {"sheets": "Planilhas", "drive": "Drive e Documentos", "calendar": "Agenda", "gmail": "Gmail",
-                 "gmail_organizar": "Gmail (mover para a lixeira)", "calendar_escrever": "Agenda (criar compromissos)"}
+                 "gmail_organizar": "Gmail (mover para a lixeira)", "calendar_escrever": "Agenda (criar, editar e cancelar compromissos)",
+                 "sheets_escrever": "Planilhas (escrever)", "docs_escrever": "Documentos (criar e escrever)",
+                 "gmail_enviar": "Gmail (rascunho e envio)"}
+DOCS_API = "https://docs.googleapis.com/v1/documents"
+_G, _C, _S, _D = re.escape(GMAIL_API), re.escape(CALENDAR_API), re.escape(SHEETS_API), re.escape(DOCS_API)
+# Única lista de escritas permitidas (método, endereço). Fora dela, o código recusa, não importa o que o modelo peça.
+WRITE_ALLOWED = [
+    ("POST", _G + r"/messages/batchModify"),  # lixeira
+    ("POST", _G + r"/messages/send"),  # enviar e-mail (só pelo plano confirmado)
+    ("POST", _G + r"/drafts"),  # rascunho
+    ("POST", _C + r"/calendars/primary/events"),  # criar compromisso
+    ("PATCH", _C + r"/calendars/primary/events/[A-Za-z0-9_]{5,}"),  # editar
+    ("DELETE", _C + r"/calendars/primary/events/[A-Za-z0-9_]{5,}"),  # cancelar
+    ("PUT", _S + r"/[A-Za-z0-9_-]{10,}/values/[^/]+"),  # escrever células
+    ("POST", _S + r"/[A-Za-z0-9_-]{10,}/values/[^/]+:append"),  # acrescentar linhas
+    ("POST", _D),  # criar documento
+    ("POST", _D + r"/[A-Za-z0-9_-]{10,}:batchUpdate"),  # acrescentar texto
+]
+EMAIL_RE = re.compile(r"[^@\s,;<>\"']+@[^@\s,;<>\"']+\.[^@\s,;<>\"']+")
+MAX_RECIPIENTS = 5
+MAX_SENDS = 10  # e-mails enviados por conversa
 EVENTS_PER_TURN = 5
 TRASH_MAX = 500  # e-mails por plano (a lista mostra uma amostra, o total é exato)
 TRASH_SAMPLE = 25
@@ -187,7 +210,9 @@ class GoogleClient:
         self._tokens: dict[str, tuple[str, float]] = {}  # email -> (access token, validade)
         self.turn = 0  # sobe a cada mensagem do usuário (Agent.ask); a lixeira só executa em turno posterior ao plano
         self._plans: dict[str, tuple[str, list[str], int, float]] = {}  # plano -> (conta, ids, turno, quando)
-        self.trashed_total = 0  # e-mails movidos para a lixeira nesta conversa (contagem do código, não do modelo)
+        self._sends: dict[str, tuple[str, str, int, float]] = {}  # envio -> (conta, mensagem pronta, turno, quando)
+        self.sent_total = 0
+        self.trashed_total = 0 # e-mails movidos para a lixeira nesta conversa (contagem do código, não do modelo)
         self._events_turn: tuple[int, int] = (-1, 0)  # (turno, quantos compromissos criados nele)
 
     # --- conexão -------------------------------------------------------------------------------------
@@ -310,13 +335,18 @@ class GoogleClient:
         return r.text if text else r.json()
 
     async def _post(self, email: str, service: str, url: str, body: dict) -> dict:
-        """Únicas escritas: mover e-mails à lixeira e criar compromisso na agenda principal. Nenhum outro endereço."""
-        if not (url.startswith(GMAIL_API) or url == f"{CALENDAR_API}/calendars/primary/events"):
-            raise GoogleError("escrita recusada: só organizar o Gmail e criar compromissos na agenda")
+        return await self._write(email, service, "POST", url, body)
+
+    async def _write(self, email: str, service: str, method: str, url: str, body: dict | None = None,
+                     params: dict | None = None) -> dict:
+        """Todas as escritas passam aqui, e só para os endereços de WRITE_ALLOWED (nada de apagar de vez, de Drive
+        nem de contatos)."""
+        if not any(method == m and re.fullmatch(pattern, url) for m, pattern in WRITE_ALLOWED):
+            raise GoogleError("escrita recusada: esse tipo de ação não é permitido")
         email = self._account(email, service)
         for attempt in (1, 2):
             token = await self._access(email, force=attempt == 2)
-            r = await self.http.post(url, json=body, headers={"Authorization": f"Bearer {token}"})
+            r = await self.http.request(method, url, json=body, params=params, headers={"Authorization": f"Bearer {token}"})
             if r.status_code != 401 or attempt == 2:
                 break
         if r.status_code >= 400:
@@ -415,7 +445,7 @@ class GoogleClient:
                 when = f"{start.get('date', '?')[8:10]}/{start.get('date', '?')[5:7]} dia todo"
             guests = len(ev.get("attendees", []) or [])
             rows.append(f"{when} · {ev.get('summary', '(sem título)')}" + (f" · {ev['location']}" if ev.get("location") else "")
-                        + (f" · {guests} convidado(s)" if guests else ""))
+                        + (f" · {guests} convidado(s)" if guests else "") + (f" · id {ev['id']}" if ev.get("id") else ""))
         return f"{UNTRUSTED}\n" + clean("\n".join(rows))
 
     async def search_mail(self, query: str = "", limit: int = 10, account: str = "") -> str:
@@ -479,6 +509,132 @@ class GoogleClient:
         self.trashed_total += len(ids)
         return (f"{len(ids)} e-mail(s) movidos para a lixeira agora; total nesta conversa: {self.trashed_total} (contagem do sistema, "
                 f"use estes números). Dá para recuperar pelo Gmail em até 30 dias.")
+
+    # --- agenda: editar e cancelar -----------------------------------------------------------------------
+
+    async def update_event(self, event_id: str, title: str = "", start: str = "", end: str = "", account: str = "") -> str:
+        body: dict = {}
+        tz = ZoneInfo(self.cfg.timezone)
+        if title:
+            body["summary"] = title.strip()[:200]
+        try:
+            if start:
+                s = datetime.fromisoformat(start)
+                s = s.replace(tzinfo=tz) if s.tzinfo is None else s.astimezone(tz)
+                body["start"] = {"dateTime": s.isoformat(), "timeZone": self.cfg.timezone}
+                e = datetime.fromisoformat(end) if end else s + timedelta(hours=1)
+                e = e.replace(tzinfo=tz) if e.tzinfo is None else e.astimezone(tz)
+                if e <= s:
+                    raise GoogleError("o fim precisa ser depois do começo")
+                body["end"] = {"dateTime": e.isoformat(), "timeZone": self.cfg.timezone}
+        except ValueError:
+            raise GoogleError("data inválida: use o formato 2026-11-19T00:00") from None
+        if not body:
+            raise GoogleError("diga o que mudar (título ou horário)")
+        email = self._account(account, "calendar_escrever")
+        await self._write(email, "calendar_escrever", "PATCH", f"{CALENDAR_API}/calendars/primary/events/{self._event_id(event_id)}", body)
+        return "compromisso atualizado"
+
+    async def delete_event(self, event_id: str, account: str = "") -> str:
+        email = self._account(account, "calendar_escrever")
+        await self._write(email, "calendar_escrever", "DELETE", f"{CALENDAR_API}/calendars/primary/events/{self._event_id(event_id)}")
+        return "compromisso cancelado (o Google guarda na lixeira da Agenda por 30 dias)"
+
+    @staticmethod
+    def _event_id(event_id: str) -> str:
+        if not re.fullmatch(r"[A-Za-z0-9_]{5,}", event_id or ""):
+            raise GoogleError("id de compromisso inválido: use o id que ver_agenda_google mostra")
+        return event_id
+
+    # --- planilhas e documentos: escrever -------------------------------------------------------------
+
+    async def write_sheet(self, ref: str, cells: str, text: str, tab: str = "", append: bool = False, account: str = "") -> str:
+        """Escreve (ou acrescenta ao fim) linhas numa planilha. `text`: uma linha por quebra de linha, colunas separadas por |."""
+        sid = sheet_id(ref)
+        rows = [[c.strip() for c in line.split("|")] for line in (text or "").splitlines() if line.strip()]
+        if not rows:
+            raise GoogleError("diga o conteúdo: uma linha por quebra de linha, colunas separadas por |")
+        if len(rows) > MAX_ROWS or any(len(r) > MAX_COLS for r in rows):
+            raise GoogleError(f"são no máximo {MAX_ROWS} linhas e {MAX_COLS} colunas por vez")
+        if not append and not re.fullmatch(r"[A-Za-z]{1,3}[0-9]{1,6}(:[A-Za-z]{1,3}[0-9]{1,6})?", cells or ""):
+            raise GoogleError("diga a célula inicial, ex. A1 (ou o intervalo A1:C3)")
+        rng = (f"'{tab}'!" if tab else "") + (cells or "A1")
+        email = self._account(account, "sheets_escrever")
+        url = f"{SHEETS_API}/{sid}/values/{quote(rng, safe='')}" + (":append" if append else "")
+        params = {"valueInputOption": "USER_ENTERED", **({"insertDataOption": "INSERT_ROWS"} if append else {})}
+        await self._write(email, "sheets_escrever", "POST" if append else "PUT", url, {"values": rows}, params)
+        return f"{len(rows)} linha(s) {'acrescentada(s) ao fim' if append else 'escrita(s)'} na planilha"
+
+    async def create_doc(self, title: str, text: str = "", account: str = "") -> str:
+        title = (title or "").strip()[:200]
+        if not title:
+            raise GoogleError("diga o título do documento")
+        email = self._account(account, "docs_escrever")
+        doc = await self._write(email, "docs_escrever", "POST", DOCS_API, {"title": title})
+        if text:
+            await self.append_doc(doc["documentId"], text, email)
+        return f"documento criado: {title} (https://docs.google.com/document/d/{doc['documentId']})"
+
+    async def append_doc(self, ref: str, text: str, account: str = "") -> str:
+        did = file_id(ref)
+        if not (text or "").strip():
+            raise GoogleError("diga o texto a acrescentar")
+        email = self._account(account, "docs_escrever")
+        await self._write(email, "docs_escrever", "POST", f"{DOCS_API}/{did}:batchUpdate", {"requests": [
+            {"insertText": {"endOfSegmentLocation": {}, "text": text[:20000]}}]})
+        return "texto acrescentado ao fim do documento"
+
+    # --- e-mail: rascunho e envio (envio em dois passos) ----------------------------------------------
+
+    @staticmethod
+    def _message(to: str, subject: str, body: str) -> tuple[list[str], str]:
+        recipients = [a for a in re.split(r"[,;\s]+", to or "") if a]
+        if not recipients or len(recipients) > MAX_RECIPIENTS or not all(EMAIL_RE.fullmatch(a) for a in recipients):
+            raise GoogleError(f"diga de 1 a {MAX_RECIPIENTS} destinatários com e-mail válido")
+        subject = (subject or "").strip()
+        if not subject or "\n" in subject or "\r" in subject:
+            raise GoogleError("diga o assunto, em uma linha")
+        if not (body or "").strip():
+            raise GoogleError("diga o texto do e-mail")
+        from email.message import EmailMessage
+        msg = EmailMessage()
+        msg["To"], msg["Subject"] = ", ".join(recipients), subject
+        msg.set_content(body[:20000])
+        return recipients, base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+    async def create_draft(self, to: str, subject: str, body: str, account: str = "") -> str:
+        _, raw = self._message(to, subject, body)
+        email = self._account(account, "gmail_enviar")
+        await self._write(email, "gmail_enviar", "POST", f"{GMAIL_API}/drafts", {"message": {"raw": raw}})
+        return "rascunho salvo no Gmail (não foi enviado)"
+
+    async def prepare_send(self, to: str, subject: str, body: str, account: str = "") -> str:
+        """Passo 1 do envio: guarda o e-mail exato e devolve o texto para o usuário conferir. Nada é enviado."""
+        recipients, raw = self._message(to, subject, body)
+        email = self._account(account, "gmail_enviar")
+        now = time.time()
+        self._sends = {p: v for p, v in getattr(self, "_sends", {}).items() if now - v[3] < TRASH_TTL_S}
+        plan = secrets.token_hex(4)
+        self._sends[plan] = (email, raw, self.turn, now)
+        return (f"ENVIO {plan} (nada foi enviado). Para: {', '.join(recipients)}\nAssunto: {subject}\n\n{body[:1500]}\n\n"
+                f"Mostre exatamente isto ao usuário e pergunte se pode enviar. Só depois do sim dele, em uma mensagem nova, "
+                f"use enviar_email com o envio {plan}.")
+
+    async def confirm_send(self, plan: str) -> str:
+        sends = getattr(self, "_sends", {})
+        item = sends.get(plan or "")
+        if item is None or time.time() - item[3] >= TRASH_TTL_S:
+            sends.pop(plan or "", None)
+            raise GoogleError("esse envio não existe ou venceu: prepare o e-mail de novo (preparar_envio_email)")
+        email, raw, turn, _ = item
+        if self.turn <= turn:
+            raise GoogleError("o usuário ainda não respondeu: mostre o e-mail a ele e espere o sim antes de enviar")
+        if self.sent_total >= MAX_SENDS:
+            raise GoogleError(f"limite de {MAX_SENDS} e-mails enviados por conversa")
+        del sends[plan]
+        await self._write(email, "gmail_enviar", "POST", f"{GMAIL_API}/messages/send", {"raw": raw})
+        self.sent_total += 1
+        return f"e-mail enviado ({self.sent_total} nesta conversa)"
 
     async def read_mail(self, message_id: str, account: str = "") -> str:
         if not re.fullmatch(r"[A-Za-z0-9]{6,40}", message_id or ""):

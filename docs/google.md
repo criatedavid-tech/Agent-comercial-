@@ -9,6 +9,10 @@ O agente lê **Planilhas, Drive e Documentos, Agenda e Gmail** da conta que voc�
 
 Cada plano cobre até 500 e-mails e mostra o **total exato** e uma amostra de 25; o total movido na conversa é somado pelo código, para o agente não errar a conta.
 
+**Acesso de escrita ao resto do Google (só o gerente).** Direto, quando você pede: `escrever_planilha` (sobrescreve células ou acrescenta linhas), `criar_documento`, `acrescentar_documento`, `criar_rascunho_email` (não envia), `criar_compromisso_agenda`, `editar_compromisso_agenda`, `cancelar_compromisso_agenda`. **Enviar e-mail** segue os dois passos da lixeira: `preparar_envio_email` mostra o texto exato, você diz sim, e só em mensagem nova `enviar_email` envia (até 5 destinatários e 10 envios por conversa; destinatário e assunto são validados contra injeção de cabeçalho).
+
+Todas as escritas passam por uma lista fixa de endereços e métodos (`WRITE_ALLOWED` em `agente/google.py`); o resto o código recusa. **Fora de propósito:** apagar e-mail de vez, apagar ou compartilhar arquivo do Drive, mexer em contatos e em configurações do Gmail (encaminhamento, filtros). Para "apagar", o e-mail vai para a lixeira, que se esvazia sozinha em 30 dias.
+
 **Compromisso na agenda:** `criar_compromisso_agenda` cria um evento na agenda principal (escopo `calendar.events`), no fuso da empresa, **sem convidados** (convidado receberia e-mail em nome de você) e com teto de 5 por pedido. Só o gerente tem.
 
 Usa o escopo `gmail.modify`, que não permite apagar de vez nem enviar e-mail. Quem já tinha conectado antes precisa **reconectar** em `/google` para o Google pedir essa permissão.
