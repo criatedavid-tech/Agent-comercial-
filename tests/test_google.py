@@ -39,6 +39,7 @@ class FakeGoogle:
         self.sheet_rows = [["Data", "Valor"], ["01/11", "100,00"], ["02/11", "senha: abc123"]]
         self.fail_network = False
         self.modified: list[dict] = []  # corpos de batchModify (mover para a lixeira)
+        self.created: list[dict] = []  # compromissos criados na agenda
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         if self.fail_network:
@@ -83,6 +84,9 @@ class FakeGoogle:
             return httpx.Response(200, json={"id": "sheet12345", "name": "Planilha", "mimeType": "application/vnd.google-apps.spreadsheet"})
         if path == "/drive/v3/files/pdf1234567":
             return httpx.Response(200, json={"id": "pdf1234567", "name": "Nota", "mimeType": "application/pdf"})
+        if path == "/calendar/v3/calendars/primary/events" and request.method == "POST":
+            self.created.append(json.loads(request.content))
+            return httpx.Response(200, json={"htmlLink": "https://calendar.google.com/event?eid=x"})
         if path == "/calendar/v3/calendars/primary/events":
             return httpx.Response(200, json={"items": [
                 {"summary": "Reunião com fornecedor", "start": {"dateTime": "2026-11-12T13:00:00Z"}, "end": {"dateTime": "2026-11-12T14:00:00Z"},
@@ -147,7 +151,7 @@ def test_authorization_asks_only_for_read_scopes_and_gmail_organize(gcfg, fake):
     assert scopes == set(SCOPES)
     # leitura, mais gmail.modify (lixeira); nada de enviar, de apagar de vez (mail.google.com) nem de escrever em Drive/Agenda
     assert {s.rsplit("/", 1)[-1] for s in scopes - {"openid", "email"}} == {
-        "spreadsheets.readonly", "drive.readonly", "calendar.readonly", "gmail.readonly", "gmail.modify"}
+        "spreadsheets.readonly", "drive.readonly", "calendar.readonly", "gmail.readonly", "gmail.modify", "calendar.events"}
     assert query["code_challenge_method"] == ["S256"] and query["access_type"] == ["offline"] and query["prompt"] == ["consent"]
     assert query["client_id"] == ["cid"] and query["redirect_uri"] == [REDIRECT]
     assert query["state"] != parse_qs(urlparse(second).query)["state"]  # um state novo a cada tentativa
@@ -161,7 +165,7 @@ def test_without_client_credentials_it_explains(cfg, fake):
 def test_connection_stores_the_token_encrypted(gcfg, fake, client):
     status = client.status()
     assert status["configured"] and [a["email"] for a in status["accounts"]] == ["dono@exemplo.com"]  # e-mail em minúsculas
-    assert status["accounts"][0]["services"] == ["sheets", "drive", "calendar", "gmail", "gmail_organizar"]
+    assert status["accounts"][0]["services"] == ["sheets", "drive", "calendar", "gmail", "gmail_organizar", "calendar_escrever"]
     raw = gcfg.google_vault.read_bytes()
     assert b"rt-segredo-1" not in raw and b"dono@exemplo.com" not in raw  # nada em texto aberto
     assert gcfg.google_key_file.exists() and gcfg.google_key_file.parent != gcfg.google_vault.parent  # chave fora da pasta de dados
@@ -358,15 +362,57 @@ def test_trash_needs_the_organize_permission(gcfg, fake):
 
 
 def test_the_only_write_is_gmail_batch_modify(client, fake):
-    with pytest.raises(GoogleError, match="só o Gmail"):
-        asyncio.run(client._post("", "gmail_organizar", "https://www.googleapis.com/drive/v3/files/x/trash", {}))
+    for url in ("https://www.googleapis.com/drive/v3/files/x/trash", "https://www.googleapis.com/calendar/v3/calendars/outra/events",
+                "https://www.googleapis.com/upload"):
+        with pytest.raises(GoogleError, match="escrita recusada"):
+            asyncio.run(client._post("", "gmail_organizar", url, {}))
     assert not [c for c in fake.calls if c[0] == "POST" and c[1] != "oauth2.googleapis.com"]
 
 
+def test_trash_plan_reports_exact_total_with_a_sample_and_counts_for_real(client, fake):
+    text = asyncio.run(client.plan_trash("x"))
+    assert "2 e-mail(s) (número exato" in text
+    plan = text.split("PLANO ")[1].split(":")[0]
+    client.turn += 1
+    assert "total nesta conversa: 2" in asyncio.run(client.confirm_trash(plan))
+    plan = asyncio.run(client.plan_trash("y")).split("PLANO ")[1].split(":")[0]
+    client.turn += 1
+    assert "total nesta conversa: 4" in asyncio.run(client.confirm_trash(plan))  # soma do código, não do modelo
+
+
+def test_create_event_in_company_timezone_without_guests(client, fake):
+    out = asyncio.run(client.create_event("Lançamento GTA", "2026-11-19T00:00"))
+    assert "criado na agenda" in out and "19/11/2026 00:00–01:00" in out
+    ev = fake.created[0]
+    assert ev["summary"] == "Lançamento GTA" and "attendees" not in ev  # convidado receberia e-mail em nome do usuário
+    assert ev["start"]["dateTime"].startswith("2026-11-19T00:00:00") and ev["start"]["timeZone"]
+    with pytest.raises(GoogleError, match="data inválida"):
+        asyncio.run(client.create_event("x", "amanhã"))
+    with pytest.raises(GoogleError, match="depois do começo"):
+        asyncio.run(client.create_event("x", "2026-11-19T10:00", "2026-11-19T09:00"))
+    with pytest.raises(GoogleError, match="título"):
+        asyncio.run(client.create_event("", "2026-11-19T10:00"))
+
+
+def test_create_event_has_a_per_request_cap_and_needs_the_permission(gcfg, fake, client):
+    for i in range(5):
+        asyncio.run(client.create_event(f"e{i}", "2026-11-19T10:00"))
+    with pytest.raises(GoogleError, match="já criei 5"):
+        asyncio.run(client.create_event("e6", "2026-11-19T10:00"))
+    client.turn += 1  # novo pedido do usuário
+    asyncio.run(client.create_event("e7", "2026-11-19T10:00"))
+    assert len(fake.created) == 6
+    fake.granted = ALL_SCOPES.replace(SERVICES["calendar_escrever"], "")
+    other = make_client(gcfg, fake)
+    connect(other, fake)
+    with pytest.raises(GoogleError, match="não liberou Agenda"):
+        asyncio.run(other.create_event("x", "2026-11-19T10:00"))
+
+
 def test_trash_tools_follow_the_two_steps(gcfg, client, fake):
-    text, error = tool_call(gcfg, client, "preparar_lixeira_emails", {"busca": "category:promotions", "limite": 99})
+    text, error = tool_call(gcfg, client, "preparar_lixeira_emails", {"busca": "category:promotions", "limite": 99999})
     assert not error and "PLANO" in text and fake.modified == []
-    assert any(p.get("maxResults") == "50" for p in fake.params)  # teto de 50 por plano
+    assert any(p.get("maxResults") == "500" for p in fake.params)  # teto de 500 por plano
     plan = text.split("PLANO ")[1].split(":")[0]
     text, error = tool_call(gcfg, client, "mover_emails_lixeira", {"plano": plan})
     assert error and "ainda não respondeu" in text and fake.modified == []
@@ -382,7 +428,7 @@ def tool_call(gcfg, client, name, args):
 
 def test_tools_read_and_explain_errors(gcfg, client, fake):
     text, error = tool_call(gcfg, client, "google_status", {})
-    assert not error and "dono@exemplo.com: sheets, drive, calendar, gmail, gmail_organizar" in text
+    assert not error and "dono@exemplo.com: sheets, drive, calendar, gmail, gmail_organizar, calendar_escrever" in text
     text, error = tool_call(gcfg, client, "ler_planilha", {"planilha": SHEET, "aba": "Vendas"})
     assert not error and "Data | Valor" in text
     text, error = tool_call(gcfg, client, "ler_planilha", {"planilha": "oi"})
@@ -403,7 +449,7 @@ def test_tools_without_connection_say_where_to_connect(gcfg, fake):
 def test_gmail_is_only_for_the_manager_and_the_attendant_has_no_google():
     assert set(GOOGLE_TOOLS) <= set(TOOLS)
     gmail = {"mcp__google__buscar_emails", "mcp__google__ler_email",
-             "mcp__google__preparar_lixeira_emails", "mcp__google__mover_emails_lixeira"}
+             "mcp__google__preparar_lixeira_emails", "mcp__google__mover_emails_lixeira", "mcp__google__criar_compromisso_agenda"}
     for name, agent in AGENTS.items():
         assert not gmail & set(agent.tools or []), name
     assert "mcp__google__ler_planilha" in AGENTS["financeiro"].tools and "mcp__google__ver_agenda_google" in AGENTS["comercial"].tools

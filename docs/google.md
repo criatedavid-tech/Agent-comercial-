@@ -7,6 +7,10 @@ O agente lê **Planilhas, Drive e Documentos, Agenda e Gmail** da conta que voc�
 1. `preparar_lixeira_emails` só monta a lista (até 50 por vez) e não move nada;
 2. você responde sim, e só então, **em uma mensagem nova**, `mover_emails_lixeira` executa. O código recusa executar no mesmo turno do plano, com plano vencido (10 min) ou já usado, então um e-mail com instruções escondidas não consegue se autorizar.
 
+Cada plano cobre até 500 e-mails e mostra o **total exato** e uma amostra de 25; o total movido na conversa é somado pelo código, para o agente não errar a conta.
+
+**Compromisso na agenda:** `criar_compromisso_agenda` cria um evento na agenda principal (escopo `calendar.events`), no fuso da empresa, **sem convidados** (convidado receberia e-mail em nome de você) e com teto de 5 por pedido. Só o gerente tem.
+
 Usa o escopo `gmail.modify`, que não permite apagar de vez nem enviar e-mail. Quem já tinha conectado antes precisa **reconectar** em `/google` para o Google pedir essa permissão.
 
 ## O que ele consegue

@@ -54,10 +54,14 @@ SERVICES = {
     # Única escrita permitida: organizar o Gmail (mover para a lixeira, que guarda 30 dias). O escopo gmail.modify
     # NÃO apaga de vez, não envia e-mail e não mexe em contatos; apagar definitivo é outro escopo, que não pedimos.
     "gmail_organizar": SCOPE_BASE + "gmail.modify",
+    # Criar compromissos na agenda principal. O código nunca coloca convidados (convidado recebe e-mail em nome do usuário).
+    "calendar_escrever": SCOPE_BASE + "calendar.events",
 }
 SERVICE_NAMES = {"sheets": "Planilhas", "drive": "Drive e Documentos", "calendar": "Agenda", "gmail": "Gmail",
-                 "gmail_organizar": "Gmail (mover para a lixeira)"}
-TRASH_MAX = 50  # e-mails por plano
+                 "gmail_organizar": "Gmail (mover para a lixeira)", "calendar_escrever": "Agenda (criar compromissos)"}
+EVENTS_PER_TURN = 5
+TRASH_MAX = 500  # e-mails por plano (a lista mostra uma amostra, o total é exato)
+TRASH_SAMPLE = 25
 TRASH_TTL_S = 600
 SCOPES = ("openid", "email", *SERVICES.values())
 
@@ -183,6 +187,8 @@ class GoogleClient:
         self._tokens: dict[str, tuple[str, float]] = {}  # email -> (access token, validade)
         self.turn = 0  # sobe a cada mensagem do usuário (Agent.ask); a lixeira só executa em turno posterior ao plano
         self._plans: dict[str, tuple[str, list[str], int, float]] = {}  # plano -> (conta, ids, turno, quando)
+        self.trashed_total = 0  # e-mails movidos para a lixeira nesta conversa (contagem do código, não do modelo)
+        self._events_turn: tuple[int, int] = (-1, 0)  # (turno, quantos compromissos criados nele)
 
     # --- conexão -------------------------------------------------------------------------------------
 
@@ -303,10 +309,10 @@ class GoogleClient:
             raise GoogleError(f"{reasons.get(r.status_code, f'erro do Google {r.status_code}')}. {why}".strip())
         return r.text if text else r.json()
 
-    async def _post(self, email: str, service: str, url: str, body: dict) -> None:
-        """Única chamada de escrita: organizar e-mails. Só aceita o endereço do Gmail."""
-        if not url.startswith(GMAIL_API):
-            raise GoogleError("escrita recusada: só o Gmail pode ser organizado")
+    async def _post(self, email: str, service: str, url: str, body: dict) -> dict:
+        """Únicas escritas: mover e-mails à lixeira e criar compromisso na agenda principal. Nenhum outro endereço."""
+        if not (url.startswith(GMAIL_API) or url == f"{CALENDAR_API}/calendars/primary/events"):
+            raise GoogleError("escrita recusada: só organizar o Gmail e criar compromissos na agenda")
         email = self._account(email, service)
         for attempt in (1, 2):
             token = await self._access(email, force=attempt == 2)
@@ -314,8 +320,35 @@ class GoogleClient:
             if r.status_code != 401 or attempt == 2:
                 break
         if r.status_code >= 400:
-            raise GoogleError("o Google recusou (falta a permissão de organizar o Gmail: conecte de novo em /google)"
+            raise GoogleError("o Google recusou (falta a permissão de escrita: conecte de novo em /google e marque tudo)"
                               if r.status_code == 403 else f"erro do Google {r.status_code}")
+        return r.json() if r.content else {}
+
+    async def create_event(self, title: str, start: str, end: str = "", description: str = "", account: str = "") -> str:
+        """Cria um compromisso na agenda principal, sem convidados. start/end em ISO local (ex. 2026-11-19T00:00)."""
+        title = (title or "").strip()[:200]
+        if not title:
+            raise GoogleError("diga o título do compromisso")
+        tz = ZoneInfo(self.cfg.timezone)
+        try:
+            s = datetime.fromisoformat(start)
+            e = datetime.fromisoformat(end) if end else s + timedelta(hours=1)
+        except ValueError:
+            raise GoogleError("data inválida: use o formato 2026-11-19T00:00 (ano-mês-dia e hora)") from None
+        s, e = (x.replace(tzinfo=tz) if x.tzinfo is None else x.astimezone(tz) for x in (s, e))
+        if e <= s:
+            raise GoogleError("o fim precisa ser depois do começo")
+        turn, count = self._events_turn
+        if turn == self.turn and count >= EVENTS_PER_TURN:
+            raise GoogleError(f"já criei {EVENTS_PER_TURN} compromissos neste pedido; peça de novo para continuar")
+        email = self._account(account, "calendar_escrever")
+        body = {"summary": title, "start": {"dateTime": s.isoformat(), "timeZone": self.cfg.timezone},
+                "end": {"dateTime": e.isoformat(), "timeZone": self.cfg.timezone}}  # sem attendees, de propósito
+        if description:
+            body["description"] = description[:1000]
+        done = await self._post(email, "calendar_escrever", f"{CALENDAR_API}/calendars/primary/events", body)
+        self._events_turn = (self.turn, (count if turn == self.turn else 0) + 1)
+        return f"compromisso criado na agenda: {title}, {s:%d/%m/%Y %H:%M}–{e:%H:%M}" + (f" ({done['htmlLink']})" if done.get("htmlLink") else "")
 
     # --- leituras ----------------------------------------------------------------------------------
 
@@ -402,20 +435,23 @@ class GoogleClient:
 
     # --- organizar o Gmail: lixeira, em dois passos ---------------------------------------------------
 
-    async def plan_trash(self, query: str, limit: int = 20, account: str = "") -> str:
-        """Passo 1: acha os e-mails, guarda um plano e devolve a lista. Nada é movido ainda."""
+    async def plan_trash(self, query: str, limit: int = TRASH_MAX, account: str = "") -> str:
+        """Passo 1: acha os e-mails, guarda um plano e devolve o total exato e uma amostra. Nada é movido ainda."""
         email = self._account(account, "gmail_organizar")
-        limit = max(1, min(int(limit or 20), TRASH_MAX))
+        limit = max(1, min(int(limit or TRASH_MAX), TRASH_MAX))
         data = await self._get(email, "gmail", f"{GMAIL_API}/messages", {"q": query or "in:inbox", "maxResults": limit})
         ids = [m["id"] for m in data.get("messages", [])]
         if not ids:
             return "nenhum e-mail encontrado com essa busca; nada a mover"
-        listing = await self.search_mail_ids(email, ids)
+        listing = await self.search_mail_ids(email, ids[:TRASH_SAMPLE])
+        if len(ids) > TRASH_SAMPLE:
+            listing += f"\n... e mais {len(ids) - TRASH_SAMPLE} (amostra dos {TRASH_SAMPLE} primeiros)"
+        more = " (pode haver mais: depois de mover, busque de novo)" if len(ids) == limit else ""
         now = time.time()
         self._plans = {p: v for p, v in self._plans.items() if now - v[3] < TRASH_TTL_S}
         plan = secrets.token_hex(4)
         self._plans[plan] = (email, ids, self.turn, now)
-        return (f"PLANO {plan}: {len(ids)} e-mail(s) iriam para a lixeira (o Gmail guarda 30 dias). Nada foi movido.\n{listing}\n"
+        return (f"PLANO {plan}: {len(ids)} e-mail(s) (número exato{more}) iriam para a lixeira (o Gmail guarda 30 dias). Nada foi movido.\n{listing}\n"
                 f"Mostre esta lista ao usuário e pergunte se pode mover. Só depois do sim dele, em uma mensagem nova, "
                 f"use mover_emails_lixeira com o plano {plan}.")
 
@@ -440,7 +476,9 @@ class GoogleClient:
         del self._plans[plan]  # uso único
         await self._post(email, "gmail_organizar", f"{GMAIL_API}/messages/batchModify",
                          {"ids": ids, "addLabelIds": ["TRASH"], "removeLabelIds": ["INBOX"]})
-        return f"{len(ids)} e-mail(s) movidos para a lixeira. Dá para recuperar pelo Gmail em até 30 dias."
+        self.trashed_total += len(ids)
+        return (f"{len(ids)} e-mail(s) movidos para a lixeira agora; total nesta conversa: {self.trashed_total} (contagem do sistema, "
+                f"use estes números). Dá para recuperar pelo Gmail em até 30 dias.")
 
     async def read_mail(self, message_id: str, account: str = "") -> str:
         if not re.fullmatch(r"[A-Za-z0-9]{6,40}", message_id or ""):
