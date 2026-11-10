@@ -738,6 +738,14 @@ async def chat(ws: WebSocket) -> None:
                 request_id, text = str(msg.get("id", "")), str(msg.get("text", ""))
                 agent.human.answer(request_id, text)
                 hub.answer(request_id, text)  # pode ser de uma tarefa agendada
+            elif msg.get("type") == "stop":
+                # Botão Parar (ou Esc): o pedido em andamento acaba aqui, como o PARAR do WhatsApp. Vem pelo leitor
+                # porque o laço principal está preso dentro de agent.ask() até o pedido terminar.
+                agent.human.cancel_all()  # um pedido de ajuda pendente não segura o agente
+                try:
+                    await agent.interrupt()
+                except Exception as e:
+                    await ws.send_json({"kind": "error", "text": f"não consegui parar: {type(e).__name__}: {e}"})
             else:
                 await asks.put(msg)
 

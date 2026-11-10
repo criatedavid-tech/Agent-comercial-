@@ -27,6 +27,8 @@ class FakeAgent:
         self.session_id = resume or "sessao-nova"
         self.started = self.stopped = False
         self.resets = 0
+        self.interrupts = 0
+        self.interrupted = asyncio.Event()
         self.rewinds: list[str] = []
         FakeAgent.instances.append(self)
 
@@ -51,8 +53,17 @@ class FakeAgent:
     async def reset(self):
         self.resets += 1
 
+    async def interrupt(self):
+        self.interrupts += 1
+        self.interrupted.set()
+
     async def ask(self, text):
         yield Event("tool", "WebFetch https://loja.exemplo.com")
+        if "demora" in text:
+            await self.interrupted.wait()  # só termina quando o botão Parar chega
+            self.interrupted.clear()
+            yield Event("result", "parou: interrompido")
+            return
         if "captcha" in text:
             answer = await self.human.request("Verificação de robô na loja.", "https://loja.exemplo.com")
             yield Event("text", f"Recebi: {answer}")
@@ -125,6 +136,26 @@ def test_conversation_flow(client):
         assert ws.receive_json() == {"kind": "ready", "text": "conversa nova"}
     agent = FakeAgent.instances[0]
     assert agent.started and agent.stopped and agent.resets == 1
+
+
+def test_stop_button_interrupts_the_running_request(client):
+    """Sem isso não dava para interromper um pedido em andamento: só fechando a aba."""
+    with client.websocket_connect("/ws", headers=ORIGIN) as ws:
+        assert ws.receive_json()["kind"] == "ready"
+        ws.send_json({"type": "stop"})  # parado: não faz nada nem derruba a conexão
+        ws.send_json({"type": "ask", "text": "isso demora"})
+        assert ws.receive_json()["kind"] == "tool"
+        ws.send_json({"type": "stop"})
+        result = ws.receive_json()
+        assert result["kind"] == "result" and result["text"] == "parou: interrompido"
+        ws.send_json({"type": "ask", "text": "oi de novo"})  # a conversa segue depois de parar
+        assert [e["kind"] for e in receive_until(ws, "result")] == ["tool", "result"]
+    assert FakeAgent.instances[0].interrupts == 2
+
+
+def test_stop_button_is_in_the_page(client):
+    html = client.get("/").text
+    assert 'id="stop"' in html and 'type: "stop"' in html and '"Escape"' in html
 
 
 def test_human_help_round_trip(client):
