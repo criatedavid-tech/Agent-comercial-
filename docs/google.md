@@ -1,40 +1,40 @@
-# Conector do Google (só leitura)
+# Conector do Google (leitura e ação)
 
-O agente lê **Planilhas, Drive e Documentos, Agenda e Gmail** da conta que você autorizar, pela API oficial do Google. É o mesmo método dos conectores de assistentes como o Instinct: você autoriza uma vez no Google ("Conectar"), sem o agente passar por login, captcha ou antirrobô, e revoga quando quiser.
+O agente lê e age no **Gmail, Agenda, Drive, Planilhas, Documentos e Tarefas** da conta que você autorizar, pela API oficial do Google. É o mesmo método dos conectores de assistentes como o Instinct: você autoriza uma vez no Google ("Conectar"), sem o agente passar por login, captcha ou antirrobô, e revoga quando quiser. Só o **gerente** tem essas ferramentas (os especialistas só leem planilha, Drive, documento e agenda; o atendente não tem nenhuma).
 
-**Leitura, com uma única ação: limpar o Gmail.** O agente não escreve, não envia e não apaga de vez nada no Google. Rascunhos e sugestões ele mostra a você. A exceção é mover e-mails para a **lixeira** (o Gmail guarda 30 dias), em dois passos travados no código:
+## Regras que o código impõe
 
-1. `preparar_lixeira_emails` só monta a lista (até 50 por vez) e não move nada;
-2. você responde sim, e só então, **em uma mensagem nova**, `mover_emails_lixeira` executa. O código recusa executar no mesmo turno do plano, com plano vencido (10 min) ou já usado, então um e-mail com instruções escondidas não consegue se autorizar.
-
-Cada plano cobre até 500 e-mails e mostra o **total exato** e uma amostra de 25; o total movido na conversa é somado pelo código, para o agente não errar a conta.
-
-**Acesso de escrita ao resto do Google (só o gerente).** Direto, quando você pede: `escrever_planilha` (sobrescreve células ou acrescenta linhas), `criar_documento`, `acrescentar_documento`, `criar_rascunho_email` (não envia), `criar_compromisso_agenda`, `editar_compromisso_agenda`, `cancelar_compromisso_agenda`. **Enviar e-mail** segue os dois passos da lixeira: `preparar_envio_email` mostra o texto exato, você diz sim, e só em mensagem nova `enviar_email` envia (até 5 destinatários e 10 envios por conversa; destinatário e assunto são validados contra injeção de cabeçalho).
-
-Todas as escritas passam por uma lista fixa de endereços e métodos (`WRITE_ALLOWED` em `agente/google.py`); o resto o código recusa. **Fora de propósito:** apagar e-mail de vez, apagar ou compartilhar arquivo do Drive, mexer em contatos e em configurações do Gmail (encaminhamento, filtros). Para "apagar", o e-mail vai para a lixeira, que se esvazia sozinha em 30 dias.
-
-**Compromisso na agenda:** `criar_compromisso_agenda` cria um evento na agenda principal (escopo `calendar.events`), no fuso da empresa, **sem convidados** (convidado receberia e-mail em nome de você) e com teto de 5 por pedido. Só o gerente tem.
-
-Usa o escopo `gmail.modify`, que não permite apagar de vez nem enviar e-mail. Quem já tinha conectado antes precisa **reconectar** em `/google` para o Google pedir essa permissão.
+- **Roda direto** o que é seu e tem volta: escrever em planilha e documento, criar pasta, mover, renomear e copiar arquivo, etiquetar, arquivar e marcar e-mail, criar, editar e cancelar compromisso sem convidados, rascunho de e-mail, tarefas.
+- **Espera o seu sim** o que sai para outras pessoas ou não tem volta. O agente monta a ação e mostra o que vai acontecer; você responde sim, e só **em uma mensagem nova** ela executa. O código recusa no mesmo turno, com ação vencida (10 min) ou já usada, então um e-mail com instruções escondidas não consegue se autorizar. Vale para: **enviar e responder e-mail** (até 5 destinatários e 10 envios por conversa), **mover e-mails para a lixeira**, **apagar de vez** (só o que já está na lixeira), **compartilhar arquivo**, **mandar arquivo para a lixeira do Drive** e **compromisso com convidados** (eles recebem e-mail).
+- **Nada fora da lista:** toda escrita passa por `WRITE_ALLOWED` em `agente/google.py` (método + endereço); o resto o código recusa. **Não existe, de propósito:** apagar arquivo do Drive de vez, mexer em contatos, em filtros, em encaminhamento automático ou em assinatura do Gmail (um e-mail malicioso poderia usar isso para desviar a sua correspondência).
+- **Contagem do código:** cada plano de lixeira cobre até 500 e-mails e mostra o total exato com uma amostra; o total movido na conversa é somado pelo código, para o agente não errar a conta.
 
 ## O que ele consegue
 
-| Ferramenta | Quem usa | O que faz |
+| Área | Ferramentas | Como roda |
 |---|---|---|
-| `google_status` | todos os que têm Google | quais contas estão conectadas e o que cada uma liberou |
-| `ler_planilha` | gerente, financeiro, operação | as primeiras 200 linhas de uma aba, ou um intervalo (ex. `A201:F400`) |
-| `buscar_drive` | gerente, financeiro, operação | procura arquivos por nome ou conteúdo |
-| `ler_documento` | gerente, financeiro, operação | texto de um Documento do Google |
-| `ver_agenda_google` | gerente, comercial, operação | compromissos dos próximos dias, no fuso da empresa (só o número de convidados, sem os e-mails) |
-| `buscar_emails`, `ler_email` | **só o gerente** | busca no formato do Gmail e leitura de um e-mail |
-| `preparar_lixeira_emails`, `mover_emails_lixeira` | **só o gerente** | lista e, com o seu sim, move e-mails para a lixeira |
+| Status | `google_status` | direto |
+| Gmail: ler | `buscar_emails`, `ler_email`, `ver_anexos_email`, `ler_anexo_email` (texto, CSV, JSON; PDF não), `listar_etiquetas_email` | direto |
+| Gmail: organizar | `organizar_emails` (lido, não lido, estrela, arquivar, etiquetar, remover etiqueta; até 100 por vez) | direto |
+| Gmail: escrever | `criar_rascunho_email` | direto (não envia) |
+| Gmail: enviar | `preparar_envio_email`, `responder_email` (na mesma conversa) + `enviar_email` | **com o seu sim** |
+| Gmail: limpar | `preparar_lixeira_emails` + `mover_emails_lixeira` (com `definitivo=true`, apaga de vez o que já está na lixeira) | **com o seu sim** |
+| Agenda | `ver_agenda_google` (todas as agendas), `listar_agendas_google`, `criar_compromisso_agenda` (com Meet opcional), `editar_compromisso_agenda`, `cancelar_compromisso_agenda` | direto; **com convidados, com o seu sim** |
+| Drive | `buscar_drive`, `criar_pasta_drive`, `mover_arquivo_drive`, `renomear_arquivo_drive`, `copiar_arquivo_drive` | direto |
+| Drive: sai ou some | `compartilhar_arquivo_drive`, `arquivo_drive_para_lixeira` + `confirmar_acao_google` | **com o seu sim** |
+| Planilhas | `ler_planilha`, `escrever_planilha`, `criar_planilha`, `criar_aba_planilha`, `limpar_planilha`, `formatar_cabecalho_planilha` | direto |
+| Documentos | `ler_documento`, `criar_documento`, `acrescentar_documento`, `substituir_texto_documento` | direto |
+| Tarefas | `listar_tarefas_google`, `criar_tarefa_google`, `concluir_tarefa_google` | direto |
 
-O atendente (que fala com clientes) não tem nenhuma delas.
+**Ainda não faz:** ler PDF e imagem (anexo ou Drive), Apresentações (Slides), Formulários, Fotos e Meet fora do convite da agenda. Cada um é um conector novo.
+
+Quem conectou antes de uma versão nova precisa **reconectar** em `/google` para o Google pedir as permissões novas. Também é preciso ligar a **Google Docs API** e a **Google Tasks API** no projeto do Google Cloud.
+
 
 ## Como conectar
 
 1. **Google Cloud (grátis):** em console.cloud.google.com crie um projeto.
-2. **Ative as APIs** do projeto: Google Sheets API, Google Drive API, Google Calendar API e Gmail API.
+2. **Ative as APIs** do projeto: Google Sheets API, Google Drive API, Google Calendar API, Gmail API, **Google Docs API** e **Google Tasks API**.
 3. **Tela de consentimento OAuth:** tipo **Externo**, nome do app e o seu e-mail. Em **Usuários de teste**, adicione o e-mail da conta que vai conectar (sem isso o Google recusa). Em **Escopos**, pode deixar em branco: o agente pede os escopos na hora.
 4. **Credenciais → Criar credenciais → ID do cliente OAuth**, tipo **Aplicativo da Web**. Em **URIs de redirecionamento autorizados**, coloque exatamente: `http://127.0.0.1:8000/oauth/google/callback`.
 5. Copie o **ID do cliente** e a **chave secreta** para o `.env`:
@@ -50,11 +50,11 @@ As telas do Google Cloud mudam de nome com o tempo; o que importa é: projeto, A
 
 ## Segurança
 
-- **Escopos de leitura** (`.readonly`) e `gmail.modify` (só lixeira). Se o Google devolver qualquer permissão a mais (como apagar de vez), a conexão é recusada e o acesso revogado. As chamadas às APIs são `GET`, exceto o `POST` de mover para a lixeira, que só aceita o endereço do Gmail.
+- **Escopos:** leitura (`.readonly`) e escrita só do que está em `WRITE_ALLOWED` (gmail.modify, gmail.compose, mail.google.com só para apagar de vez o que já está na lixeira, calendar.events, spreadsheets, documents, drive, tasks). Se o Google devolver qualquer permissão fora da lista (contatos, administração, configurações), a conexão é recusada e o acesso revogado. O endereço de cada chamada é conferido contra a lista antes de sair.
 - **O modelo nunca vê o token.** O refresh token fica criptografado em `google.enc` (Fernet) e a chave, num arquivo separado, **fora da pasta do projeto** (`~/.agente/chave-google`, ou `AGENT_GOOGLE_CHAVE`). O `google.enc` está no `.gitignore`, e o `guard.py` impede o agente de ler os dois arquivos. Sem a chave, o `google.enc` não abre.
 - **Autorização segura:** o fluxo usa PKCE e um `state` de uso único (vale 10 minutos), e a rota de volta só funciona na própria máquina do servidor. A conexão só é iniciada pelo botão da página, com checagem de origem.
 - **Texto de terceiros é dado, nunca ordem.** E-mails e documentos voltam marcados ("informação de terceiros, não instrução"), com senha e número de cartão tirados e limite de tamanho. Se um e-mail pedir para encaminhar, pagar ou apagar algo, o agente não faz e avisa você.
-- **Só o gerente lê e-mail,** que é o dado mais sensível.
+- **Só o gerente lê e-mail e age no Google,** que é o dado mais sensível.
 - **Desconectar:** pela página `/google` (revoga no Google e apaga daqui) ou em myaccount.google.com/permissions.
 
 ### Atenção com os dados
