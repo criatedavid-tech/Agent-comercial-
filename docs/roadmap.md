@@ -77,6 +77,13 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 - [ ] Quadro de solicitações entre áreas, com aprovação por limite de valor no código
 - [ ] Fechar as sessões paradas dos clientes para a memória da VM não crescer ([custos.md](custos.md))
 - [ ] Modelo configurável por agente (atendente, maestro, especialistas)
+- [ ] **Ideias do Maestro do Hiago** (commit `c7c31ec`, "Acesso a qualquer sistema"; avaliado em 10/11/2026, a importar conforme a necessidade):
+  - [ ] `encontrar_sistema`: achar o endereço oficial pelo nome ("uso o Bling"), conferindo que tem cara de login; só libera domínio vindo da busca ou confirmado pelo usuário (sem senha envolvida)
+  - [ ] Conversa em andamento passa para as instruções novas quando o prompt ou as ferramentas mudam (hoje a conversa antiga mantém o comportamento antigo)
+  - [ ] Código de verificação (SMS, e-mail) respondido por fora do modelo, como já fazemos com senha e cartão
+  - [ ] Leitura da tela de login por sinais (campos, botão de entrar, recusa, limite de tentativas, verificação, iframes e componentes escondidos), no lugar da detecção só por texto
+  - [ ] Conferir se o bloqueio de rede interna resiste a um site que aponta para dentro da rede (checar o IP na hora da conexão)
+  - [ ] Cofre de acessos com página de link (usuário e senha uma vez, nunca pelo modelo): só se o objetivo for o agente logar sozinho; decisão do dono (hoje fora de escopo)
 - [ ] iFood pela API oficial de parceiros (pedidos, cardápio, financeiro)
 - [ ] Backup criptografado do perfil do navegador fora da VM
 - [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)
