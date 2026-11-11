@@ -84,6 +84,8 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
   - [ ] Leitura da tela de login por sinais (campos, botão de entrar, recusa, limite de tentativas, verificação, iframes e componentes escondidos), no lugar da detecção só por texto
   - [ ] Conferir se o bloqueio de rede interna resiste a um site que aponta para dentro da rede (checar o IP na hora da conexão)
   - [ ] Cofre de acessos com página de link (usuário e senha uma vez, nunca pelo modelo): só se o objetivo for o agente logar sozinho; decisão do dono (hoje fora de escopo)
+- [x] **Do Maestro do Hiago** (commit `a562646`, importado em 11/11/2026): reunião semanal com preparo e chamada (`docs/reuniao.md`) e o tom de consultor que não insiste no prompt do operador
+- [ ] Ainda a avaliar do commit `a562646`: tom de consultor (oferta uma vez só, "não" é resposta) também no atendente dos clientes; limite diário de gasto de IA por empresa (`AGENT_LIMITE_DIARIO_USD`, somando o custo do histórico); cadastro de número novo por link (só se o produto passar a ter autoatendimento); atualizar o texto de uma tarefa da plataforma já criada quando o prompt muda
 - [ ] iFood pela API oficial de parceiros (pedidos, cardápio, financeiro)
 - [ ] Backup criptografado do perfil do navegador fora da VM
 - [x] Compra assistida: carrinho só com o pedido, revisão e clique final do usuário (trava no código)

@@ -35,6 +35,10 @@ MIN_INTERVAL_MIN = 15
 MAX_ACTIVE = 30
 
 SUMMARY_ID = "resumo-diario"
+MEETING_PREP_ID = "reuniao-preparo"  # reunião semanal com o dono (agente/reuniao.py)
+MEETING_ID = "reuniao-semanal"
+PLATFORM_IDS = (SUMMARY_ID, MEETING_PREP_ID, MEETING_ID)  # rotinas da plataforma: não contam no limite
+SILENT = "(sem mensagem)"  # resposta de uma tarefa que só trabalha (ex. o preparo da reunião): não é entregue
 SUMMARY_PROMPT = """\
 Monte o resumo do dia para o usuário, curto e em tópicos:
 1. O que está agendado para hoje (use listar_tarefas).
@@ -175,7 +179,7 @@ class AgendaStore:
     def add(self, task: Task, now: datetime | None = None) -> Task:
         validate(task)
         now = now or self.now()
-        if task.id != SUMMARY_ID and len(self.list()) >= MAX_ACTIVE:
+        if task.id not in PLATFORM_IDS and len(self.list()) >= MAX_ACTIVE:
             raise ValueError(f"limite de {MAX_ACTIVE} tarefas ativas; cancele alguma antes")
         task.next_run = next_run(task, now)
         if task.next_run is None:
@@ -294,6 +298,8 @@ class Scheduler:
                 except Exception as e:  # uma tarefa com erro não para as outras
                     log.exception("tarefa %s falhou", task.id)
                     text = f"A tarefa falhou: {type(e).__name__}: {e}"
+            if text.strip().rstrip(".").lower().endswith(SILENT):
+                continue  # a tarefa só trabalhou (gravou a pauta, por exemplo): nada para entregar
             await self.deliver(self.store.add_inbox(task, text))
         return len(tasks)
 

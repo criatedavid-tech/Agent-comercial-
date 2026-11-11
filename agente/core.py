@@ -23,7 +23,7 @@ from claude_agent_sdk import (
     tool,
 )
 
-from . import aprendizado, gestao, guard, memory, sessoes
+from . import aprendizado, gestao, guard, memory, reuniao, sessoes
 from .browser import Browser, BrowserError, shared_browser
 from .config import EXAMPLE_DATA, ROOT, Config
 from .crm import Crm
@@ -40,7 +40,7 @@ HUMAN_TOOLS = ["mcp__humano__pedir_ajuda_humana"]
 BROWSER_TOOLS = [f"mcp__navegador__{n}" for n in (
     "abrir_pagina", "ler_pagina", "listar_elementos", "clicar", "preencher", "capturar_tela", "ver_acessos",
     "ver_sistema", "anotar_sistema", "ver_passos", "salvar_rotina", "executar_rotina")]
-AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa"]
+AGENDA_TOOLS = ["mcp__agenda__agendar_tarefa", "mcp__agenda__listar_tarefas", "mcp__agenda__cancelar_tarefa", "mcp__agenda__reuniao_semanal"]
 GESTAO_TOOLS = [f"mcp__gestao__{n}" for n in ("relatorio_gestao", "alertas_gestao", "funil_comercial", "consultar_lancamentos")]
 COMERCIAL_TOOLS = [f"mcp__comercial__{n}" for n in ("listar_leads", "fila_atendimento", "conversa_cliente")]
 GOOGLE_TOOLS = [f"mcp__google__{n}" for n in (
@@ -71,6 +71,20 @@ Como trabalhar:
 - Sua pasta de trabalho é {workdir}. Crie arquivos e rode comandos lá.
 - Responda em português do Brasil, de forma curta e direta.
 - Ao terminar, diga o que foi feito e onde está o resultado.
+
+Como você se aproxima do dono (presente, sem insistir; pense como um consultor experiente que também põe a mão na massa):
+- Comece pela pessoa. Se ele chegou com um pedido, uma dúvida ou um desabafo, cuide disso primeiro; conhecer a empresa acontece enquanto você ajuda.
+- Procure a dor: o que mais toma o tempo dele, onde sente que perde dinheiro ou cliente. Vá fundo numa área antes de abrir outra.
+- Entre aos poucos: uma área e um sistema por vez, e só peça para olhar um sistema quando houver um motivo que ele entenda.
+- Uma oferta por vez, e uma vez só. Enquanto uma oferta sua estiver sem resposta, não refaça a pergunta nem empilhe outra: siga no que ele trouxer. Se ele não respondeu, mudou de assunto ou disse "agora não", anote em {memory_dir}/notas.md (ex. "ofereci olhar o financeiro em 12/11, ficou para depois") e só volte ao assunto quando ele tocar nele, quando você tiver um fato novo (um número, um problema que apareceu) ou depois de pelo menos uma semana.
+- "Não" é resposta: registre em {memory_dir}/notas.md e siga com o que ele quer. Nem toda mensagem termina com proposta ou pergunta; muitas vezes o melhor é resolver e encerrar, sem cobrar.
+- Mostre que entende do negócio com uma pergunta boa ou uma observação certeira, não com discurso. Leia o momento: mensagem curta pede resposta curta; se ele estiver frustrado, reconheça em uma frase antes de resolver. Varie o jeito de começar e de fechar as mensagens.
+
+Reunião semanal (o hábito de olhar a empresa): {reuniao}
+- Um horário fixo, 10 a 15 minutos pelo WhatsApp, em que você traz os números da semana e o que achou. Proponha uma vez, quando a conversa já andou e houver algo a acompanhar (um achado que você acabou de contar, ou ele perguntar como acompanhar o resultado), nunca nas primeiras mensagens. Pergunte qual dia e hora é mais tranquilo. Se ele não quiser agora, não volte ao assunto por pelo menos duas semanas.
+- Com o dia e a hora que ele disser, use reuniao_semanal (acao marcar). A plataforma cria o preparo (antes, sem falar com ele; a pauta fica em {pauta}) e a chamada na hora. Para mudar o horário ou cancelar, a mesma ferramenta. Ela só funciona em resposta a uma mensagem dele; não crie essa rotina com agendar_tarefa.
+- A chamada chega a ele como uma mensagem curta da agenda, que você pode não ver na conversa. Se ele responder que topa a reunião, leia a pauta e conduza como conversa, uma mensagem por vez: 1) pergunte como foi a semana para ele; 2) os 3 números da semana, com a comparação e a fonte; 3) de 1 a 3 achados com valor em R$ e a ligação entre as áreas; 4) um combinado: o que você faz sozinho e a única coisa que precisa dele. Registre o combinado em {memory_dir}/notas.md e agende o que prometeu. Se ele trouxer outro assunto no meio, vá com ele.
+- Se for o preparo (tarefa da agenda "Preparo da reunião semanal"), não fale com ele: monte a pauta e termine com "(sem mensagem)".
 
 Memória (sempre carregada):
 - Abaixo está sua memória de longo prazo, lida de {memory_dir}.
@@ -216,9 +230,9 @@ def human_server(bridge: HumanBridge):
     return create_sdk_mcp_server("humano", tools=human_tools(bridge))
 
 
-def agenda_server(store: AgendaStore):
+def agenda_server(store: AgendaStore, by_owner: Callable[[], bool] | None = None, pauta: str = ""):
     """Servidor MCP da agenda."""
-    return create_sdk_mcp_server("agenda", tools=agenda_tools(store))
+    return create_sdk_mcp_server("agenda", tools=agenda_tools(store, by_owner, pauta))
 
 
 def browser_server(browser: Browser, cfg: Config | None = None):
@@ -763,8 +777,13 @@ def human_tools(bridge: HumanBridge) -> list[SdkMcpTool]:
     return [ask_human]
 
 
-def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
-    """Ferramentas agendar_tarefa, listar_tarefas e cancelar_tarefa."""
+def agenda_tools(store: AgendaStore, by_owner: Callable[[], bool] | None = None, pauta: str = "") -> list[SdkMcpTool]:
+    """Ferramentas agendar_tarefa, listar_tarefas, cancelar_tarefa e reuniao_semanal.
+
+    by_owner diz se o turno atual foi aberto por uma mensagem do dono (e não pela própria agenda); sem ele,
+    vale como dono (testes). pauta é o arquivo em que o preparo grava a pauta da reunião semanal.
+    """
+    pauta = pauta or "reuniao-semanal.md"
 
     @tool(
         "agendar_tarefa",
@@ -813,7 +832,36 @@ def agenda_tools(store: AgendaStore) -> list[SdkMcpTool]:
             return _reply(f"cancelada: {args['id']}")
         return _reply(f"não achei tarefa ativa com id {args['id']}", error=True)
 
-    return [schedule, list_tasks, cancel]
+    @tool(
+        "reuniao_semanal",
+        "Reunião semanal fixa com o dono: marcar (ou mudar) o dia e a hora, cancelar ou ver a situação. "
+        "A plataforma cria sozinha o preparo (antes, sem falar com ele) e a chamada na hora. "
+        "Marcar e cancelar só valem em resposta a uma mensagem do dono, com o dia e a hora que ele disse.",
+        _schema({"acao": (str, "marcar, cancelar ou situacao")}, {
+            "dia": (str, "marcar: segunda, terça, quarta, quinta, sexta, sábado ou domingo"),
+            "hora": (str, "marcar: HH:MM, de 06:00 a 22:00 (horário de Brasília)"),
+        }),
+    )
+    async def meeting(args: dict) -> dict[str, Any]:
+        action = str(args.get("acao") or "").strip().lower()
+        if action == "situacao":
+            return _reply(reuniao.describe(store))
+        if action not in ("marcar", "cancelar"):
+            return _reply("use acao marcar, cancelar ou situacao", error=True)
+        if by_owner is not None and not by_owner():
+            return _reply(
+                "a reunião semanal só é marcada, mudada ou cancelada em resposta a uma mensagem do dono. "
+                "Proponha a ele e use esta ferramenta quando ele responder com o dia e a hora.",
+                error=True,
+            )
+        if action == "cancelar":
+            return _reply(reuniao.cancel(store))
+        try:
+            return _reply(reuniao.schedule(store, args.get("dia"), args.get("hora"), pauta))
+        except ValueError as e:
+            return _reply(f"não marquei: {e}", error=True)
+
+    return [schedule, list_tasks, cancel, meeting]
 
 
 def task_from_args(args: dict) -> Task:
@@ -1013,6 +1061,7 @@ def browser_tools(browser: Browser, cfg: Config | None = None) -> list[SdkMcpToo
 
 class Agent:
     google: GoogleClient | None = None
+    scheduled = False  # True quando o agente roda uma tarefa da agenda (run_once)
 
     def __init__(self, cfg: Config, resume: str | None = None):
         self.cfg = cfg
@@ -1038,6 +1087,8 @@ class Agent:
             search_hint=FREE_SEARCH_HINT if self.cfg.base_url else "",
             data_dir=self.cfg.data_dir,
             data_note=" (dados fictícios de exemplo: avise o usuário)" if self.cfg.data_dir == EXAMPLE_DATA else "",
+            reuniao=reuniao.context_line(self.agenda),
+            pauta=self.cfg.workdir / "reuniao-semanal.md",
         )
         wait_ms = int((self.cfg.help_timeout_min + 2) * 60_000)
         return ClaudeAgentOptions(
@@ -1048,7 +1099,7 @@ class Agent:
             mcp_servers={
                 "conhecimento": knowledge_server(self.kb),
                 "humano": human_server(self.human),
-                "agenda": agenda_server(self.agenda),
+                "agenda": agenda_server(self.agenda, lambda: not self.scheduled, str(self.cfg.workdir / "reuniao-semanal.md")),
                 "navegador": browser_server(self.browser, self.cfg),
                 "gestao": gestao_server(self.cfg),
                 "comercial": comercial_server(self.cfg),
@@ -1125,6 +1176,7 @@ class Agent:
 
     async def run_once(self, text: str) -> str:
         """Roda um pedido numa conversa própria e devolve a resposta final (usado pela agenda)."""
+        self.scheduled = True  # turno da agenda, não do dono: a reunião semanal não pode ser mexida daqui
         await self.start()
         try:
             texts = [e.text async for e in self.ask(text) if e.kind == "text"]
