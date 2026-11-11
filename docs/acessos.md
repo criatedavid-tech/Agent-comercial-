@@ -77,6 +77,7 @@ O iFood também tem uma **API oficial para parceiros** (pedidos, cardápio, fina
 
 ## Cuidados
 
+- O perfil não cresce sem teto: o Chromium empilhava cache (760 MB em poucos dias). Ao abrir o navegador, `trim_profile()` (`browser.py`) apaga as pastas de cache se passarem de 50 MB e o navegador sobe com `--disk-cache-size` limitado. Cookies, Local Storage e IndexedDB (os logins) ficam.
 - Sessão salva é acesso aberto ao sistema da loja. A pasta `navegador/` fica só na VM da empresa; trate como uma senha. Se a VM for comprometida, troque as senhas desses sistemas.
 - Quem recebe o link controla o navegador logado por 30 minutos: não repasse o aviso.
 - Sites de banco encerram a sessão em minutos. Para eles, a checagem de hora em hora vai avisar quase sempre; prefira cadastrar sistemas que mantêm a sessão por dias.
