@@ -1,0 +1,15 @@
+public/styles.css | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- Changes ---
+
+public/styles.css
+  @@ -685,8 +685,8 @@ details summary { cursor: pointer; }
+  -  .lateral { grid-column: 1 / -1; min-height: 520px; }
+  -  .coluna { min-height: 560px; }
+  +  .coluna { height: calc(100vh - 90px); height: calc(100dvh - 90px); min-height: 560px; }  /* teto: o chat rola por dentro */
+  +  .lateral { grid-column: 1 / -1; min-height: 520px; }  /* herda a altura da .coluna: a aba ativa rola por dentro */
+   }
+   @media (max-width: 760px) {
+     .topo { margin: 10px 10px 0; border-radius: 24px; }
+  +2 -2
