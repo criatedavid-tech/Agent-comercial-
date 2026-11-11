@@ -52,6 +52,12 @@ Os dois projetos têm o mesmo miolo (braço direito do dono pelo WhatsApp, com s
 5. **Tom de consultor no atendente**: oferta uma vez só e "não" como resposta também com os clientes, respeitando as regras de venda e de LGPD.
 6. Do commit anterior, ainda abertos: `encontrar_sistema`, instruções novas para conversa em andamento e leitura da tela de login por sinais (`docs/roadmap.md`).
 
+## Avaliação do comportamento (11/11/2026) e o que aplicamos
+
+Lida a partir do prompt, da config e de três conversas reais do Maestro. Achados: credencial digitada no chat gravada em texto puro no log; "anotei no cadastro" sem gravar nada; insistência na mesma pergunta; recusa repetida fora do tema; link de login para `localhost`. O modelo local (Nemotron gratuito) explica parte; as medições dele usam Haiku e GPT-6 Luna.
+
+Aplicado aqui: filtro de senha na linha de baixo e no atendente (`redact_secrets`) e aviso de "anotei" sem ferramenta (`unbacked_claim`), com testes em `tests/test_afirmacoes.py`. Ainda aberto: contar insistência por oferta no código e prova com IA real.
+
 ## Commit anterior (`c7c31ec`, 10/11/2026)
 
 "Acesso a qualquer sistema": achar o sistema pelo nome, cofre por link e login que entende a tela. As ideias estão no `docs/roadmap.md` (seis itens), nenhuma importada ainda além do que já tínhamos de acessos e tela remota.

@@ -23,6 +23,7 @@ from .crm import ATTENDANT_STAGES, Crm, ContactView
 from .empresa import Company, brl, load_company, normalize
 from .history import History
 from .human import HumanBridge
+from .knowledge import redact_secrets
 from .passagem import Desk, wants_human
 from .retomada import parse_when, wants_opt_out
 
@@ -348,8 +349,11 @@ class Attendant(Agent):
         await client.connect()
         self.client = client
 
+    check_claims = False  # as respostas já passam por regras.screen
+
     async def ask(self, text: str) -> AsyncIterator[Event]:
         """Mensagem do cliente → eventos. Grava a entrada e a resposta (já filtrada) nas interações do CRM."""
+        text, _ = redact_secrets(text)  # senha ou cartão que o cliente digitar não vai para o CRM nem para o modelo
         self.contact.log("entrada", text)
         if wants_opt_out(text):  # regra da Meta e LGPD: decidida no código, sem passar pelo modelo
             self.crm.set_opt_out(self.contact.phone)

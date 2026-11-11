@@ -267,6 +267,27 @@ FRIENDLY_ERRORS = (
 )
 
 
+_CLAIM = re.compile(
+    r"(?i)\b(?:j[áa]\s+)?(anotei|registrei|salvei|guardei|agendei|cadastrei|atualizei|gravei)\b")
+_WRITE_TOOL = re.compile(
+    r"(?i)(salvar|registrar|agendar|anotar|atualizar|reuniao|cadastr|criar|gravar|escrever|enviar|responder|marcar|"
+    r"cancelar|apagar|^Write$|^Edit$|^MultiEdit$|^NotebookEdit$|^Bash$|memory|Agent$)")
+
+
+def unbacked_claim(text: str, tools: set[str]) -> str | None:
+    """Frase do tipo "anotei"/"agendei" sem nenhuma ferramenta de gravação no pedido: o modelo disse que fez e não fez.
+
+    Visto no Maestro do Hiago ("anotei no cadastro" com o manual intacto). Só devolve a palavra; quem chama avisa.
+    """
+    m = _CLAIM.search(text or "")
+    if not m:
+        return None
+    short = [t.rsplit("__", 1)[-1] for t in tools]
+    if any(_WRITE_TOOL.search(t) for t in short):
+        return None
+    return m.group(1).lower()
+
+
 def friendly_error(text: str) -> str:
     """Troca a mensagem crua de erro do provedor por uma que diz o que fazer, mantendo a original no fim."""
     if text.startswith("API Error:"):
@@ -1067,6 +1088,7 @@ class Agent:
         self.cfg = cfg
         self.session_id = resume  # conversa atual; com resume, continua uma conversa antiga
         self._tool_names: dict[str, str] = {}  # id da chamada → ferramenta, para o log dos resultados
+        self._turn_tools: set[str] = set()  # ferramentas usadas no pedido atual (para conferir o "anotei")
         self._resume = resume
         self.history = History(cfg.logs_dir / "conversas.db")
         self.kb = KnowledgeBase(cfg.knowledge_dir)
@@ -1192,6 +1214,8 @@ class Agent:
             text += f"\n\n[O sistema removeu desta mensagem: {', '.join(removed)}. Login e pagamento o usuário faz na tela remota do navegador.]"
             yield Event("blocked", f"removi da sua mensagem: {', '.join(removed)} (não vai para o modelo nem fica salva). Troque essa senha se ela for real.")
         self._log({"type": "user", "text": text})
+        self._turn_tools = set()
+        last_text = ""
         if self.google:  # o atendente não tem Google
             self.google.turn += 1  # nova mensagem do usuário: libera planos de lixeira feitos antes
         # O id da conversa só chega na primeira mensagem do SDK: até lá, o histórico espera.
@@ -1202,12 +1226,24 @@ class Agent:
             if session:
                 self.session_id = session
             for event, cost in self._convert(msg):
+                if event.kind == "text":
+                    last_text += "\n" + event.text
                 pending.append((event.kind, event.text, cost))
                 yield event
             if self.session_id:
                 for kind, event_text, cost in pending:
                     self.history.record(self.session_id, kind, event_text, cost)
                 pending.clear()
+        if self.check_claims:
+            claim = unbacked_claim(last_text, self._turn_tools)
+            if claim:
+                notice = f"o agente disse “{claim}”, mas nenhuma ferramenta de gravação rodou neste pedido. Confira antes de confiar."
+                self._log({"type": "unbacked_claim", "claim": claim})
+                if self.session_id:
+                    self.history.record(self.session_id, "blocked", notice, 0.0)
+                yield Event("blocked", notice)
+
+    check_claims = True  # o atendente fica de fora: as respostas dele já passam por regras.screen
 
     def _convert(self, msg: Any) -> list[tuple[Event, float]]:
         return [(Event(e.kind, friendly_error(e.text)) if e.kind == "text" else e, c) for e, c in self._convert_raw(msg)]
@@ -1223,6 +1259,7 @@ class Agent:
                 elif isinstance(block, ToolUseBlock):
                     self._log({"type": "tool", "name": block.name, "input": block.input, "id": block.id})
                     self._tool_names[block.id] = block.name
+                    self._turn_tools.add(block.name)
                     name = re.sub(r"^mcp__\w+?__", "", block.name)
                     out.append((Event("tool", f"{name} {_summary(block.input)}"), 0.0))
         elif isinstance(msg, UserMessage):

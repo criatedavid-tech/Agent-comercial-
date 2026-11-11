@@ -47,8 +47,22 @@ REDACT = [
 ]
 
 
+# Senha em outra linha: "email\nsenha" ou "senha\nvalor" (caso real do Maestro do Hiago, que gravou o log em texto puro).
+_LINE_PASSWORD = [
+    re.compile(r"(?i)([\w.+-]+@[\w-]+\.[\w.]+[ \t]*\r?\n[ \t]*)(\S{6,64})(?=[ \t]*(?:\r?\n|$))"),
+    re.compile(r"(?i)(\b(?:senha|password)[ \t]*:?[ \t]*\r?\n[ \t]*)(\S{4,64})(?=[ \t]*(?:\r?\n|$))"),
+]
+
+
+def _looks_like_password(token: str) -> bool:
+    """Letra e número (ou símbolo) juntos; e-mail, endereço e número de telefone puro não contam."""
+    if "@" in token or "/" in token or token.isdigit():
+        return False
+    return any(c.isalpha() for c in token) and any(not c.isalpha() for c in token)
+
+
 def redact_secrets(text: str) -> tuple[str, list[str]]:
-    """Tira senhas ("senha: x", "email / senha") e números de cartão; diz o que tirou."""
+    """Tira senhas ("senha: x", "email / senha", senha na linha de baixo) e números de cartão; diz o que tirou."""
     removed: list[str] = []
 
     def cut(name: str, keep: int):
@@ -62,6 +76,16 @@ def redact_secrets(text: str) -> tuple[str, list[str]]:
 
     for (pattern, name), keep in zip(REDACT, (2, 1, 0)):
         text = pattern.sub(cut(name, keep), text)
+
+    def cut_line(m: re.Match) -> str:
+        if not _looks_like_password(m.group(2)):
+            return m.group()
+        if "senha" not in removed:
+            removed.append("senha")
+        return m.group(1) + "[removido]"
+
+    for pattern in _LINE_PASSWORD:
+        text = pattern.sub(cut_line, text)
     return text, removed
 
 
