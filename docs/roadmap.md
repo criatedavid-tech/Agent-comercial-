@@ -100,7 +100,8 @@ Objetivo original: um agente tão completo quanto a soma de Claude Duet, Dots, G
 
 ## ⬜ Etapa 6: Voz e ligações
 - [ ] Ligações de saída e entrada (Twilio)
-- [ ] Voz natural (TTS) e transcrição (STT)
+- [x] Transcrição (STT) no painel: botão 🎤 do chat (Whisper/OpenRouter), só entrada
+- [ ] Voz natural (TTS): o agente falar
 - [ ] "Ligue para a clínica e remarque minha consulta"
 
 ## ✅ Etapa 7: Produção na VPS

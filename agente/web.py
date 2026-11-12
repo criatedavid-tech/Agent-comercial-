@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from urllib.parse import urlparse
 import uvicorn
 
-from . import config, sessoes
+from . import config, sessoes, voz
 from .atendente import Attendant, company_now
 from .core import Agent
 from .crm import Crm, clean_phone
@@ -663,6 +663,25 @@ async def simulator_follow_up(phone: str, request: Request) -> dict:
         except Exception:
             pass
     return {"sent": outcome.sent, "text": outcome.text, "attempt": attempt, "of": total, "note": outcome.note}
+
+
+@app.get("/api/voz")
+async def voice_status() -> dict:
+    """A tela só mostra o microfone se há como transcrever."""
+    return {"available": voz.available(cfg)}
+
+
+@app.post("/api/voz")
+async def voice_transcribe(request: Request) -> dict:
+    """Áudio gravado no painel (WAV) vira texto. O áudio não é guardado; o texto volta para a pessoa conferir."""
+    if request.headers.get("origin") != f"http://{request.headers.get('host', '')}":
+        raise HTTPException(403, "origem não permitida")
+    if int(request.headers.get("content-length") or 0) > voz.MAX_BYTES:
+        raise HTTPException(413, "áudio grande demais: fale em trechos de até 2 minutos")
+    try:
+        return {"text": await voz.transcribe(cfg, await request.body())}
+    except voz.VoiceError as err:
+        raise HTTPException(503 if "faltam" in str(err) or "desligada" in str(err) else 422, str(err))
 
 
 @app.get("/api/crm")
